@@ -1,0 +1,27 @@
+{
+  "name": "@recommend-a-book/backend",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "dev": "ts-node src/index.ts",
+    "build": "tsc"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "packageManager": "pnpm@10.12.1",
+  "dependencies": {
+    "@pinecone-database/pinecone": "^6.1.0",
+    "@types/express": "^5.0.3",
+    "cohere-ai": "^7.17.1",
+    "dotenv": "^16.5.0",
+    "express": "^5.1.0",
+    "langchain": "^0.3.28",
+    "typescript": "~5.8.3"
+  },
+  "devDependencies": {
+    "@types/node": "^24.0.1",
+    "ts-node": "^10.9.2"
+  }
+}
