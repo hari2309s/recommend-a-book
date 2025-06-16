@@ -1,7 +1,7 @@
 import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
-import * as tf from '@tensorflow/tfjs';
+import * as tf from '@tensorflow/tfjs-node';
 import * as use from '@tensorflow-models/universal-sentence-encoder';
 import { Pinecone } from '@pinecone-database/pinecone';
 
@@ -14,6 +14,9 @@ app.use(express.json());
 let model: use.UniversalSentenceEncoder;
 (async () => {
   try {
+    await tf.ready();
+    console.log('TensorFlow.js backend initialized');
+    
     model = await use.load();
     console.log('Universal Sentence Encoder model loaded successfully');
   } catch (error) {

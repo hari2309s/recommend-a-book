@@ -1,3 +1,10 @@
 packages:
-  - "apps/*"
-  - "packages/*"
+  - apps/*
+  - packages/*
+
+ignoredBuiltDependencies:
+  - core-js
+  - esbuild
+
+onlyBuiltDependencies:
+  - '@tensorflow/tfjs-node'
