@@ -13,7 +13,11 @@ const pinecone = new Pinecone({
 });
 const pineconeIndex = pinecone.Index(process.env.PINECONE_INDEX_NAME!);
 
-async function retryUpsert(vectors: PineconeRecord[], maxRetries: number = 3, baseDelayMs: number = 1000): Promise<boolean> {
+async function retryUpsert(
+  vectors: PineconeRecord[],
+  maxRetries: number = 3,
+  baseDelayMs: number = 1000
+): Promise<boolean> {
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
     try {
       await pineconeIndex.upsert(vectors);
@@ -22,13 +26,15 @@ async function retryUpsert(vectors: PineconeRecord[], maxRetries: number = 3, ba
       if (attempt === maxRetries) {
         console.error(`Final upsert attempt ${attempt} failed:`, error.message);
         if (error.name === 'PineconeConnectionError') {
-          console.log('Check https://status.pinecone.io/ for outages or verify network connection.');
+          console.log(
+            'Check https://status.pinecone.io/ for outages or verify network connection.'
+          );
         }
         return false;
       }
       const delay = baseDelayMs * Math.pow(2, attempt - 1);
       console.warn(`Upsert attempt ${attempt} failed. Retrying in ${delay}ms...`);
-      await new Promise(resolve => setTimeout(resolve, delay));
+      await new Promise((resolve) => setTimeout(resolve, delay));
     }
   }
   return false;
@@ -58,7 +64,7 @@ async function indexBooks() {
         const description = row.description || row.Description || '';
         const categories = row.categories || row.Categories || '';
         const isbn13 = row.isbn13 || '';
-        const publishedYear = row.published_year || "";
+        const publishedYear = row.published_year || '';
         const ratingsCount = row.ratings_count || '';
 
         if (title || author || description) {
@@ -106,7 +112,9 @@ async function indexBooks() {
                 const embedding = Array.from(embeddings.gather([j]).dataSync());
 
                 if (embedding.length !== 512) {
-                  console.warn(`Unexpected embedding length ${embedding.length} for book: ${book.title}`);
+                  console.warn(
+                    `Unexpected embedding length ${embedding.length} for book: ${book.title}`
+                  );
                 }
 
                 vectorPromises.push({
@@ -132,13 +140,18 @@ async function indexBooks() {
             if (validVectors.length > 0) {
               const success = await retryUpsert(validVectors);
               if (success) {
-                console.log(`Indexed batch ${i / batchSize + 1} of ${Math.ceil(books.length / batchSize)}`);
+                console.log(
+                  `Indexed batch ${i / batchSize + 1} of ${Math.ceil(books.length / batchSize)}`
+                );
               } else {
                 console.error(`Failed to index batch ${i / batchSize + 1} after retries`);
               }
             }
           } catch (error: any) {
-            console.error(`Error generating embeddings for batch ${i / batchSize + 1}:`, error.message);
+            console.error(
+              `Error generating embeddings for batch ${i / batchSize + 1}:`,
+              error.message
+            );
           }
         }
 
