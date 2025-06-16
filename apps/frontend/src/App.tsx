@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { motion } from 'framer-motion';
+import "@radix-ui/themes/styles.css";
 
 interface Book {
   title: string;
