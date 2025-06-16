@@ -12,6 +12,14 @@
     },
     "dev": {
       "cache": false
+    },
+    "lint": {
+      "dependsOn": ["^lint"],
+      "outputs": []
+    },
+    "format": {
+      "dependsOn": ["^format"],
+      "outputs": []
     }
   }
 }

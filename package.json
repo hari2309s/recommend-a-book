@@ -9,6 +9,18 @@
   ],
   "scripts": {
     "dev": "turbo run dev",
-    "build": "turbo run build"
+    "build": "turbo run build",
+    "lint": "eslint . --ext .ts --ignore-path .gitignore",
+    "format": "prettier --write \"**/*.{ts,js,json}\" --ignore-path .prettierignore",
+    "format:check": "prettier --check \"**/*.{ts,js,json}\" --ignore-path .prettierignore"
+  },
+  "devDependencies": {
+    "@typescript-eslint/eslint-plugin": "^7.18.0",
+    "@typescript-eslint/parser": "^7.18.0",
+    "eslint": "^8.57.1",
+    "eslint-config-prettier": "^9.1.0",
+    "eslint-plugin-prettier": "^5.4.1",
+    "prettier": "^3.5.3",
+    "turbo": "^2.5.0"
   }
 }
