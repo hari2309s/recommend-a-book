@@ -16,7 +16,7 @@ let model: use.UniversalSentenceEncoder;
   try {
     await tf.ready();
     console.log('TensorFlow.js backend initialized');
-    
+
     model = await use.load();
     console.log('Universal Sentence Encoder model loaded successfully');
   } catch (error) {

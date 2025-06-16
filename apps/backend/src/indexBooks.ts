@@ -52,7 +52,7 @@ async function indexBooks() {
       .pipe(parse({ columns: true, skip_empty_lines: true, trim: true, encoding: 'utf8' }))
       .on('data', (row) => {
         console.log('Row data:', JSON.stringify(row, null, 2));
-        
+
         const title = row.title || row.Title || '';
         const author = row.authors || row.Authors || row.author || row.Author || '';
         const description = row.description || row.Description || '';
@@ -102,7 +102,7 @@ async function indexBooks() {
                   console.warn(`Skipping book ${book.title} - no embedding available`);
                   continue;
                 }
-                
+
                 const embedding = Array.from(embeddings.gather([j]).dataSync());
 
                 if (embedding.length !== 512) {
