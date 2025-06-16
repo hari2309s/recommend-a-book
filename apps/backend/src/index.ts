@@ -12,11 +12,11 @@ app.use(cors());
 app.use(express.json());
 
 let model: use.UniversalSentenceEncoder;
+
 (async () => {
   try {
     await tf.ready();
     console.log('TensorFlow.js backend initialized');
-
     model = await use.load();
     console.log('Universal Sentence Encoder model loaded successfully');
   } catch (error) {
@@ -32,6 +32,7 @@ const pineconeIndex = pinecone.Index(process.env.PINECONE_INDEX_NAME!);
 
 app.post('/recommend', async (req, res) => {
   const { query } = req.body;
+
   if (!query) {
     res.status(400).json({ error: 'Query is required' });
     return;
@@ -41,13 +42,14 @@ app.post('/recommend', async (req, res) => {
     const queryEmbedding = await model.embed([query]);
     const embeddingTensor = queryEmbedding.slice([0, 0], [1, 512]);
     const embedding = Array.from(embeddingTensor.dataSync()) as number[];
+
     if (embedding.length !== 512) {
       throw new Error(`Dimension mismatch: expected 512, got ${embedding.length}`);
     }
 
     const results = await pineconeIndex.query({
       vector: embedding,
-      topK: 5,
+      topK: 10,
       includeMetadata: true,
     });
 
