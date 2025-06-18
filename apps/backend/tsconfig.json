@@ -15,5 +15,25 @@
   ],
   "exclude": [
     "node_modules"
-  ]
+  ],
+  "paths": {
+    "@/*": [
+      "src/*"
+    ],
+    "@types/*": [
+      "src/@types/*"
+    ],
+    "@config/*": [
+      "src/config/*"
+    ],
+    "@controllers/*": [
+      "src/controllers/*"
+    ],
+    "@models/*": [
+      "src/models/*"
+    ],
+    "@services/*": [
+      "src/services/*"
+    ],
+  }
 }
