@@ -1,5 +1,5 @@
 import type { Book } from "@/api/types";
-import { Box, Card, Heading, Badge, Flex, Text, Separator } from "@radix-ui/themes"
+import { Card, Heading, Badge, Flex, Text, Separator } from "@radix-ui/themes"
 import { motion } from "framer-motion";
 import { Star } from "lucide-react";
 
@@ -8,8 +8,9 @@ interface RecommendationCardProps {
 }
 
 const RecommendationCard = ({ book }: RecommendationCardProps) => {
-  return <Box>
+  return (
     <Card size="3" asChild style={{
+      width: '400px',
       border: '1px solid var(--accent-8)',
       textAlign: 'right', boxShadow: '0 2px 4px rgba(0, 0, 0, 0.1)',
       backgroundColor: 'var(--accent-3)', color: 'var(--accent-11)',
@@ -40,7 +41,7 @@ const RecommendationCard = ({ book }: RecommendationCardProps) => {
         </Flex>
       </motion.div>
     </Card>
-  </Box>
+  )
 }
 
 export default RecommendationCard;

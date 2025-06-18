@@ -2,11 +2,10 @@ import { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
 import { fetchReommendations } from '@/api';
 import type { Book } from '@/api/types';
-import { Box, Button, Flex, Heading, ScrollArea, TextField } from '@radix-ui/themes';
+import { Box, Button, Flex, Heading, TextField } from '@radix-ui/themes';
 import "./App.css";
-import RecommendationCard from './components/RecommendationCard';
-import { data } from './api/mockData';
 import { Search } from 'lucide-react';
+import RecommendationList from './components/RecommendationList';
 
 const App = () => {
   const [input, setInput] = useState('');
@@ -63,28 +62,9 @@ const App = () => {
             <Button variant="soft" type="submit" loading={loading} disabled={loading || input.trim() === ''} size="3" m="4">Get Recommendations</Button>
           </motion.form>
         </Flex>
-        {recommendations.length > 0 ? (
-          <Box asChild className='text-center'>
-            <motion.div className="mt-6 w-full max-w-md" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 1 }}>
-              <Heading size="6">Recommended Books</Heading>
-              <ScrollArea>
-                <ul className="space-y-4">
-                  {recommendations.map((book, index) => (
-                    <li key={index} className="flex items-start">
-                      {book.thumbnail && (
-                        <img src={book.thumbnail} alt={book.title} className="w-16 h-24 mr-4 object-cover rounded" />
-                      )}
-                      <div>
-                        <strong className="text-lg">{book.title}</strong> by {book.author}
-                        <p className="text-sm text-gray-600">{book.description}</p>
-                        {book.rating && <p className="text-sm text-yellow-500">Rating: {book.rating}</p>}
-                      </div>
-                    </li>
-                  ))}
-                </ul>
-              </ScrollArea>
-            </motion.div>
-          </Box>) : (<RecommendationCard book={data.recommendations[6]} />)}
+        {recommendations.length > 0 && (
+          <RecommendationList recommendations={recommendations} />
+        )}
       </Flex>
     </Box>
   );
