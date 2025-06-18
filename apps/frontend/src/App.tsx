@@ -29,13 +29,17 @@ const App = () => {
   }, [recommendations]);
 
   return (
-    <Box minHeight="100vh" minWidth="100vw" p="8" style={{ backgroundColor: 'var(--accent-3)' }} className='max-w-screen'>
+    <Box minHeight="100vh" minWidth="100vw" p="8" style={{ backgroundColor: 'var(--accent-1)' }} className='max-w-screen'>
       <Flex direction="column" gap="4" align="center">
         <Box minWidth="70%" p="4" style={{
           border: '1px solid var(--accent-8)',
           textAlign: 'center', borderRadius: '6px', boxShadow: '0 2px 4px rgba(0, 0, 0, 0.1)',
-          backgroundColor: 'var(--accent-1)', color: 'var(--accent-11)'
+          backgroundColor: 'var(--accent-2)', color: 'var(--accent-11)'
         }}>
+          <motion.img src="/book-store.png" width={35} height={35} alt="Book Recommendation System"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ duration: 1 }} />
           <Heading size="8" asChild>
             <motion.h1
               className="text-3xl font-bold mb-6"
@@ -50,9 +54,12 @@ const App = () => {
         <Flex width="70%" p="4" gap="4" align="center" justify="between" style={{
           border: '1px solid var(--accent-8)',
           textAlign: 'center', borderRadius: '6px', boxShadow: '0 2px 4px rgba(0, 0, 0, 0.1)',
-          backgroundColor: 'var(--accent-1)', color: 'var(--accent-11)',
+          backgroundColor: 'var(--accent-2)', color: 'var(--accent-11)',
         }} asChild>
-          <motion.form onSubmit={handleSubmit} className="w-full max-w-md">
+          <motion.form onSubmit={handleSubmit} className="w-full max-w-md"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ duration: 1 }}>
             <TextField.Root size="3" placeholder="Enter your book preferences" value={input}
               onChange={(e) => setInput(e.target.value)} className='w-full'>
               <TextField.Slot>
