@@ -29,7 +29,7 @@ const RecommendationCard = ({ book }: RecommendationCardProps) => {
             </Flex>
           </Flex>
           <Separator size='4' />
-          <Flex direction='column' align='end' gap='2'>
+          <Flex justify='between' gap='2'>
             {book.categories && <Badge size='3' variant='surface'>{book.categories}</Badge>}
             <Flex gap='3' justify='end'>
               <Star fill="green" />
@@ -37,6 +37,7 @@ const RecommendationCard = ({ book }: RecommendationCardProps) => {
             </Flex>
             {book.publishedYear && <Text className="italic">{book.publishedYear}</Text>}
           </Flex>
+          <Separator size='4' />
           <BookDescriptionAccordion description={book.description} />
         </Flex>
       </motion.div>
