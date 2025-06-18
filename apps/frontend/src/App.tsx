@@ -51,7 +51,7 @@ const App = () => {
             </motion.h1>
           </Heading>
         </Box>
-        <Flex width="70%" p="4" gap="4" align="center" justify="between" style={{
+        <Flex width="100%" p="4" gap="4" align="center" justify="between" style={{
           border: '1px solid var(--accent-8)',
           textAlign: 'center', borderRadius: '6px', boxShadow: '0 2px 4px rgba(0, 0, 0, 0.1)',
           backgroundColor: 'var(--accent-2)', color: 'var(--accent-11)',
