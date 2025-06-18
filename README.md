@@ -16,7 +16,7 @@ The book dataset is sourced from [Kaggle](https://www.kaggle.com/). The dataset 
 
 ## Tech Stack
 
-- **Frontend**: 
+- **Frontend**:
   - React 19
   - TypeScript 5.8
   - Vite
@@ -53,7 +53,7 @@ The book dataset is sourced from [Kaggle](https://www.kaggle.com/). The dataset 
    # Install backend dependencies
    cd apps/backend
    npm install
-   
+
    # Install frontend dependencies
    cd ../frontend
    npm install
