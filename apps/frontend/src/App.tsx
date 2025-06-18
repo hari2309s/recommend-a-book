@@ -6,17 +6,19 @@ import { Box, Button, Flex, Heading, TextField } from '@radix-ui/themes';
 import "./App.css";
 import { Search } from 'lucide-react';
 import RecommendationList from './components/RecommendationList';
+import FingerprintJS from '@fingerprintjs/fingerprintjs';
 
 const App = () => {
   const [input, setInput] = useState('');
   const [recommendations, setRecommendations] = useState<Book[]>([]);
   const [loading, setLoading] = useState(false);
+  const [deviceId, setDeviceId] = useState<string | null>(null);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     try {
-      const data = await fetchReommendations(input);
+      const data = await fetchReommendations(input, deviceId!);
       setRecommendations(data.recommendations);
     } catch (error) {
       console.error('Error fetching recommendations:', error);
@@ -27,6 +29,15 @@ const App = () => {
   useEffect(() => {
     console.log('recommendations', recommendations);
   }, [recommendations]);
+
+  useEffect(() => {
+    const initializeFingerprint = async () => {
+      const fp = await FingerprintJS.load();
+      const result = await fp.get();
+      setDeviceId(result.visitorId);
+    };
+    initializeFingerprint();
+  }, []);
 
   return (
     <Box minHeight="100vh" minWidth="100vw" p="8" style={{ backgroundColor: 'var(--accent-1)' }} className='max-w-screen'>
@@ -39,13 +50,13 @@ const App = () => {
           <motion.img src="/book-store.png" width={35} height={35} alt="Book Recommendation System"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
-            transition={{ duration: 1 }} />
+            transition={{ type: 'spring', duration: 1 }} />
           <Heading size="8" asChild>
             <motion.h1
               className="text-3xl font-bold mb-6"
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
-              transition={{ duration: 1 }}
+              transition={{ type: 'spring', duration: 1 }}
             >
               Book Recommendation System
             </motion.h1>
