@@ -5,7 +5,7 @@ import type { Book } from '@/api/types';
 import { Box, Button, Flex, Heading, TextField } from '@radix-ui/themes';
 import "./App.css";
 import { Search } from 'lucide-react';
-import RecommendationList from './components/RecommendationList';
+import RecommendationList from '@/components/RecommendationList';
 import FingerprintJS from '@fingerprintjs/fingerprintjs';
 
 const App = () => {
@@ -43,7 +43,7 @@ const App = () => {
     <Box minHeight="100vh" minWidth="100vw" p="8" style={{ backgroundColor: 'var(--accent-1)' }} className='max-w-screen'>
       <Flex direction="column" gap="4" align="center">
         <Box minWidth="70%" p="4" style={{
-          border: '1px solid var(--accent-8)',
+          border: '1px dashed var(--accent-8)',
           textAlign: 'center', borderRadius: '6px', boxShadow: '0 2px 4px rgba(0, 0, 0, 0.1)',
           backgroundColor: 'var(--accent-2)', color: 'var(--accent-11)'
         }}>
@@ -63,7 +63,7 @@ const App = () => {
           </Heading>
         </Box>
         <Flex width="100%" p="4" gap="4" align="center" justify="between" style={{
-          border: '1px solid var(--accent-8)',
+          border: '1px dashed var(--accent-8)',
           textAlign: 'center', borderRadius: '6px', boxShadow: '0 2px 4px rgba(0, 0, 0, 0.1)',
           backgroundColor: 'var(--accent-2)', color: 'var(--accent-11)',
         }} asChild>
