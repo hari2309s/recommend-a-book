@@ -2,7 +2,7 @@ import type { Book } from "@/api/types";
 import { Card, Heading, Badge, Flex, Text, Separator } from "@radix-ui/themes"
 import { motion } from "framer-motion";
 import { Star } from "lucide-react";
-import ThumbnailWithSkeleton from "./ThumbnailWithSkeleton";
+import ThumbnailWithSkeleton from "@/components/ThumbnailWithSkeleton";
 import type { FC } from "react";
 
 interface RecommendationCardProps {
