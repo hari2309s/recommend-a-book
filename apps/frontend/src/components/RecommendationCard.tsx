@@ -34,7 +34,7 @@ const RecommendationCard: FC<RecommendationCardProps> = ({ book }) => {
           <Flex direction='column' justify='center' align='end' gap='2' className="align-normal">
             {book.categories && <Badge size='3' variant='surface' className="max-w-max">
               {book.categories}</Badge>}
-            <Flex gap='3' justify="center" className="w-full justify-between">
+            <Flex gap='3' justify='between' className="w-full">
               <Flex gap='3' justify='center'>
                 <Star fill="green" />
                 <Text>{book.rating} / {book.ratingsCount}</Text>
