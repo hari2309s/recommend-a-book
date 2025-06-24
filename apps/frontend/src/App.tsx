@@ -27,10 +27,6 @@ const App = () => {
   };
 
   useEffect(() => {
-    console.log('recommendations', recommendations);
-  }, [recommendations]);
-
-  useEffect(() => {
     const initializeFingerprint = async () => {
       const fp = await FingerprintJS.load();
       const result = await fp.get();
@@ -62,7 +58,7 @@ const App = () => {
             </motion.h1>
           </Heading>
         </Box>
-        <Flex width="100%" p="4" gap="4" align="center" justify="between" style={{
+        <Flex width="100%" p="4" gap={{ initial: '2', sm: '4' }} align="center" justify="between" direction={{ initial: 'column', sm: 'row' }} style={{
           border: '1px dashed var(--accent-8)',
           textAlign: 'center', borderRadius: '6px', boxShadow: '0 2px 4px rgba(0, 0, 0, 0.1)',
           backgroundColor: 'var(--accent-2)', color: 'var(--accent-11)',

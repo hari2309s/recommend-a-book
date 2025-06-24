@@ -4,6 +4,7 @@ import { motion } from "framer-motion";
 import { Star } from "lucide-react";
 import BookThumbnail from "@/components/BookThumbnail";
 import type { FC } from "react";
+import AuthorBadges from "@/components/AuthorBadges";
 
 interface RecommendationCardProps {
   book: Book;
@@ -11,22 +12,20 @@ interface RecommendationCardProps {
 
 const RecommendationCard: FC<RecommendationCardProps> = ({ book }) => {
   return (
-    <Card size={{ initial: '1', sm: '2', md: '3' }} style={{
-      textAlign: 'right',
-      backgroundColor: 'var(--accent-6)', color: 'var(--accent-11)',
-      height: '290px',
-    }}>
+    <Card size={{ initial: '1', sm: '2', md: '3' }}
+      style={{
+        textAlign: 'right', backgroundColor: 'var(--accent-6)',
+        color: 'var(--accent-11)', height: '290px',
+      }}>
       <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 1 }}>
         <Flex gap="2" direction='column' align='stretch'>
-          <Flex gap='2' direction={{ initial: 'column', sm: 'row' }} justify='between'>
+          <Flex gap='2' direction="row" justify='between'>
             <BookThumbnail src={book.thumbnail} alt={book.title} className="mr-4" />
-            <Flex direction='column' align='end'>
-              <Heading size='6' asChild>
-                <motion.h2>{book.title}</motion.h2>
+            <Flex gap='2' direction='column' align='end' className="max-h-48! text-ellipsis overflow-hidden">
+              <Heading size='6' asChild className="text-ellipsis overflow-hidden">
+                <motion.h3>{book.title}</motion.h3>
               </Heading>
-              <Text size='4' asChild>
-                <motion.span>{book.author && `by ${book.author.split(';').join(', ')}`}</motion.span>
-              </Text>
+              <AuthorBadges authors={book.author.split(';')} />
             </Flex>
           </Flex>
           <Separator size='4' />
