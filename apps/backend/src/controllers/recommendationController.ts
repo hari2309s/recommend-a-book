@@ -1,6 +1,6 @@
 import { Request, Response } from 'express';
-import { RecommendationService } from '../services/recommendationService';
-import { SearchHistoryService } from '../services/searchHistoryService';
+import { RecommendationService } from '@/services/recommendationService';
+import { SearchHistoryService } from '@/services/searchHistoryService';
 import { v4 as uuidv4 } from 'uuid';
 
 export class RecommendationController {

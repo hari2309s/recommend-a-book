@@ -4,7 +4,7 @@ import * as tf from '@tensorflow/tfjs';
 import * as use from '@tensorflow-models/universal-sentence-encoder';
 import { Pinecone } from '@pinecone-database/pinecone';
 import dotenv from 'dotenv';
-import { PineconeRecord } from './types';
+import { PineconeRecord } from '@/types';
 
 dotenv.config();
 

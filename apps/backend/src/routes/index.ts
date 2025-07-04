@@ -1,5 +1,5 @@
 import express, { Request, Response, Router } from 'express';
-import { RecommendationController } from '../controllers/recommendationController';
+import { RecommendationController } from '@/controllers/recommendationController';
 
 type AsyncRequestHandler = (req: Request, res: Response) => Promise<void>;
 

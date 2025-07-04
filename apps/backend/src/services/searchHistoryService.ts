@@ -1,5 +1,5 @@
-import { supabase } from '../config/supabase';
-import { SearchHistory } from '../types';
+import { supabase } from '@/config/supabase';
+import { SearchHistory } from '@/types';
 
 export class SearchHistoryService {
   async saveSearch(

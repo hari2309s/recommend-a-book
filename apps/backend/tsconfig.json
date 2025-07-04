@@ -8,32 +8,19 @@
     "forceConsistentCasingInFileNames": true,
     "outDir": "./dist",
     "rootDir": "./src",
-    "moduleResolution": "node"
+    "moduleResolution": "node",
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["src/*"],
+      "@/types": ["src/types/index"],
+      "@/types/*": ["src/types/*"],
+      "@controllers/*": ["src/controllers/*"],
+      "@models/*": ["src/models/*"],
+      "@services/*": ["src/services/*"],
+      "@config/*": ["src/config/*"],
+      "@routes/*": ["src/routes/*"]
+    }
   },
-  "include": [
-    "src/**/*"
-  ],
-  "exclude": [
-    "node_modules"
-  ],
-  "paths": {
-    "@/*": [
-      "src/*"
-    ],
-    "@types/*": [
-      "src/@types/*"
-    ],
-    "@config/*": [
-      "src/config/*"
-    ],
-    "@controllers/*": [
-      "src/controllers/*"
-    ],
-    "@models/*": [
-      "src/models/*"
-    ],
-    "@services/*": [
-      "src/services/*"
-    ],
-  }
+  "include": ["src/**/*"],
+  "exclude": ["node_modules"]
 }

@@ -1,7 +1,5 @@
-import * as tf from '@tensorflow/tfjs-node';
 import * as use from '@tensorflow-models/universal-sentence-encoder';
-import { Pinecone } from '@pinecone-database/pinecone';
-import { Book } from '../types';
+import { Book } from '@/types';
 
 export class RecommendationService {
   private model: use.UniversalSentenceEncoder;
