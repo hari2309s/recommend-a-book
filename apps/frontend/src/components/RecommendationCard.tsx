@@ -5,6 +5,8 @@ import { Star } from "lucide-react";
 import BookThumbnail from "@/components/BookThumbnail";
 import type { FC } from "react";
 import AuthorBadges from "@/components/AuthorBadges";
+import { AnimatePresence } from "framer-motion";
+import Accordion from "@/components/Accordion";
 
 interface RecommendationCardProps {
   book: Book;
@@ -40,6 +42,11 @@ const RecommendationCard: FC<RecommendationCardProps> = ({ book }) => {
               {book.publishedYear && <Text className="italic">{book.publishedYear}</Text>}
             </Flex>
             <Separator size='4' />
+            <div className="mt-2 w-full">
+              <Accordion
+                items={[{ title: "Description", content: book.description }]}
+              />
+            </div>
           </Flex>
         </Flex>
       </motion.div>

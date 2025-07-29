@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
-import { fetchReommendations } from '@/api';
+import { fetchRecommendations } from '@/api';
 import type { Book } from '@/api/types';
 import { Box, Button, Flex, Heading, TextField } from '@radix-ui/themes';
 import "./App.css";
@@ -18,7 +18,7 @@ const App = () => {
     e.preventDefault();
     setLoading(true);
     try {
-      const data = await fetchReommendations(input, deviceId!);
+      const data = await fetchRecommendations(input, deviceId!);
       setRecommendations(data.recommendations);
     } catch (error) {
       console.error('Error fetching recommendations:', error);
@@ -76,7 +76,7 @@ const App = () => {
             <Button variant="soft" type="submit" loading={loading} disabled={loading || input.trim() === ''} size="3" m="4">Get Recommendations</Button>
           </motion.form>
         </Flex>
-        {recommendations.length > 0 && (
+        {recommendations?.length > 0 && (
           <RecommendationList recommendations={recommendations} />
         )}
       </Flex>

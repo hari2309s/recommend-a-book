@@ -1,17 +1,12 @@
 {
   "$schema": "https://turborepo.org/schema.json",
+  "ui": "tui",
+  "globalDependencies": [".env*"],
   "tasks": {
     "build": {
-      "dependsOn": [
-        "^build"
-      ],
-      "outputs": [
-        ".next/**",
-        "dist/**"
-      ]
-    },
-    "dev": {
-      "cache": false
+      "dependsOn": ["^build"],
+      "inputs": ["$TURBO_DEFAULT$", ".env*"],
+      "outputs": ["dist/**"]
     },
     "lint": {
       "dependsOn": ["^lint"],
@@ -20,6 +15,19 @@
     "format": {
       "dependsOn": ["^format"],
       "outputs": []
+    },
+    "dev": {
+      "cache": false,
+      "persistent": true,
+      "env": [
+        "NODE_ENV",
+        "PORT",
+        "VITE_*",
+        "PINECONE_API_KEY",
+        "PINECONE_INDEX_NAME",
+        "SUPABASE_URL",
+        "SUPABASE_KEY"
+      ]
     }
   }
 }

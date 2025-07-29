@@ -1,6 +1,6 @@
 import type { Book } from '@/api/types';
 
-export const fetchReommendations = async (
+export const fetchRecommendations = async (
   searchText: string,
   deviceId: string
 ): Promise<{ recommendations: Book[] }> => {

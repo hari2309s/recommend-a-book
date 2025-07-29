@@ -4,7 +4,7 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "dev": "ts-node src/index.ts",
+    "dev": "ts-node -r tsconfig-paths/register src/index.ts",
     "build": "tsc",
     "index-books": "ts-node src/indexBooks.ts"
   },
@@ -30,6 +30,7 @@
     "@types/express": "^5.0.3",
     "@types/node": "^24.0.1",
     "@types/uuid": "^10.0.0",
-    "ts-node": "^10.9.2"
+    "ts-node": "^10.9.2",
+    "tsconfig-paths": "^4.2.0"
   }
 }

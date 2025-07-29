@@ -7,20 +7,23 @@ interface BookDescriptionAccordionProps {
   description: string;
 }
 
-const BookDescriptionAccordion = ({ description }: BookDescriptionAccordionProps) => (
-  <Accordion.Root
-    className="w-full rounded-md bg-accent-4"
-    type="single"
-    collapsible
-  >
-    <AccordionItem value="item-1">
-      <AccordionTrigger>{description.slice(0, 100) + '...'}</AccordionTrigger>
-      <AccordionContent>
-        {description}
-      </AccordionContent>
-    </AccordionItem>
-  </Accordion.Root>
-);
+const BookDescriptionAccordion = ({ description }: BookDescriptionAccordionProps) => {
+  console.log(description);
+  return (
+    <Accordion.Root
+      className="w-full rounded-md bg-accent-4"
+      type="single"
+      collapsible
+    >
+      <AccordionItem value="item-1">
+        <AccordionTrigger>{description.slice(0, 100) + '...'}</AccordionTrigger>
+        <AccordionContent>
+          {description}
+        </AccordionContent>
+      </AccordionItem>
+    </Accordion.Root>
+  )
+};
 
 interface AccordionItemProps extends React.ComponentProps<typeof Accordion.Item> {
   children: React.ReactNode;
@@ -53,7 +56,7 @@ const AccordionTrigger = React.forwardRef<HTMLButtonElement, AccordionTriggerPro
     <Accordion.Header className="flex">
       <Accordion.Trigger
         className={classNames(
-          "group flex h-[55px] flex-1 cursor-default items-center justify-between bg-accent-4 px-5 text-[15px] leading-none text-accent-11 outline-none",
+          "group flex h-[55px] flex-1 cursor-default items-center justify-between bg-accent-2 px-5 text-[15px] leading-none text-green-11 outline-none",
           className,
         )}
         {...props}
