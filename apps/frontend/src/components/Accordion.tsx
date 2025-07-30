@@ -1,14 +1,14 @@
-import { type FC, useState } from "react";
-import { motion, AnimatePresence } from "framer-motion";
+import { type FC, useState } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 
-interface AccordionItem {
+type AccordionItem = {
   title: string;
   content: string;
-}
+};
 
-interface AccordionProps {
+type AccordionProps = {
   items: AccordionItem[];
-}
+};
 
 const Accordion: FC<AccordionProps> = ({ items }) => {
   const [openIndex, setOpenIndex] = useState<number | null>(null);
@@ -29,9 +29,9 @@ const Accordion: FC<AccordionProps> = ({ items }) => {
             {openIndex === index && (
               <motion.div
                 initial={{ height: 0, opacity: 0 }}
-                animate={{ height: "auto", opacity: 1 }}
+                animate={{ height: 'auto', opacity: 1 }}
                 exit={{ height: 0, opacity: 0 }}
-                transition={{ duration: 0.3, ease: "easeInOut" }}
+                transition={{ duration: 0.3, ease: 'easeInOut' }}
                 className="mt-2 text-sm text-green-900 overflow-hidden"
               >
                 {item.content}
