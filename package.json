@@ -2,7 +2,6 @@
   "name": "recommend-a-book",
   "version": "1.0.0",
   "private": true,
-  "packageManager": "pnpm@10.12.1",
   "workspaces": [
     "apps/*",
     "packages/*"
@@ -12,7 +11,27 @@
     "build": "turbo run build",
     "lint": "eslint . --ext .ts --ignore-path .gitignore",
     "format": "prettier --write \"**/*.{ts,js,json}\" --ignore-path .prettierignore",
-    "format:check": "prettier --check \"**/*.{ts,js,json}\" --ignore-path .prettierignore"
+    "format:check": "prettier --check \"**/*.{ts,js,json}\" --ignore-path .prettierignore",
+    "vercel-build": "node vercel-build.js",
+    "vercel-dev": "pnpm run dev",
+    "vercel-prebuild": "pnpm install --frozen-lockfile --ignore-scripts"
+  },
+  "engines": {
+    "node": ">=18.0.0",
+    "pnpm": ">=8.0.0"
+  },
+  "packageManager": "pnpm@8.14.1",
+  "resolutions": {
+    "@types/react": "^18.0.0",
+    "@types/react-dom": "^18.0.0"
+  },
+  "pnpm": {
+    "overrides": {
+      "react": "^18.0.0",
+      "react-dom": "^18.0.0",
+      "@types/react": "^18.0.0",
+      "@types/react-dom": "^18.0.0"
+    }
   },
   "devDependencies": {
     "@typescript-eslint/eslint-plugin": "^7.18.0",
