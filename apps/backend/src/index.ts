@@ -4,10 +4,10 @@ import dotenv from 'dotenv';
 import * as tf from '@tensorflow/tfjs-node';
 import * as use from '@tensorflow-models/universal-sentence-encoder';
 import { Pinecone } from '@pinecone-database/pinecone';
-import { RecommendationService } from './services/recommendationService';
-import { SearchHistoryService } from './services/searchHistoryService';
-import { RecommendationController } from './controllers/recommendationController';
-import { setupRoutes } from './routes';
+import { RecommendationService } from '@/services/recommendationService';
+import { SearchHistoryService } from '@/services/searchHistoryService';
+import { RecommendationController } from '@/controllers/recommendationController';
+import { setupRoutes } from '@/routes';
 
 dotenv.config();
 
