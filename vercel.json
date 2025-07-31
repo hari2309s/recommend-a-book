@@ -3,10 +3,7 @@
   "builds": [
     {
       "src": "apps/backend/dist/index.js",
-      "use": "@vercel/node",
-      "config": {
-        "includeFiles": ["apps/backend/dist/**"]
-      }
+      "use": "@vercel/node"
     },
     {
       "src": "apps/frontend/package.json",
@@ -25,13 +22,5 @@
       "src": "/(.*)",
       "dest": "/apps/frontend"
     }
-  ],
-  "build": {
-    "env": {
-      "NPM_CONFIG_PREFER_OFFLINE": "true",
-      "NPM_CONFIG_NETWORK_CONCURRENCY": "1",
-      "NPM_CONFIG_SHAMEHOIST": "true",
-      "NPM_CONFIG_NODE_LINKER": "hoisted"
-    }
-  }
+  ]
 }

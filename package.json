@@ -12,15 +12,13 @@
     "lint": "eslint . --ext .ts --ignore-path .gitignore",
     "format": "prettier --write \"**/*.{ts,js,json}\" --ignore-path .prettierignore",
     "format:check": "prettier --check \"**/*.{ts,js,json}\" --ignore-path .prettierignore",
-    "vercel-build": "node vercel-build.js",
-    "vercel-dev": "pnpm run dev",
-    "vercel-prebuild": "pnpm install --frozen-lockfile --ignore-scripts"
+    "vercel-build": "cd apps/backend && pnpm install --frozen-lockfile && pnpm run build && cd ../../apps/frontend && pnpm install --frozen-lockfile && pnpm run build",
+    "vercel-dev": "pnpm run dev"
   },
   "engines": {
-    "node": ">=18.0.0",
-    "pnpm": ">=8.0.0"
+    "node": ">=18.0.0"
   },
-  "packageManager": "pnpm@8.14.1",
+  "packageManager": "pnpm@6.35.1",
   "resolutions": {
     "@types/react": "^18.0.0",
     "@types/react-dom": "^18.0.0"
