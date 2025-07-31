@@ -7,13 +7,52 @@ type AuthorBadgesProps = {
 };
 
 const AuthorBadges: FC<AuthorBadgesProps> = ({ authors }) => {
+  const containerVariants = {
+    hidden: { opacity: 0 },
+    visible: {
+      opacity: 1,
+      transition: {
+        staggerChildren: 0.1,
+        delayChildren: 0.2
+      }
+    }
+  };
+
+  const badgeVariants = {
+    hidden: {
+      opacity: 0,
+      y: 10,
+      scale: 0.8
+    },
+    visible: {
+      opacity: 1,
+      y: 0,
+      scale: 1,
+      transition: {
+        type: "spring" as const,
+        stiffness: 200,
+        damping: 15
+      }
+    }
+  };
+
   return (
     <Flex gap="1" asChild direction="column" align="end" justify="between">
-      <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.3 }}>
+      <motion.div
+        variants={containerVariants}
+        initial="hidden"
+        animate="visible"
+      >
         {authors.map((author, index) => (
-          <Badge key={index} size="1" variant="soft" className="max-w-max">
-            {author}
-          </Badge>
+          <motion.div key={index} variants={badgeVariants}>
+            <Badge
+              size="1"
+              variant="soft"
+              className="max-w-max hover:bg-green-200 transition-colors duration-200"
+            >
+              {author}
+            </Badge>
+          </motion.div>
         ))}
       </motion.div>
     </Flex>
