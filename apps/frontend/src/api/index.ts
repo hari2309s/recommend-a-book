@@ -2,12 +2,13 @@ import type { Book } from '@/api/types';
 
 export const fetchRecommendations = async (
   searchText: string,
-  deviceId: string
+  deviceId: string,
+  topK: number = 10
 ): Promise<{ recommendations: Book[] }> => {
   const response = await fetch(`${import.meta.env.VITE_RECOMMEND_A_BOOK_API_BASE_URL}/recommend`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ query: searchText, user_id: deviceId }),
+    body: JSON.stringify({ query: searchText, user_id: deviceId, topK }),
   });
   const data = await response.json();
   return data;

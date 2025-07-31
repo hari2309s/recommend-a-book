@@ -10,7 +10,6 @@ type BookDescriptionAccordionProps = {
 const BookDescriptionAccordion: FC<BookDescriptionAccordionProps> = ({ description }) => {
   const [isOpen, setIsOpen] = useState(false);
 
-  // Don't render if no description
   if (!description || description.trim() === '') {
     return null;
   }
@@ -18,15 +17,15 @@ const BookDescriptionAccordion: FC<BookDescriptionAccordionProps> = ({ descripti
   return (
     <div className="w-full">
       <motion.button
-        className="w-full px-3 py-2.5 rounded-[5px] border border-[var(--accent-7)] hover:bg-[var(--accent-5)] hover:cursor-pointer focus:outline-none focus:ring-2 focus:ring-[var(--accent-7)] focus:ring-offset-1 transition-all duration-200 flex items-center justify-between shadow-sm text-[var(--accent-11)]"
+        className="w-full px-3 py-2.5 rounded-[5px] border border-[var(--accent-7)] hover:bg-[var(--accent-5)] hover:cursor-pointer focus:outline-none focus:ring-2 focus:ring-[var(--accent-7)] focus:ring-offset-1 transition-all duration-200 flex items-center justify-between shadow-sm text-[var(--accent-11)] text-lg"
         style={{ backgroundColor: 'var(--accent-6)' }}
         whileHover={{
           scale: 1.01,
-          backgroundColor: 'var(--accent-5)'
+          backgroundColor: 'var(--accent-5)',
         }}
         whileTap={{
           scale: 0.99,
-          backgroundColor: 'var(--accent-7)'
+          backgroundColor: 'var(--accent-7)',
         }}
         onClick={() => setIsOpen(!isOpen)}
       >
@@ -47,18 +46,18 @@ const BookDescriptionAccordion: FC<BookDescriptionAccordionProps> = ({ descripti
             exit={{ height: 0, opacity: 0, y: -10 }}
             transition={{
               duration: 0.4,
-              ease: "easeInOut",
-              type: "spring",
+              ease: 'easeInOut',
+              type: 'spring',
               stiffness: 100,
-              damping: 15
+              damping: 15,
             }}
-            className="mt-2 overflow-hidden rounded-[5px] p-4 bg-[var(--accent-6)] text-[var(--accent-11)] mt-[10px]"
+            className="overflow-hidden rounded-[5px] p-4 bg-[var(--accent-6)] text-[var(--accent-11)] mt-[10px]"
           >
             <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               transition={{ duration: 0.3, delay: 0.1 }}
-              className="text-sm leading-relaxed"
+              className="text-sm leading-[1.6] p-[10px]"
             >
               {description}
             </motion.div>

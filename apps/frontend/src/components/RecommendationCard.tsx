@@ -17,16 +17,16 @@ const RecommendationCard: FC<RecommendationCardProps> = ({ book }) => {
       whileHover={{
         y: -8,
         scale: 1.02,
-        transition: { type: "spring", stiffness: 300, damping: 20 }
+        transition: { type: 'spring', stiffness: 300, damping: 20 },
       }}
       whileTap={{ scale: 0.98 }}
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{
         duration: 0.5,
-        type: "spring",
+        type: 'spring',
         stiffness: 100,
-        damping: 15
+        damping: 15,
       }}
     >
       <Card
@@ -80,8 +80,8 @@ const RecommendationCard: FC<RecommendationCardProps> = ({ book }) => {
                   </Badge>
                 </motion.div>
               )}
-              <Flex gap="3" justify="between" className="w-full">
-                <Flex gap="3" justify="center">
+              <Flex gap="3" justify="between" align="center" className="w-full">
+                <Flex gap="3" justify="center" align="center">
                   <motion.div
                     initial={{ rotate: -180, opacity: 0 }}
                     animate={{ rotate: 0, opacity: 1 }}

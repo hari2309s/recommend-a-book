@@ -16,14 +16,17 @@ export class RecommendationController {
   }
 
   getRecommendations = async (req: Request, res: Response) => {
-    const { query, user_id } = req.body;
+    const { query, user_id, topK } = req.body;
 
     if (!query) {
       return res.status(400).json({ error: 'Query is required' });
     }
 
     try {
-      const recommendations = await this.recommendationService.getRecommendations(query);
+      const recommendations = await this.recommendationService.getRecommendations(
+        query,
+        topK ?? 10
+      );
 
       const effectiveUserId = user_id || uuidv4();
       await this.searchHistoryService.saveSearch(effectiveUserId, query, recommendations);

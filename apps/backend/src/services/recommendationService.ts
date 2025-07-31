@@ -10,7 +10,7 @@ export class RecommendationService {
     this.pineconeIndex = pineconeIndex;
   }
 
-  async getRecommendations(query: string): Promise<Book[]> {
+  async getRecommendations(query: string, topK: number = 10): Promise<Book[]> {
     const queryEmbedding = await this.model.embed([query]);
     const embeddingTensor = queryEmbedding.slice([0, 0], [1, 512]);
     const embedding = Array.from(embeddingTensor.dataSync()) as number[];
@@ -21,7 +21,7 @@ export class RecommendationService {
 
     const results = await this.pineconeIndex.query({
       vector: embedding,
-      topK: 10,
+      topK,
       includeMetadata: true,
     });
 
