@@ -12,7 +12,7 @@
     "lint": "eslint . --ext .ts --ignore-path .gitignore",
     "format": "prettier --write \"**/*.{ts,js,json}\" --ignore-path .prettierignore",
     "format:check": "prettier --check \"**/*.{ts,js,json}\" --ignore-path .prettierignore",
-    "vercel-build": "cd apps/backend && pnpm install --frozen-lockfile && pnpm run build && cd ../../apps/frontend && pnpm install --frozen-lockfile && pnpm run build",
+    "vercel-build": "pnpm install --no-frozen-lockfile && cd apps/backend && pnpm install --no-frozen-lockfile && pnpm run build && cd ../../apps/frontend && pnpm install --no-frozen-lockfile && pnpm run build",
     "vercel-dev": "pnpm run dev"
   },
   "engines": {
