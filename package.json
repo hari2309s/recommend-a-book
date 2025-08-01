@@ -38,6 +38,7 @@
     "eslint-config-prettier": "^9.1.0",
     "eslint-plugin-prettier": "^5.4.1",
     "prettier": "^3.5.3",
-    "turbo": "^2.5.0"
+    "turbo": "^2.5.0",
+    "typescript": "~5.8.3"
   }
 }

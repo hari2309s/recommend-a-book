@@ -1,6 +1,6 @@
 import fs from 'fs';
 import { parse } from 'csv-parse';
-import * as tf from '@tensorflow/tfjs';
+import * as tf from '@tensorflow/tfjs-node';
 import * as use from '@tensorflow-models/universal-sentence-encoder';
 import { Pinecone } from '@pinecone-database/pinecone';
 import dotenv from 'dotenv';
@@ -109,7 +109,9 @@ async function indexBooks() {
                   continue;
                 }
 
-                const embedding = Array.from(embeddings.gather([j]).dataSync());
+                const embedding = Array.from(
+                  tf.gather(embeddings as unknown as tf.Tensor2D, [j]).dataSync()
+                );
 
                 if (embedding.length !== 512) {
                   console.warn(
@@ -119,7 +121,7 @@ async function indexBooks() {
 
                 vectorPromises.push({
                   id: book.isbn13,
-                  values: embedding,
+                  values: embedding as number[],
                   metadata: {
                     title: book.title,
                     author: book.author,

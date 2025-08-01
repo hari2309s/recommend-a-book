@@ -1,4 +1,5 @@
 import * as use from '@tensorflow-models/universal-sentence-encoder';
+import * as tf from '@tensorflow/tfjs-node';
 import { Book } from '@/types';
 
 export class RecommendationService {
@@ -12,8 +13,7 @@ export class RecommendationService {
 
   async getRecommendations(query: string, topK: number = 10): Promise<Book[]> {
     const queryEmbedding = await this.model.embed([query]);
-    const embeddingTensor = queryEmbedding.slice([0, 0], [1, 512]);
-    const embedding = Array.from(embeddingTensor.dataSync()) as number[];
+    const embedding = Array.from(queryEmbedding.dataSync()) as number[];
 
     if (embedding.length !== 512) {
       throw new Error(`Dimension mismatch: expected 512, got ${embedding.length}`);
