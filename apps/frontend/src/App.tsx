@@ -1,35 +1,20 @@
 import { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { fetchRecommendations } from '@/api';
 import type { Book } from '@/api/types';
-import { Box, Button, Flex, Heading, TextField } from '@radix-ui/themes';
-import './App.css';
-import { Search, Loader2 } from 'lucide-react';
+import { Box, Flex, Heading } from '@radix-ui/themes';
+import '@/App.css';
+import { LoaderCircle } from 'lucide-react';
 import RecommendationList from '@/components/RecommendationList';
 import FingerprintJS from '@fingerprintjs/fingerprintjs';
+import SearchForm from '@/components/SearchForm';
 
 const App = () => {
-  const [input, setInput] = useState('');
   const [recommendations, setRecommendations] = useState<Book[]>([]);
-  const [loading, setLoading] = useState(false);
   const [deviceId, setDeviceId] = useState<string | null>(null);
   const [allRecommendations, setAllRecommendations] = useState<Book[]>([]);
-  const [visibleCount, setVisibleCount] = useState(10);
-  const [showLoader, setShowLoader] = useState(false);
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setLoading(true);
-    setVisibleCount(10);
-    try {
-      const data = await fetchRecommendations(input, deviceId!, 51);
-      setAllRecommendations(data.recommendations);
-      setRecommendations(data.recommendations.slice(0, 10));
-    } catch (error) {
-      console.error('Error fetching recommendations:', error);
-    }
-    setLoading(false);
-  };
+  const [visibleCount, setVisibleCount] = useState<number>(10);
+  const [showLoader, setShowLoader] = useState<boolean>(false);
+  const [loading, setLoading] = useState<boolean>(false);
 
   useEffect(() => {
     const handleScroll = () => {
@@ -87,19 +72,6 @@ const App = () => {
     },
   };
 
-  const formVariants = {
-    initial: { opacity: 0, scale: 0.95 },
-    animate: {
-      opacity: 1,
-      scale: 1,
-      transition: {
-        duration: 0.6,
-        ease: 'easeOut' as const,
-        delay: 0.4,
-      },
-    },
-  };
-
   return (
     <motion.div
       variants={pageVariants}
@@ -122,7 +94,7 @@ const App = () => {
             className="w-full flex justify-center"
           >
             <Box
-              minWidth="70%"
+              minWidth="40%"
               p="4"
               style={{
                 border: '1px dashed var(--accent-8)',
@@ -168,83 +140,16 @@ const App = () => {
               </Heading>
             </Box>
           </motion.div>
-          <motion.div
-            variants={formVariants}
-            initial="initial"
-            animate="animate"
-            className="w-full flex justify-center"
-          >
-            <Flex
-              width="100%"
-              p="4"
-              gap={{ initial: '2', sm: '4' }}
-              align="center"
-              justify="center"
-              direction={{ initial: 'column', sm: 'row' }}
-              style={{
-                border: '1px dashed var(--accent-8)',
-                textAlign: 'center',
-                borderRadius: '6px',
-                boxShadow: '0 2px 4px rgba(0, 0, 0, 0.1)',
-                backgroundColor: 'var(--accent-2)',
-                color: 'var(--accent-11)',
-              }}
-              asChild
-            >
-              <motion.form
-                onSubmit={handleSubmit}
-                className="w-full max-w-lg"
-                whileHover={{ scale: 1.02 }}
-                transition={{ type: 'spring', stiffness: 300, damping: 20 }}
-              >
-                <Flex
-                  gap="4"
-                  direction={{ initial: 'column', sm: 'row' }}
-                  align="center"
-                  justify="center"
-                  className="w-full"
-                >
-                  <motion.div
-                    whileFocus={{ scale: 1.02 }}
-                    transition={{ type: 'spring', stiffness: 400, damping: 25 }}
-                    className="flex-1 min-w-0"
-                  >
-                    <TextField.Root
-                      size="3"
-                      placeholder="Enter your book preferences"
-                      value={input}
-                      onChange={(e) => setInput(e.target.value)}
-                      className="w-full"
-                    >
-                      <TextField.Slot>
-                        <Search height="16" width="16" />
-                      </TextField.Slot>
-                    </TextField.Root>
-                  </motion.div>
-                  <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
-                    <Button
-                      variant="soft"
-                      type="submit"
-                      loading={loading}
-                      disabled={loading || input.trim() === ''}
-                      size="3"
-                      className="whitespace-nowrap"
-                    >
-                      Get Recommendations{' '}
-                      {loading && (
-                        <motion.div
-                          animate={{ rotate: 360 }}
-                          transition={{ duration: 1, repeat: Infinity, ease: 'linear' }}
-                        >
-                          <Loader2 size={16} />
-                        </motion.div>
-                      )}
-                    </Button>
-                  </motion.div>
-                </Flex>
-              </motion.form>
-            </Flex>
-          </motion.div>
+
+          <SearchForm
+            loading={loading}
+            setLoading={setLoading}
+            deviceId={deviceId}
+            setVisibleCount={setVisibleCount}
+            setRecommendations={setRecommendations}
+            setAllRecommendations={setAllRecommendations}
+          />
+
           <AnimatePresence mode="wait">
             {recommendations?.length > 0 && (
               <motion.div
@@ -264,7 +169,7 @@ const App = () => {
                       justifyContent: 'center',
                     }}
                   >
-                    <Loader2 className="animate-spin text-green-600" />
+                    <LoaderCircle className="animate-spin text-green-600" />
                   </div>
                 )}
               </motion.div>

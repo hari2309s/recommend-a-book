@@ -9,9 +9,9 @@ type BookThumbnailProps = {
   className?: string;
 };
 
-const BookThumbnail: FC<BookThumbnailProps> = ({ src, alt, className }) => {
-  const [imageLoaded, setImageLoaded] = useState(false);
-  const [imageError, setImageError] = useState(false);
+const BookThumbnail: FC<BookThumbnailProps> = ({ src, alt, className }: BookThumbnailProps) => {
+  const [imageLoaded, setImageLoaded] = useState<boolean>(false);
+  const [imageError, setImageError] = useState<boolean>(false);
   const isImageAvailable = src && src.trim() !== '';
 
   const handleImageLoad = () => {
@@ -27,20 +27,19 @@ const BookThumbnail: FC<BookThumbnailProps> = ({ src, alt, className }) => {
       className="w-36! h-48! relative overflow-hidden rounded-md"
       whileHover={{
         scale: 1.05,
-        transition: { type: "spring", stiffness: 300, damping: 20 }
+        transition: { type: 'spring', stiffness: 300, damping: 20 },
       }}
       initial={{ opacity: 0, scale: 0.8 }}
       animate={{ opacity: 1, scale: 1 }}
       transition={{
         duration: 0.4,
-        type: "spring",
+        type: 'spring',
         stiffness: 100,
-        damping: 15
+        damping: 15,
       }}
     >
       {isImageAvailable && !imageError ? (
         <>
-          {/* Loading skeleton */}
           {!imageLoaded && (
             <motion.div
               className="absolute inset-0 bg-gray-200 animate-pulse rounded-md"
@@ -53,19 +52,20 @@ const BookThumbnail: FC<BookThumbnailProps> = ({ src, alt, className }) => {
           <motion.img
             src={src}
             alt={alt}
-            className={`${className} rounded-md transition-opacity duration-300 ${imageLoaded ? 'opacity-100' : 'opacity-0'
-              }`}
+            className={`${className} rounded-md transition-opacity duration-300 ${
+              imageLoaded ? 'opacity-100' : 'opacity-0'
+            }`}
             style={{ aspectRatio: '3/4' }}
             onLoad={handleImageLoad}
             onError={handleImageError}
             initial={{ opacity: 0, y: 10 }}
             animate={{
               opacity: imageLoaded ? 1 : 0,
-              y: imageLoaded ? 0 : 10
+              y: imageLoaded ? 0 : 10,
             }}
             transition={{
               duration: 0.4,
-              delay: 0.1
+              delay: 0.1,
             }}
           />
         </>
@@ -80,9 +80,9 @@ const BookThumbnail: FC<BookThumbnailProps> = ({ src, alt, className }) => {
             animate={{ opacity: 1, scale: 1 }}
             transition={{
               duration: 0.4,
-              type: "spring",
+              type: 'spring',
               stiffness: 100,
-              damping: 15
+              damping: 15,
             }}
           />
         </motion.div>

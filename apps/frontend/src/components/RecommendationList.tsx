@@ -18,40 +18,44 @@ const RecommendationList: FC<RecommendationListProps> = ({
       opacity: 1,
       transition: {
         staggerChildren: 0.1,
-        delayChildren: 0.2
-      }
-    }
+        delayChildren: 0.2,
+      },
+    },
   };
 
   const itemVariants = {
     hidden: {
       opacity: 0,
       y: 20,
-      scale: 0.95
+      scale: 0.95,
     },
     visible: {
       opacity: 1,
       y: 0,
       scale: 1,
       transition: {
-        type: "spring" as const,
+        type: 'spring' as const,
         stiffness: 100,
-        damping: 12
-      }
-    }
+        damping: 12,
+      },
+    },
   };
 
   return (
-    <Flex asChild width="100%" p="4" m="4" direction="column" align="center">
-      <motion.div
-        variants={containerVariants}
-        initial="hidden"
-        animate="visible"
-      >
+    <Flex
+      asChild
+      width="100%"
+      p="4"
+      m="4"
+      direction="column"
+      align="center"
+      style={{ marginTop: '100px' }}
+    >
+      <motion.div variants={containerVariants} initial="hidden" animate="visible">
         <motion.div
           initial={{ opacity: 0, y: -20 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6, ease: "easeOut" }}
+          transition={{ duration: 0.6, ease: 'easeOut' }}
         >
           <Heading size="6" mb="6" className="text-center" color="green">
             Recommended Books
