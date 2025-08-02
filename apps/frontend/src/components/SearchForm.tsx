@@ -63,9 +63,9 @@ const SearchForm: React.FC<SearchFormProps> = ({
 
   return (
     <motion.div
-      className={`z-51 fixed top-[175px] left-4 right-4 w-[50%] max-w-4xl bg-green-500/40
+      className={`z-51 fixed top-[190px] left-4 right-4 w-[50%] max-w-4xl bg-green-500/40
         backdrop-blur-lg border border-dashed border-green-300/20 shadow-lg
-        shadow-green-500/10 flex justify-center items-center h-[75px]
+        shadow-green-500/10 flex justify-center items-center min-h-[75px]
         ${isSticky ? 'shadow-2xl shadow-green-500/20' : 'shadow-lg shadow-green-500/10'}`}
       style={{
         padding: '0 19px',
@@ -108,6 +108,8 @@ const SearchForm: React.FC<SearchFormProps> = ({
               style={{
                 backgroundColor: 'rgba(255, 255, 255, 0.9)',
                 border: '1px solid rgba(34, 197, 94, 0.3)',
+                outline: '1px solid rgba(34, 197, 94, 0.5)',
+                outlineOffset: '0px',
               }}
             >
               <TextField.Slot>

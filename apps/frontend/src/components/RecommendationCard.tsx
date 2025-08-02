@@ -69,17 +69,17 @@ const RecommendationCard: FC<RecommendationCardProps> = ({ book }) => {
             </Flex>
             <Separator size="4" />
             <Flex direction="column" justify="center" align="end" gap="2" className="align-normal">
-              {book.categories && (
+              {
                 <motion.div
                   initial={{ opacity: 0, scale: 0.8 }}
                   animate={{ opacity: 1, scale: 1 }}
                   transition={{ duration: 0.3, delay: 0.3 }}
                 >
                   <Badge size="3" variant="surface" className="max-w-max">
-                    {book.categories}
+                    {book.categories ? book.categories : 'Unknown'}
                   </Badge>
                 </motion.div>
-              )}
+              }
               <Flex gap="3" justify="between" align="center" className="w-full">
                 <Flex gap="3" justify="center" align="center">
                   <motion.div
