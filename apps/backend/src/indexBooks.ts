@@ -1,6 +1,6 @@
 import fs from 'fs';
 import { parse } from 'csv-parse';
-import * as tf from '@tensorflow/tfjs';
+import * as tf from '@tensorflow/tfjs-node';
 import * as use from '@tensorflow-models/universal-sentence-encoder';
 import { Pinecone } from '@pinecone-database/pinecone';
 import dotenv from 'dotenv';
@@ -13,7 +13,7 @@ const pinecone = new Pinecone({
 });
 const pineconeIndex = pinecone.Index(process.env.PINECONE_INDEX_NAME!);
 
-async function retryUpsert(
+async function retryUpsert (
   vectors: PineconeRecord[],
   maxRetries: number = 3,
   baseDelayMs: number = 1000
@@ -40,7 +40,7 @@ async function retryUpsert(
   return false;
 }
 
-async function indexBooks() {
+async function indexBooks () {
   let model: use.UniversalSentenceEncoder;
   try {
     model = await use.load();
