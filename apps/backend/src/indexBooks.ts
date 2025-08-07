@@ -1,6 +1,6 @@
 import fs from 'fs';
 import { parse } from 'csv-parse';
-import * as tf from '@tensorflow/tfjs';
+import * as tf from '@tensorflow/tfjs-nodeee';
 import * as use from '@tensorflow-models/universal-sentence-encoder';
 import { Pinecone } from '@pinecone-database/pinecone';
 import dotenv from 'dotenv';
