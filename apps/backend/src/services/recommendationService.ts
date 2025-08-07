@@ -1,5 +1,5 @@
 import * as use from '@tensorflow-models/universal-sentence-encoder';
-import * as tf from '@tensorflow/tfjs-node';
+import * as tf from '@tensorflow/tfjs';
 import { Book } from '@/types';
 
 export class RecommendationService {
