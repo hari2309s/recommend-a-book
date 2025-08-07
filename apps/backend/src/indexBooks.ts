@@ -1,6 +1,6 @@
 import fs from 'fs';
 import { parse } from 'csv-parse';
-import * as tf from '@tensorflow/tfjs';
+import * as tf from '@tensorflow/tfjs-node';
 import * as use from '@tensorflow-models/universal-sentence-encoder';
 import { Pinecone } from '@pinecone-database/pinecone';
 import dotenv from 'dotenv';
@@ -12,45 +12,6 @@ const pinecone = new Pinecone({
   apiKey: process.env.PINECONE_API_KEY!,
 });
 const pineconeIndex = pinecone.Index(process.env.PINECONE_INDEX_NAME!);
-
-/**
- * Normalize author names for better matching
- */
-function normalizeAuthor(author: string): string {
-  return author
-    .trim()
-    .replace(/\s+/g, ' ')
-    .replace(/[^\w\s.-]/g, '') // Remove special characters except dots and hyphens
-    .toLowerCase();
-}
-
-/**
- * Extract and normalize categories
- */
-function normalizeCategories(categories: string): string {
-  return categories
-    .trim()
-    .toLowerCase()
-    .replace(/[;&|]/g, ',') // Replace various separators with commas
-    .split(',')
-    .map((cat) => cat.trim())
-    .filter((cat) => cat.length > 0)
-    .join(', ');
-}
-
-/**
- * Create a rich text representation for better semantic search
- */
-function createSearchableText(book: any): string {
-  const parts = [];
-
-  if (book.title) parts.push(`Title: ${book.title}`);
-  if (book.author) parts.push(`Author: ${book.author}`);
-  if (book.categories) parts.push(`Categories: ${book.categories}`);
-  if (book.description) parts.push(`Description: ${book.description}`);
-
-  return parts.join('. ');
-}
 
 async function retryUpsert(
   vectors: PineconeRecord[],
@@ -98,39 +59,25 @@ async function indexBooks() {
       .on('data', (row) => {
         console.log('Row data:', JSON.stringify(row, null, 2));
 
-        const title = (row.title || row.Title || '').trim();
-        const author = (row.authors || row.Authors || row.author || row.Author || '').trim();
-        const description = (row.description || row.Description || '').trim();
-        const categories = (row.categories || row.Categories || '').trim();
-        const isbn13 = (row.isbn13 || '').trim();
-        const publishedYear = (row.published_year || '').trim();
-        const ratingsCount = (row.ratings_count || '').trim();
-        const rating = (row.average_rating || row.rating || '').trim();
-        const thumbnail = (row.image_url || row.thumbnail || '').trim();
+        const title = row.title || row.Title || '';
+        const author = row.authors || row.Authors || row.author || row.Author || '';
+        const description = row.description || row.Description || '';
+        const categories = row.categories || row.Categories || '';
+        const isbn13 = row.isbn13 || '';
+        const publishedYear = row.published_year || '';
+        const ratingsCount = row.ratings_count || '';
 
-        if (title && author) {
-          // Require at least title and author
-          // Normalize and clean data
-          const normalizedAuthor = normalizeAuthor(author);
-          const normalizedCategories = normalizeCategories(categories);
-
+        if (title || author || description) {
           books.push({
-            isbn13,
-            title,
-            author,
-            normalizedAuthor, // For searching
-            description,
-            categories: normalizedCategories,
-            publishedYear,
-            ratingsCount,
-            rating,
-            thumbnail,
-            searchableText: createSearchableText({
-              title,
-              author,
-              categories: normalizedCategories,
-              description,
-            }),
+            isbn13: isbn13.trim(),
+            title: title.trim(),
+            author: author.trim(),
+            description: description.trim(),
+            categories: categories.trim(),
+            publishedYear: publishedYear.trim(),
+            ratingsCount: ratingsCount.trim(),
+            rating: (row.average_rating || row.rating || '').trim(),
+            thumbnail: (row.image_url || row.thumbnail || '').trim(),
           });
         }
       })
@@ -145,16 +92,12 @@ async function indexBooks() {
         for (let i = 0; i < books.length; i += batchSize) {
           const currentBatchSize = Math.min(batchSize, books.length - i);
           const batch = books.slice(i, i + currentBatchSize);
-
-          // Use rich searchable text for embeddings instead of just description
-          const searchableTexts = batch.map(
-            (book) => book.searchableText || book.description || ''
-          );
+          const descriptions = batch.map((book) => book.description || '');
 
           try {
-            if (searchableTexts.length === 0) continue;
+            if (descriptions.length === 0) continue;
 
-            const embeddings = await model.embed(searchableTexts);
+            const embeddings = await model.embed(descriptions);
 
             const vectors = tf.tidy(() => {
               const vectorPromises: PineconeRecord[] = [];
@@ -174,27 +117,20 @@ async function indexBooks() {
                   console.warn(
                     `Unexpected embedding length ${embedding.length} for book: ${book.title}`
                   );
-                  continue;
                 }
 
-                // Create a unique ID if isbn13 is not available
-                const bookId =
-                  book.isbn13 ||
-                  `${book.title}-${book.author}`.replace(/[^\w-]/g, '-').toLowerCase();
-
                 vectorPromises.push({
-                  id: bookId,
+                  id: book.isbn13,
                   values: embedding as number[],
                   metadata: {
                     title: book.title,
                     author: book.author,
-                    normalizedAuthor: book.normalizedAuthor, // For better searching
                     description: book.description,
-                    rating: parseFloat(book.rating) || 0,
+                    rating: book.rating,
                     thumbnail: book.thumbnail,
                     categories: book.categories,
-                    publishedYear: parseInt(book.publishedYear) || 0,
-                    ratingsCount: parseInt(book.ratingsCount) || 0,
+                    publishedYear: book.publishedYear,
+                    ratingsCount: book.ratingsCount,
                   },
                 });
               }
@@ -204,22 +140,15 @@ async function indexBooks() {
 
             const validVectors = (await Promise.all(vectors)).filter((v) => v !== null);
             if (validVectors.length > 0) {
-              console.log(
-                `Upserting ${validVectors.length} vectors for batch ${i / batchSize + 1}`
-              );
-
               const success = await retryUpsert(validVectors);
               if (success) {
                 console.log(
-                  `✅ Indexed batch ${i / batchSize + 1} of ${Math.ceil(books.length / batchSize)} (${validVectors.length} books)`
+                  `Indexed batch ${i / batchSize + 1} of ${Math.ceil(books.length / batchSize)}`
                 );
               } else {
-                console.error(`❌ Failed to index batch ${i / batchSize + 1} after retries`);
+                console.error(`Failed to index batch ${i / batchSize + 1} after retries`);
               }
             }
-
-            // Clean up tensors
-            embeddings.dispose();
           } catch (error: any) {
             console.error(
               `Error generating embeddings for batch ${i / batchSize + 1}:`,
@@ -228,16 +157,7 @@ async function indexBooks() {
           }
         }
 
-        console.log('📚 Books indexed successfully');
-
-        // Log some statistics
-        const authorsSet = new Set(books.map((b) => b.normalizedAuthor));
-        const categoriesSet = new Set(books.flatMap((b) => b.categories.split(', ')));
-
-        console.log(`📊 Statistics:`);
-        console.log(`   Total books: ${books.length}`);
-        console.log(`   Unique authors: ${authorsSet.size}`);
-        console.log(`   Unique categories: ${categoriesSet.size}`);
+        console.log('Books indexed successfully');
       })
       .on('error', (error) => {
         console.error('Error parsing CSV:', error);
