@@ -1,0 +1,28 @@
+services:
+  - type: web
+    name: book-recommendation-api
+    runtime: node
+    region: frankfurt
+    plan: starter
+    buildCommand: pnpm install && pnpm run build
+    startCommand: pnpm start
+    healthCheckPath: /health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 10000
+      # The following will be added via Render dashboard for security
+      # - key: SUPABASE_URL
+      #   value: your_supabase_url
+      # - key: SUPABASE_KEY
+      #   value: your_supabase_key
+      # - key: PINECONE_API_KEY
+      #   value: your_pinecone_api_key
+      # - key: PINECONE_INDEX_NAME
+      #   value: your_index_name
+      # - key: FRONTEND_URL
+      #   value: https://your-vercel-domain.vercel.app
+    autoDeploy: true
+    repo: https://github.com/hari2309s/recommend-a-book  # Your actual repo URL
+    rootDir: apps/backend
