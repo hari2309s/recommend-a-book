@@ -4,8 +4,8 @@ services:
     runtime: node
     region: frankfurt
     plan: starter
-    buildCommand: npm install -g pnpm@8.15.0 && pnpm config set registry https://registry.npmjs.org/ && pnpm install --no-frozen-lockfile && pnpm run build
-    startCommand: pnpm start
+    buildCommand: npm install && npm run build
+    startCommand: npm start
     healthCheckPath: /health
     envVars:
       - key: NODE_ENV
