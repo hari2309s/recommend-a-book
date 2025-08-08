@@ -1,15 +1,19 @@
-import { type FC, useState } from 'react';
+import { type FC } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ChevronDown } from 'lucide-react';
 import { Text } from '@radix-ui/themes';
 
 type BookDescriptionAccordionProps = {
   description: string;
+  isOpen: boolean;
+  onToggle: () => void;
 };
 
-const BookDescriptionAccordion: FC<BookDescriptionAccordionProps> = ({ description }) => {
-  const [isOpen, setIsOpen] = useState(false);
-
+const BookDescriptionAccordion: FC<BookDescriptionAccordionProps> = ({ 
+  description,
+  isOpen,
+  onToggle 
+}) => {
   if (!description || description.trim() === '') {
     return null;
   }
@@ -27,7 +31,7 @@ const BookDescriptionAccordion: FC<BookDescriptionAccordionProps> = ({ descripti
           scale: 0.99,
           backgroundColor: 'var(--accent-7)',
         }}
-        onClick={() => setIsOpen(!isOpen)}
+        onClick={onToggle}
       >
         <Text>Description</Text>
         <motion.div

@@ -38,6 +38,7 @@ const SearchForm: React.FC<SearchFormProps> = ({
     e.preventDefault();
     setLoading(true);
     setVisibleCount(10);
+
     try {
       const data = await fetchRecommendations(input, deviceId!, 51);
       setAllRecommendations(data.recommendations);
@@ -45,6 +46,7 @@ const SearchForm: React.FC<SearchFormProps> = ({
     } catch (error) {
       console.error('Error fetching recommendations:', error);
     }
+
     setLoading(false);
   };
 

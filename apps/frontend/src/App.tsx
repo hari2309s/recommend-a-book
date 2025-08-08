@@ -4,7 +4,7 @@ import type { Book } from '@/api/types';
 import { Box, Flex } from '@radix-ui/themes';
 import '@/App.css';
 import { LoaderCircle } from 'lucide-react';
-import RecommendationList from '@/components/RecommendationList';
+import { RecommendationList } from '@/components/RecommendationList';
 import FingerprintJS from '@fingerprintjs/fingerprintjs';
 import SearchForm from '@/components/SearchForm';
 import Header from '@/components/Header';
@@ -16,6 +16,7 @@ const App: FC = () => {
   const [visibleCount, setVisibleCount] = useState<number>(10);
   const [showLoader, setShowLoader] = useState<boolean>(false);
   const [loading, setLoading] = useState<boolean>(false);
+  const [searchPerformed, _] = useState<boolean>(false);
 
   useEffect(() => {
     const handleScroll = () => {
@@ -81,8 +82,8 @@ const App: FC = () => {
             setLoading={setLoading}
             deviceId={deviceId}
             setVisibleCount={setVisibleCount}
-            setRecommendations={setRecommendations}
             setAllRecommendations={setAllRecommendations}
+            setRecommendations={setRecommendations}
           />
           <AnimatePresence mode="wait">
             {recommendations?.length > 0 && (
@@ -93,7 +94,10 @@ const App: FC = () => {
                 exit={{ opacity: 0, y: -20 }}
                 transition={{ duration: 0.5 }}
               >
-                <RecommendationList recommendations={recommendations} />
+                <RecommendationList
+                  recommendations={recommendations}
+                  searchPerformed={searchPerformed}
+                />
                 {showLoader && (
                   <div
                     style={{

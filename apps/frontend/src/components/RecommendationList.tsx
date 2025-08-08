@@ -1,17 +1,26 @@
-import type { FC } from 'react';
-import { Flex, Grid, Text } from '@radix-ui/themes';
+import { Flex, Grid, Text, Heading } from '@radix-ui/themes';
 import { motion } from 'framer-motion';
+import { useEffect, useState } from 'react';
 import type { Book } from '@/api/types';
-import { Heading } from '@radix-ui/themes';
-import RecommendationCard from '@/components/RecommendationCard';
+import { RecommendationCard } from '@/components/RecommendationCard';
 
 type RecommendationListProps = {
   recommendations: Book[];
+  searchPerformed: boolean;
 };
 
-const RecommendationList: FC<RecommendationListProps> = ({
-  recommendations,
-}: RecommendationListProps) => {
+export function RecommendationList({ recommendations, searchPerformed }: RecommendationListProps) {
+  const [resetAccordions, setResetAccordions] = useState<boolean>(false);
+
+  useEffect(() => {
+    if (searchPerformed) {
+      setResetAccordions(true);
+
+      const timer = setTimeout(() => setResetAccordions(false), 0);
+      return () => clearTimeout(timer);
+    }
+  }, [searchPerformed]);
+
   const containerVariants = {
     hidden: { opacity: 0 },
     visible: {
@@ -63,9 +72,9 @@ const RecommendationList: FC<RecommendationListProps> = ({
         </motion.div>
         {recommendations && recommendations.length > 0 ? (
           <Grid columns={{ initial: '1', sm: '2', md: '3' }} gapY="5" gapX="4">
-            {recommendations.map((book, index) => (
-              <motion.div key={index} variants={itemVariants}>
-                <RecommendationCard book={book} />
+            {recommendations.map((book) => (
+              <motion.div key={`${book.title}-${book.author}`} variants={itemVariants}>
+                <RecommendationCard book={book} resetAccordion={resetAccordions} />
               </motion.div>
             ))}
           </Grid>
@@ -81,6 +90,4 @@ const RecommendationList: FC<RecommendationListProps> = ({
       </motion.div>
     </Flex>
   );
-};
-
-export default RecommendationList;
+}

@@ -12,7 +12,7 @@ type BookThumbnailProps = {
 const BookThumbnail: FC<BookThumbnailProps> = ({ src, alt, className }: BookThumbnailProps) => {
   const [imageLoaded, setImageLoaded] = useState<boolean>(false);
   const [imageError, setImageError] = useState<boolean>(false);
-  const isImageAvailable = src && src.trim() !== '';
+  const isImageAvailable: boolean = (src && src.trim() !== '') as boolean;
 
   const handleImageLoad = () => {
     setImageLoaded(true);

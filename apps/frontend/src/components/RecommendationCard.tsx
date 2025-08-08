@@ -2,16 +2,25 @@ import type { Book } from '@/api/types';
 import { Card, Heading, Badge, Flex, Text, Separator } from '@radix-ui/themes';
 import { motion } from 'framer-motion';
 import { Star } from 'lucide-react';
+import { useState, useEffect } from 'react';
 import BookThumbnail from '@/components/BookThumbnail';
-import type { FC } from 'react';
 import AuthorBadges from '@/components/AuthorBadges';
 import BookDescriptionAccordion from '@/components/BookDescriptionAccordion';
 
 type RecommendationCardProps = {
   book: Book;
+  resetAccordion: boolean;
 };
 
-const RecommendationCard: FC<RecommendationCardProps> = ({ book }) => {
+export function RecommendationCard({ book, resetAccordion }: RecommendationCardProps) {
+  const [isAccordionOpen, setIsAccordionOpen] = useState<boolean>(false);
+
+  useEffect(() => {
+    if (resetAccordion) {
+      setIsAccordionOpen(false);
+    }
+  }, [resetAccordion]);
+
   return (
     <motion.div
       whileHover={{
@@ -105,7 +114,11 @@ const RecommendationCard: FC<RecommendationCardProps> = ({ book }) => {
               </Flex>
               <Separator size="4" />
               <div className="mt-3 w-full">
-                <BookDescriptionAccordion description={book.description} />
+                <BookDescriptionAccordion
+                  description={book.description}
+                  isOpen={isAccordionOpen}
+                  onToggle={() => setIsAccordionOpen(!isAccordionOpen)}
+                />
               </div>
             </Flex>
           </Flex>
@@ -113,6 +126,6 @@ const RecommendationCard: FC<RecommendationCardProps> = ({ book }) => {
       </Card>
     </motion.div>
   );
-};
+}
 
 export default RecommendationCard;
