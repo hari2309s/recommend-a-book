@@ -33,9 +33,6 @@ The book dataset is sourced from [Kaggle](https://www.kaggle.com/). The dataset 
   - Universal Sentence Encoder for generating semantic embeddings
   - Semantic search pipeline for understanding query context
 
-- **Architecture**:
-  - [View System Architecture Diagram](docs/system-architecture.md)
-
 ## Getting Started
 
 ### Prerequisites
