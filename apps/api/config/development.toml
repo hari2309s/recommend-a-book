@@ -1,0 +1,26 @@
+# Development-specific configuration overrides
+
+# Server configuration
+port = 3000
+environment = "development"
+frontend_url = "http://localhost:3000"
+
+# Database configuration
+database_url = "postgres://localhost:5432/books_dev"
+
+# Security
+# WARNING: These are for development only. In production, use secure keys.
+api_key = "dev-secret-key"
+
+# Pinecone configuration
+# These should be overridden with environment variables in development
+pinecone_api_key = ""
+pinecone_environment = "gcp-starter"
+pinecone_index = "books-dev"
+
+# HuggingFace configuration
+# This should be overridden with environment variables in development
+huggingface_api_key = ""
+
+# Logging configuration
+log_level = "debug"

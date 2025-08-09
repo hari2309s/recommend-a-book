@@ -1,0 +1,25 @@
+# Base configuration for book recommendation API
+
+# Server configuration
+host = "127.0.0.1"
+port = 3000
+environment = "development"
+frontend_url = "http://localhost:3000"
+
+# Database configuration
+database_url = "postgres://localhost:5432/books"
+
+# Supabase configuration
+supabase_url = "" # Set via environment variable
+supabase_key = "" # Set via environment variable
+
+# Pinecone configuration
+pinecone_api_key = ""                   # Set via environment variable
+pinecone_environment = "gcp-starter"
+pinecone_index = "book-recommendations"
+
+# HuggingFace configuration
+huggingface_api_key = "" # Set via environment variable
+
+# Logging configuration
+log_level = "info"

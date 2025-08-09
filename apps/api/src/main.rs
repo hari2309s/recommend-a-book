@@ -1,55 +1,36 @@
-use axum::{
-    routing::{get, post},
-    Router,
-};
-use std::sync::Arc;
-use tower_http::cors::CorsLayer;
-use tracing_subscriber;
+use crate::error::Result;
+use log::info;
+use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
+mod app;
 mod config;
-mod handlers;
-mod models;
-mod services;
 mod error;
+mod handlers;
 mod ml;
+mod models;
+mod routes;
+mod services;
 
-use config::Config;
-use handlers::recommendation_handlers;
-use services::{RecommendationService, SearchHistoryService};
-use ml::sentence_encoder::SentenceEncoder;
-
-#[tokio::main]
-async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    // Initialize tracing
-    tracing_subscriber::init();
-
+#[actix_web::main]
+async fn main() -> Result<()> {
     // Load configuration
-    let config = Config::from_env()?;
+    dotenv::dotenv().ok();
 
-    // Initialize ML model
-    tracing::info!("Loading Universal Sentence Encoder model...");
-    let model = SentenceEncoder::load().await?;
-    tracing::info!("Universal Sentence Encoder model loaded successfully");
+    // Setup logging
+    tracing_subscriber::registry()
+        .with(
+            tracing_subscriber::EnvFilter::try_from_default_env().unwrap_or_else(|_| {
+                // Default to info level if RUST_LOG is not set
+                "recommend_a_book_api=info,actix_web=info".into()
+            }),
+        )
+        .with(tracing_subscriber::fmt::layer())
+        .init();
 
-    // Initialize Pinecone
-    let pinecone_client = config.create_pinecone_client().await?;
-    let pinecone_index = pinecone_client.index(&config.pinecone_index_name);
+    info!("Loading configuration...");
+    let config = config::Config::load()?;
 
-    // Initialize services
-    let recommendation_service = Arc::new(RecommendationService::new(model, pinecone_index));
-    let search_history_service = Arc::new(SearchHistoryService::new(config.supabase_client()));
-
-    // Setup routes
-    let app = Router::new()
-        .route("/api/recommend", post(recommendation_handlers::get_recommendations))
-        .route("/api/history", get(recommendation_handlers::get_search_history))
-        .layer(CorsLayer::permissive())
-        .with_state((recommendation_service, search_history_service));
-
-    let listener = tokio::net::TcpListener::bind(&format!("0.0.0.0:{}", config.port)).await?;
-    tracing::info!("Server running on port {}", config.port);
-
-    axum::serve(listener, app).await?;
-
-    Ok(())
+    // Create and run application
+    let application = app::Application::new(&config);
+    application.run().await
 }

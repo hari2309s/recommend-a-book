@@ -1,5 +1,12 @@
-pub mod recommendation_service;
-pub mod search_history_service;
+pub mod pinecone;
+pub mod recommendation;
+pub mod search_history;
+pub mod sentence_encoder;
+pub mod supabase;
 
-pub use recommendation_service::RecommendationService;
-pub use search_history_service::SearchHistoryService;
+// Re-export public types
+pub use pinecone::PineconeClient;
+pub use recommendation::RecommendationService;
+pub use search_history::SearchHistoryService;
+pub use sentence_encoder::SentenceEncoder;
+pub use supabase::SupabaseClient;

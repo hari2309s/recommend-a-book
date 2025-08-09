@@ -1,0 +1,29 @@
+services:
+  - type: web
+    name: book-recommender-api
+    runtime: rust
+    buildCommand: cargo build --release
+    startCommand: ./target/release/book-recommender-backend
+    envVars:
+      - key: RUST_LOG
+        value: info
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_KEY
+        sync: false
+      - key: PINECONE_API_KEY
+        sync: false
+      - key: PINECONE_INDEX_NAME
+        sync: false
+      - key: PORT
+        value: 3000
+    autoDeploy: true
+    healthCheckPath: /api/health
+    numInstances:
+      min: 1
+      max: 1
+    github:
+      branch: main
+    buildFilter:
+      paths:
+        - apps/api/**/*
