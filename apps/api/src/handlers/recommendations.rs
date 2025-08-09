@@ -1,5 +1,6 @@
 use crate::{
-    models::{RecommendationRequest, SearchHistoryRequest},
+    error::ApiError,
+    models::{RecommendationRequest, SearchHistory, SearchHistoryRequest},
     services::{recommendation::RecommendationService, search_history::SearchHistoryService},
 };
 use actix_web::{
@@ -39,10 +40,14 @@ async fn get_recommendations(
     {
         Ok(recommendations) => {
             // Save search history
-            if let Err(e) = search_history_service
-                .save_search(user_id, &request.query, &recommendations)
-                .await
-            {
+            let history = SearchHistory {
+                id: None,
+                user_id,
+                query: request.query.clone(),
+                recommendations: recommendations.clone(),
+                created_at: None,
+            };
+            if let Err(e) = search_history_service.save_search(&history).await {
                 error!("Failed to save search history: {}", e);
                 // Continue even if saving history fails
             }
@@ -65,18 +70,23 @@ async fn get_recommendations(
 async fn get_search_history(
     request: Json<SearchHistoryRequest>,
     search_history_service: web::Data<SearchHistoryService>,
-) -> HttpResponse {
+) -> Result<HttpResponse, ApiError> {
+    let user_id = Uuid::parse_str(&request.user_id)
+        .map_err(|e| ApiError::InvalidInput(format!("Invalid user ID: {}", e)))?;
+
     match search_history_service
-        .get_search_history(request.user_id, request.limit)
+        .get_search_history(user_id, request.limit)
         .await
     {
-        Ok(history) => HttpResponse::Ok().json(serde_json::json!({ "history": history })),
-        Err(e) => {
-            error!("Error getting search history: {}", e);
-            HttpResponse::InternalServerError().json(serde_json::json!({
+        Ok(history) => Ok(HttpResponse::Ok().json(serde_json::json!({ "history": history }))),
+        Err(e) => match e {
+            ApiError::InvalidInput(_) => Ok(HttpResponse::BadRequest().json(serde_json::json!({
+                "error": e.to_string()
+            }))),
+            _ => Ok(HttpResponse::InternalServerError().json(serde_json::json!({
                 "error": "Failed to fetch search history"
-            }))
-        }
+            }))),
+        },
     }
 }
 
@@ -144,7 +154,7 @@ mod tests {
         let req = test::TestRequest::post()
             .uri("/recommendations/history")
             .set_json(SearchHistoryRequest {
-                user_id: Uuid::new_v4(),
+                user_id: Uuid::new_v4().to_string(),
                 limit: Some(10),
             })
             .to_request();

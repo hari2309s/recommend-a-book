@@ -1,8 +1,9 @@
 use crate::{
     config::Config,
-    error::Result,
+    error::{ApiError, Result},
+    ml::universal_sentence_encoder::UniversalSentenceEncoder,
     routes::api_routes,
-    services::{recommendation::RecommendationService, search_history::SearchHistoryService},
+    services::{PineconeClient, RecommendationService, SearchHistoryService, SupabaseClient},
 };
 use actix_cors::Cors;
 use actix_web::{middleware::Logger, web, App, HttpServer};
@@ -12,6 +13,7 @@ use std::net::TcpListener;
 pub struct Application {
     port: u16,
     host: String,
+    config: Config,
 }
 
 impl Application {
@@ -20,6 +22,7 @@ impl Application {
         Self {
             port: config.port,
             host: config.host.clone(),
+            config: config.clone(),
         }
     }
 
@@ -36,12 +39,18 @@ impl Application {
     /// This is useful for testing where we want to use a random port
     pub async fn run_with_listener(&self, listener: TcpListener) -> Result<()> {
         // Initialize services
-        let supabase = services::supabase::SupabaseClient::new(
-            &self.config.supabase_url,
-            &self.config.supabase_key,
-        );
+        let supabase = SupabaseClient::new(&self.config.supabase_url, &self.config.supabase_key);
+        let pinecone =
+            PineconeClient::new(&self.config.pinecone_api_key, &self.config.pinecone_index);
 
-        let recommendation_service = web::Data::new(RecommendationService::new(supabase.clone()));
+        // Initialize ML model
+        let sentence_encoder = UniversalSentenceEncoder::new().await?;
+
+        let recommendation_service = web::Data::new(RecommendationService::new(
+            sentence_encoder,
+            pinecone,
+            supabase.clone(),
+        ));
         let search_history_service = web::Data::new(SearchHistoryService::new(supabase));
 
         HttpServer::new(move || {

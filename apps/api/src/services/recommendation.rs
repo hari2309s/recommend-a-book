@@ -1,11 +1,10 @@
+use crate::error::Result;
 use crate::{
     error::ApiError,
+    ml::universal_sentence_encoder::UniversalSentenceEncoder,
     models::{Book, RecommendationRequest},
-    services::{
-        pinecone::PineconeClient, sentence_encoder::SentenceEncoder, supabase::SupabaseClient,
-    },
+    services::{pinecone::PineconeClient, supabase::SupabaseClient},
 };
-use anyhow::Result;
 use regex::Regex;
 use serde::{Deserialize, Serialize};
 use std::{collections::HashSet, sync::LazyLock};
@@ -97,16 +96,16 @@ struct MetadataFilter {
     exact_match: bool,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub struct RecommendationService {
-    sentence_encoder: SentenceEncoder,
+    sentence_encoder: UniversalSentenceEncoder,
     pinecone: PineconeClient,
     supabase: SupabaseClient,
 }
 
 impl RecommendationService {
     pub fn new(
-        sentence_encoder: SentenceEncoder,
+        sentence_encoder: UniversalSentenceEncoder,
         pinecone: PineconeClient,
         supabase: SupabaseClient,
     ) -> Self {
@@ -117,11 +116,7 @@ impl RecommendationService {
         }
     }
 
-    pub async fn get_recommendations(
-        &self,
-        query: &str,
-        top_k: usize,
-    ) -> Result<Vec<Book>, ApiError> {
+    pub async fn get_recommendations(&self, query: &str, top_k: usize) -> Result<Vec<Book>> {
         if query.trim().is_empty() {
             return Err(ApiError::InvalidInput("Query cannot be empty".into()));
         }
@@ -228,7 +223,7 @@ impl RecommendationService {
         intent: &QueryIntent,
         strategy: &SearchStrategy,
         top_k: usize,
-    ) -> Result<Vec<Book>, ApiError> {
+    ) -> Result<Vec<Book>> {
         let mut results = Vec::new();
 
         // Try metadata filtering if applicable
@@ -250,11 +245,11 @@ impl RecommendationService {
                     .await?;
 
                 // Add only new results
-                let existing_ids: HashSet<_> = results.iter().map(|r| r.isbn13.clone()).collect();
+                let existing_ids: HashSet<_> = results.iter().map(|r| r.id.clone()).collect();
                 results.extend(
                     partial_matches
                         .into_iter()
-                        .filter(|book| !existing_ids.contains(&book.isbn13)),
+                        .filter(|book| !existing_ids.contains(&book.id)),
                 );
             }
         }
@@ -269,23 +264,24 @@ impl RecommendationService {
             };
 
             let embedding = self.sentence_encoder.encode(query_text).await?;
-            let semantic_results = self.pinecone.query_vector(&embedding, top_k * 2).await?;
+            let semantic_results = self
+                .pinecone
+                .query_vector(embedding.as_slice().unwrap(), top_k * 2)
+                .await?;
 
             if strategy.hybrid_search {
                 // Weight semantic results
                 for result in &mut results {
-                    if let Some(score) = result.rating {
-                        result.rating = Some(score * strategy.semantic_weight);
-                    }
+                    result.rating *= strategy.semantic_weight;
                 }
             }
 
             // Add new semantic results
-            let existing_ids: HashSet<_> = results.iter().map(|r| r.isbn13.clone()).collect();
+            let existing_ids: HashSet<_> = results.iter().map(|r| r.id.clone()).collect();
             results.extend(
                 semantic_results
                     .into_iter()
-                    .filter(|book| !existing_ids.contains(&book.isbn13)),
+                    .filter(|book| !existing_ids.contains(&book.id)),
             );
         }
 
@@ -302,16 +298,15 @@ impl RecommendationService {
             QueryIntent::Author { name, .. } => {
                 let name_lower = name.to_lowercase();
                 results.sort_by(|a, b| {
-                    let a_author = a.author.as_deref().unwrap_or("").to_lowercase();
-                    let b_author = b.author.as_deref().unwrap_or("").to_lowercase();
+                    let a_author = a.author.to_lowercase();
+                    let b_author = b.author.to_lowercase();
 
                     let a_exact = a_author.contains(&name_lower) as i32;
                     let b_exact = b_author.contains(&name_lower) as i32;
 
                     b_exact.cmp(&a_exact).then_with(|| {
                         b.rating
-                            .unwrap_or(0.0)
-                            .partial_cmp(&a.rating.unwrap_or(0.0))
+                            .partial_cmp(&a.rating)
                             .unwrap_or(std::cmp::Ordering::Equal)
                     })
                 });
@@ -319,16 +314,15 @@ impl RecommendationService {
             QueryIntent::Genre { genre, .. } => {
                 let genre_lower = genre.to_lowercase();
                 results.sort_by(|a, b| {
-                    let a_categories = a.categories.as_deref().unwrap_or("").to_lowercase();
-                    let b_categories = b.categories.as_deref().unwrap_or("").to_lowercase();
+                    let a_categories = a.categories.join(", ").to_lowercase();
+                    let b_categories = b.categories.join(", ").to_lowercase();
 
                     let a_match = a_categories.contains(&genre_lower) as i32;
                     let b_match = b_categories.contains(&genre_lower) as i32;
 
                     b_match.cmp(&a_match).then_with(|| {
                         b.rating
-                            .unwrap_or(0.0)
-                            .partial_cmp(&a.rating.unwrap_or(0.0))
+                            .partial_cmp(&a.rating)
                             .unwrap_or(std::cmp::Ordering::Equal)
                     })
                 });
@@ -336,8 +330,7 @@ impl RecommendationService {
             _ => {
                 results.sort_by(|a, b| {
                     b.rating
-                        .unwrap_or(0.0)
-                        .partial_cmp(&a.rating.unwrap_or(0.0))
+                        .partial_cmp(&a.rating)
                         .unwrap_or(std::cmp::Ordering::Equal)
                 });
             }
@@ -348,11 +341,7 @@ impl RecommendationService {
         results
             .into_iter()
             .filter(|book| {
-                let key = format!(
-                    "{}-{}",
-                    book.title.as_deref().unwrap_or(""),
-                    book.author.as_deref().unwrap_or("")
-                );
+                let key = format!("{}-{}", &book.title, &book.author);
                 seen.insert(key)
             })
             .take(top_k)
@@ -365,10 +354,10 @@ mod tests {
     use super::*;
     use mockall::predicate::*;
 
-    #[test]
-    fn test_parse_query_intent() {
+    #[tokio::test]
+    async fn test_parse_query_intent() {
         let service = RecommendationService::new(
-            SentenceEncoder::mock(),
+            UniversalSentenceEncoder::mock().await,
             PineconeClient::mock(),
             SupabaseClient::mock(),
         );
@@ -402,5 +391,20 @@ mod tests {
         ));
     }
 
-    // Add more tests for other functions...
+    #[tokio::test]
+    async fn test_get_recommendations_empty_query() {
+        let service = RecommendationService::new(
+            UniversalSentenceEncoder::mock().await,
+            PineconeClient::mock(),
+            SupabaseClient::mock(),
+        );
+
+        let result = service.get_recommendations("", 10).await;
+        assert!(matches!(
+            result,
+            Err(ApiError::InvalidInput(msg)) if msg == "Query cannot be empty"
+        ));
+    }
+
+    // Add more tests as needed...
 }

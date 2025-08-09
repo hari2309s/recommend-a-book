@@ -8,10 +8,21 @@
   ],
   "scripts": {
     "dev": "turbo run dev",
+    "dev:frontend": "turbo run dev --filter=frontend",
+    "dev:api": "turbo run dev --filter=api",
     "build": "turbo run build",
+    "build:frontend": "turbo run build --filter=frontend",
+    "build:api": "cd apps/api && cargo build --release",
+    "start": "concurrently \"npm run start:api\" \"npm run start:frontend\"",
+    "start:api": "cd apps/api && cargo run --release",
+    "start:frontend": "cd apps/frontend && npm run preview",
+    "clean": "turbo run clean && rm -rf node_modules",
+    "clean:api": "cd apps/api && cargo clean",
+    "clean:frontend": "turbo run clean --filter=frontend",
     "lint": "eslint . --ext .ts --ignore-path .gitignore",
     "format": "prettier --write \"**/*.{ts,js,json}\" --ignore-path .prettierignore",
-    "format:check": "prettier --check \"**/*.{ts,js,json}\" --ignore-path .prettierignore"
+    "format:check": "prettier --check \"**/*.{ts,js,json}\" --ignore-path .prettierignore",
+    "setup": "npm install && cd apps/api && cargo fetch"
   },
   "engines": {
     "node": ">=18.0.0"
@@ -32,11 +43,13 @@
   "devDependencies": {
     "@typescript-eslint/eslint-plugin": "^7.18.0",
     "@typescript-eslint/parser": "^7.18.0",
+    "concurrently": "^8.2.2",
     "eslint": "^8.57.1",
     "eslint-config-prettier": "^9.1.0",
     "eslint-plugin-prettier": "^5.4.1",
     "prettier": "^3.5.3",
     "turbo": "^2.5.0",
-    "typescript": "~5.8.3"
+    "typescript": "~5.8.3",
+    "wait-on": "^7.2.0"
   }
 }

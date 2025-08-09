@@ -1,4 +1,5 @@
-use crate::error::Result;
+use crate::error::{ApiError, Result};
+use anyhow::Context;
 use log::info;
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
@@ -28,7 +29,8 @@ async fn main() -> Result<()> {
         .init();
 
     info!("Loading configuration...");
-    let config = config::Config::load()?;
+    let config =
+        config::Config::load().map_err(|e| ApiError::ExternalServiceError(e.to_string()))?;
 
     // Create and run application
     let application = app::Application::new(&config);

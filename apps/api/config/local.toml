@@ -1,0 +1,23 @@
+# Local configuration overrides
+# This file should not be committed to version control
+
+# Server configuration
+host = "127.0.0.1"
+port = 3000
+environment = "development"
+frontend_url = "http://localhost:5173"
+
+# Supabase configuration
+supabase_url = "https://mlhqonbwniktyqameejo.supabase.co"
+supabase_key = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1saHFvbmJ3bmlrdHlxYW1lZWpvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTAyODQ3NTQsImV4cCI6MjA2NTg2MDc1NH0.AgoZyLYE3XZgn0f7-IwtTZJDahO4R1gXLsmSJXFeuLY"
+
+# Pinecone configuration
+pinecone_api_key = "pcsk_fLc4m_RWNgDbGDB6qAf58GYMgDitXGEBpU2nPPEeyooKXbnbfE3xF2rLTh1ycMx6gWQW4"
+pinecone_environment = "gcp-starter"
+pinecone_index = "books-index"
+
+# Database configuration - using Supabase Postgres
+database_url = "postgres://postgres:postgres@localhost:5432/books_dev"
+
+# Logging
+log_level = "debug"
