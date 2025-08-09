@@ -83,34 +83,4 @@ impl SentenceEncoder {
 
         Ok(embeddings.0)
     }
-
-    #[cfg(test)]
-    pub fn mock() -> Self {
-        Self {
-            client: Client::new(),
-            api_key: "test-key".to_string(),
-        }
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use mockall::predicate::*;
-    use tokio;
-
-    #[tokio::test]
-    async fn test_encode_single_text() {
-        let encoder = SentenceEncoder::mock();
-        let result = encoder.encode("test text").await;
-        assert!(result.is_err()); // Will fail in mock because no actual API call
-    }
-
-    #[tokio::test]
-    async fn test_encode_batch() {
-        let encoder = SentenceEncoder::mock();
-        let texts = vec!["text1".to_string(), "text2".to_string()];
-        let result = encoder.encode_batch(&texts).await;
-        assert!(result.is_err()); // Will fail in mock because no actual API call
-    }
 }

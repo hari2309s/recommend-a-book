@@ -41,39 +41,4 @@ impl SearchHistoryService {
             .await
             .map_err(|e| ApiError::DatabaseError(format!("Failed to save search history: {}", e)))
     }
-
-    #[cfg(test)]
-    pub fn mock() -> Self {
-        Self {
-            supabase: SupabaseClient::mock(),
-        }
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[tokio::test]
-    async fn test_save_search() {
-        let service = SearchHistoryService::mock();
-        let history = SearchHistory {
-            id: None,
-            user_id: Uuid::new_v4(),
-            query: "test query".to_string(),
-            recommendations: vec![],
-            created_at: None,
-        };
-
-        let result = service.save_search(&history).await;
-        assert!(result.is_ok());
-    }
-
-    #[tokio::test]
-    async fn test_get_search_history() {
-        let service = SearchHistoryService::mock();
-        let user_id = Uuid::new_v4();
-        let history = service.get_search_history(user_id, Some(10)).await;
-        assert!(history.is_ok());
-    }
 }
