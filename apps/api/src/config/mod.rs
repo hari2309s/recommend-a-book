@@ -15,7 +15,6 @@ pub struct Config {
     pub pinecone_api_key: String,
     pub pinecone_environment: String,
     pub pinecone_index: String,
-    pub huggingface_api_key: String,
 }
 
 impl Config {

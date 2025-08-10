@@ -18,8 +18,5 @@ pinecone_api_key = ""                   # Set via environment variable
 pinecone_environment = "gcp-starter"
 pinecone_index = "book-recommendations"
 
-# HuggingFace configuration
-huggingface_api_key = "" # Set via environment variable
-
 # Logging configuration
 log_level = "info"
