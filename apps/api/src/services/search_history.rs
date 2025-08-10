@@ -4,7 +4,6 @@ use crate::{
     services::supabase::SupabaseClient,
 };
 use chrono::Utc;
-use serde::de::DeserializeOwned;
 use uuid::Uuid;
 
 #[derive(Debug, Clone)]

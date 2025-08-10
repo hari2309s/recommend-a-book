@@ -1,5 +1,4 @@
 use crate::error::{ApiError, Result};
-use anyhow::Context;
 use log::info;
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 

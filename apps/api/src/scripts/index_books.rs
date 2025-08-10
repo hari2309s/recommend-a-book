@@ -110,10 +110,10 @@ where
 
 pub async fn index_books(config: &Config, csv_path: &Path) -> Result<()> {
     info!("Initializing sentence encoder...");
-    let encoder = SentenceEncoder::new(&config.huggingface_api_key);
+    let encoder = SentenceEncoder::new(&config.hugging_face_api_key);
 
     info!("Initializing Pinecone client...");
-    let pinecone = PineconeClient::new(&config.pinecone_api_key, &config.pinecone_index);
+    let pinecone = PineconeClient::new(&config.pinecone_api_key, &config.pinecone_index_name);
 
     info!("Reading CSV file: {}", csv_path.display());
     let file = File::open(csv_path)?;

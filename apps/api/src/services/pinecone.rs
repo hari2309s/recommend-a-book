@@ -1,5 +1,4 @@
 use anyhow::Result;
-use ndarray::{Array1, ArrayView1};
 use reqwest::{header::HeaderMap, Client};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;

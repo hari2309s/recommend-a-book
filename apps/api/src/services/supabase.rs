@@ -1,10 +1,6 @@
 use crate::error::ApiError;
-use chrono::{DateTime, Utc};
 use reqwest::{Client, StatusCode};
 use serde::{de::DeserializeOwned, Serialize};
-use serde_json::json;
-use std::collections::HashMap;
-use uuid::Uuid;
 
 #[derive(Debug, Clone)]
 pub struct SupabaseClient {
