@@ -1,12 +1,13 @@
 use crate::{
     config::Config,
-    error::{ApiError, Result},
+    error::Result,
     ml::universal_sentence_encoder::UniversalSentenceEncoder,
     routes::api_routes,
-    services::{PineconeClient, RecommendationService, SearchHistoryService, SupabaseClient},
+    services::{Pinecone, RecommendationService, SearchHistoryService, SupabaseClient},
 };
 use actix_cors::Cors;
 use actix_web::{middleware::Logger, web, App, HttpServer};
+use anyhow::Context;
 use log::info;
 use std::net::TcpListener;
 
@@ -40,11 +41,20 @@ impl Application {
     pub async fn run_with_listener(&self, listener: TcpListener) -> Result<()> {
         // Initialize services
         let supabase = SupabaseClient::new(&self.config.supabase_url, &self.config.supabase_key);
-        let pinecone =
-            PineconeClient::new(&self.config.pinecone_api_key, &self.config.pinecone_index);
+
+        // Initialize Pinecone client asynchronously
+        let pinecone = Pinecone::new(
+            &self.config.pinecone_api_key,
+            &self.config.pinecone_environment,
+            &self.config.pinecone_index,
+        )
+        .await
+        .context("Failed to initialize Pinecone client")?;
 
         // Initialize ML model
-        let sentence_encoder = UniversalSentenceEncoder::new().await?;
+        let sentence_encoder = UniversalSentenceEncoder::new()
+            .await
+            .context("Failed to initialize sentence encoder")?;
 
         let recommendation_service = web::Data::new(RecommendationService::new(
             sentence_encoder,

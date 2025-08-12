@@ -2,13 +2,13 @@ use crate::error::Result;
 use crate::{
     error::ApiError,
     ml::universal_sentence_encoder::UniversalSentenceEncoder,
-    models::{Book, RecommendationRequest},
-    services::{pinecone::PineconeClient, supabase::SupabaseClient},
+    models::Book,
+    services::{pinecone::Pinecone, supabase::SupabaseClient},
 };
 use regex::Regex;
-use serde::{Deserialize, Serialize};
+use serde::Serialize;
 use std::{collections::HashSet, sync::LazyLock};
-use tracing::{debug, error, info, warn};
+use tracing::{debug, info};
 
 static AUTHOR_PATTERNS: LazyLock<Vec<Regex>> = LazyLock::new(|| {
     vec![
@@ -99,14 +99,14 @@ struct MetadataFilter {
 #[derive(Clone)]
 pub struct RecommendationService {
     sentence_encoder: UniversalSentenceEncoder,
-    pinecone: PineconeClient,
+    pinecone: Pinecone,
     supabase: SupabaseClient,
 }
 
 impl RecommendationService {
     pub fn new(
         sentence_encoder: UniversalSentenceEncoder,
-        pinecone: PineconeClient,
+        pinecone: Pinecone,
         supabase: SupabaseClient,
     ) -> Self {
         Self {

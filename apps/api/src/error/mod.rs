@@ -32,6 +32,9 @@ pub enum ApiError {
 
     #[error("Internal server error: {0}")]
     InternalError(String),
+
+    #[error("Pinecone error: {0}")]
+    PineconeError(String),
 }
 
 #[derive(Serialize)]

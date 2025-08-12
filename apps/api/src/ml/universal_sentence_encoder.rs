@@ -3,7 +3,7 @@ use ndarray::{Array1, Array2};
 use rust_bert::pipelines::sentence_embeddings::{
     SentenceEmbeddingsBuilder, SentenceEmbeddingsModel, SentenceEmbeddingsModelType,
 };
-use std::{str::FromStr, sync::Arc};
+use std::sync::Arc;
 use tokio::sync::Mutex;
 use tracing::{debug, error, info};
 

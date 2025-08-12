@@ -1,8 +1,4 @@
-use crate::{
-    error::ApiError,
-    models::{Book, SearchHistory},
-    services::supabase::SupabaseClient,
-};
+use crate::{error::ApiError, models::SearchHistory, services::supabase::SupabaseClient};
 use chrono::Utc;
 use uuid::Uuid;
 

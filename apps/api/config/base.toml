@@ -15,8 +15,8 @@ supabase_key = "" # Set via environment variable
 
 # Pinecone configuration
 pinecone_api_key = ""                   # Set via environment variable
-pinecone_environment = "gcp-starter"
-pinecone_index = "book-recommendations"
+pinecone_environment = "aped-4627-b74a"
+pinecone_index = "books-index"
 
 # Logging configuration
 log_level = "info"

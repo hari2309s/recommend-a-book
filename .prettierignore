@@ -17,3 +17,6 @@ pnpm-lock.yaml
 .DS_Store
 .next
 out
+.pinecone
+**/*/target/*
+*/target/*

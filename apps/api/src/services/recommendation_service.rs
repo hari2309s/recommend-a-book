@@ -1,19 +1,19 @@
 use crate::error::AppError;
 use crate::ml::sentence_encoder::SentenceEncoder;
-use crate::models::{Book, PineconeMetadata};
-use anyhow::Result;
-use pinecone_sdk::{Index, QueryRequest};
+use crate::models::Book;
+use crate::services::Pinecone;
+use anyhow::{Context, Result};
 
 pub struct RecommendationService {
     model: SentenceEncoder,
-    pinecone_index: Index,
+    pinecone: Pinecone,
 }
 
 impl RecommendationService {
-    pub fn new(model: SentenceEncoder, pinecone_index: Index) -> Self {
+    pub fn new(model: SentenceEncoder, pinecone: Pinecone) -> Self {
         Self {
             model,
-            pinecone_index,
+            pinecone,
         }
     }
 
@@ -31,37 +31,11 @@ impl RecommendationService {
             .into());
         }
 
-        // Query Pinecone
-        let query_request = QueryRequest {
-            vector: embedding.clone(),
-            top_k: top_k as u32,
-            include_metadata: true,
-            ..Default::default()
-        };
-
-        let results = self.pinecone_index.query(&query_request).await?;
-
-        // Convert results to Book structs
-        let books = results
-            .matches
-            .iter()
-            .filter_map(|match_result| {
-                match_result.metadata.as_ref().map(|metadata| {
-                    // Convert metadata to Book
-                    Book {
-                        title: metadata.get("title")?.as_str()?.to_string(),
-                        author: metadata.get("author")?.as_str()?.to_string(),
-                        description: metadata.get("description")?.as_str()?.to_string(),
-                        rating: metadata.get("rating")?.as_str()?.to_string(),
-                        thumbnail: metadata.get("thumbnail")?.as_str()?.to_string(),
-                        categories: metadata.get("categories")?.as_str()?.to_string(),
-                        published_year: metadata.get("publishedYear")?.as_str()?.to_string(),
-                        ratings_count: metadata.get("ratingsCount")?.as_str()?.to_string(),
-                    }
-                })
-            })
-            .collect::<Option<Vec<Book>>>()
-            .ok_or(AppError::MetadataParsingError)?;
+        // Query Pinecone using the new client
+        let books = self.pinecone
+            .query_vector(embedding, top_k)
+            .await
+            .context("Failed to query Pinecone for recommendations")?;
 
         Ok(books)
     }

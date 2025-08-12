@@ -34,8 +34,7 @@ tch = { version = "0.17", features = ["download-libtorch"] }
 tokenizers = "0.14"
 ndarray = { version = "0.15", features = ["serde"] }
 
-# Vector Operations for Embeddings
-pinecone-client = "0.7"
+# Vector Operations for Embeddings - using direct HTTP client
 
 # Utilities
 uuid = { version = "1.4", features = ["v4", "serde"] }
