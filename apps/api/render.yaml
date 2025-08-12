@@ -1,35 +1,48 @@
 services:
   - type: web
-    name: recommend-a-book-api
+    name: recommend-a-book-rust-api
     runtime: rust
+    region: frankfurt
+    plan: starter
     buildCommand: cargo build --release
     startCommand: ./target/release/recommend-a-book-api
+    healthCheckPath: /api/health
     envVars:
       - key: RUST_LOG
         value: info
-      - key: HOST
+      - key: RUN_MODE
+        value: production
+      - key: APP_HOST
         value: 0.0.0.0
-      - key: SUPABASE_URL
+      - key: APP_PORT
+        value: 10000
+      - key: APP_ENVIRONMENT
+        value: production
+      - key: APP_FRONTEND_URL
+        value: https://recommend-a-book-frontend.vercel.app
+      # Database configuration
+      - key: APP_DATABASE_URL
+        value: postgres://localhost:5432/books
+      # Supabase configuration (set via Render dashboard)
+      - key: APP_SUPABASE_URL
         sync: false
-      - key: SUPABASE_KEY
+      - key: APP_SUPABASE_KEY
         sync: false
-      - key: PINECONE_API_KEY
+      # Pinecone configuration (set via Render dashboard)
+      - key: APP_PINECONE_API_KEY
         sync: false
-      - key: PINECONE_ENVIRONMENT
+      - key: APP_PINECONE_ENVIRONMENT
         sync: false
-      - key: PINECONE_INDEX
+      - key: APP_PINECONE_INDEX
         sync: false
-      - key: HUGGINGFACE_API_KEY
+      # HuggingFace API key for ML models (optional)
+      - key: APP_HUGGINGFACE_API_KEY
         sync: false
-      - key: PORT
-        value: 3000
     autoDeploy: true
-    healthCheckPath: /health
-    numInstances:
-      min: 1
-      max: 1
-    github:
-      branch: main
+    repo: https://github.com/hari2309s/recommend-a-book
+    rootDir: apps/api
     buildFilter:
       paths:
         - apps/api/**/*
+      ignoredPaths:
+        - apps/api/target/**/*

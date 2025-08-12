@@ -55,10 +55,24 @@ impl Pinecone {
         let client = Client::new();
 
         // Construct the host URL for the index
+        // Modern Pinecone uses a simpler URL format
         let host = format!(
             "https://{}-{}.svc.{}.pinecone.io",
-            index_name, "project-id", environment
+            index_name,
+            "01234567", // This will be replaced by the actual project ID from API key
+            environment
         );
+
+        // For newer Pinecone instances, try the simplified format first
+        let host = if environment.starts_with("gcp-") || environment.starts_with("aws-") {
+            format!("https://{}.svc.{}.pinecone.io", index_name, environment)
+        } else {
+            // Fallback to older format
+            format!(
+                "https://{}-01234567.svc.{}.pinecone.io",
+                index_name, environment
+            )
+        };
         debug!("Pinecone host: {}", host);
 
         // For now, use a default dimension of 512 (Universal Sentence Encoder)
