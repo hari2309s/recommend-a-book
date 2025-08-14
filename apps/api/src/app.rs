@@ -77,6 +77,7 @@ impl Application {
                 .service(api_routes())
         })
         .listen(listener)?
+        .bind("0.0.0.0:10000")?
         .run()
         .await?;
 
