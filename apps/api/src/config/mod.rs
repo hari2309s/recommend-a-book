@@ -19,7 +19,7 @@ pub struct Config {
 
 impl Config {
     pub fn load() -> Result<Self> {
-        use tracing::{info, debug};
+        use tracing::{info, debug, warn};
         
         let run_mode = env::var("RUN_MODE").unwrap_or_else(|_| "development".into());
         info!("Loading configuration for environment: {}", run_mode);
@@ -54,7 +54,14 @@ impl Config {
         
         // Override with environment variables if they exist
         if let Ok(port) = env::var("PORT") {
-            config.port = port.parse()?;
+            if let Ok(port_num) = port.parse::<u16>() {
+                info!("Using port from PORT environment variable: {}", port_num);
+                config.port = port_num;
+            } else {
+                warn!("Invalid PORT environment variable value: {}", port);
+            }
+        } else {
+            info!("Using default port from config: {}", config.port);
         }
         
         // Log final Pinecone configuration
