@@ -12,7 +12,7 @@ pub struct Pinecone {
     dimension: usize,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Clone, Deserialize)]
 pub struct QueryMatch {
     pub id: String,
     pub score: f32,
@@ -51,29 +51,27 @@ impl Pinecone {
             &api_key[api_key.len().saturating_sub(5)..]
         );
 
-        // Create HTTP client
-        let client = Client::new();
+        // Create HTTP client with better configuration
+        let client = Client::builder()
+            .timeout(std::time::Duration::from_secs(30))
+            .connect_timeout(std::time::Duration::from_secs(10))
+            .build()
+            .map_err(|e| ApiError::PineconeError(format!("Failed to create HTTP client: {}", e)))?;
 
-        // Construct the host URL for the index
-        // Modern Pinecone uses a simpler URL format
-        let host = format!(
-            "https://{}-{}.svc.{}.pinecone.io",
-            index_name,
-            "01234567", // This will be replaced by the actual project ID from API key
-            environment
-        );
-
-        // For newer Pinecone instances, try the simplified format first
-        let host = if environment.starts_with("gcp-") || environment.starts_with("aws-") {
+        // Construct the host URL using modern Pinecone URL format
+        // Try to detect project ID from API key if possible, otherwise use simplified format
+        let host = if environment.contains("-") {
+            // Modern format: https://index-name.svc.environment.pinecone.io
             format!("https://{}.svc.{}.pinecone.io", index_name, environment)
         } else {
-            // Fallback to older format
+            // Legacy format fallback
             format!(
-                "https://{}-01234567.svc.{}.pinecone.io",
+                "https://{}-project.svc.{}.pinecone.io",
                 index_name, environment
             )
         };
-        debug!("Pinecone host: {}", host);
+
+        debug!("Pinecone host URL: {}", host);
 
         // For now, use a default dimension of 512 (Universal Sentence Encoder)
         let dimension = 512;
@@ -132,42 +130,83 @@ impl Pinecone {
     async fn execute_query(&self, request: QueryRequest) -> Result<Vec<crate::models::Book>> {
         let url = format!("{}/query", self.host);
 
-        debug!("Making Pinecone query to: {}", url);
-
-        let response = self
-            .client
-            .post(&url)
-            .header("Api-Key", &self.api_key)
-            .header("Content-Type", "application/json")
-            .json(&request)
-            .send()
-            .await
-            .map_err(|e| {
-                error!("Failed to send request to Pinecone: {}", e);
-                ApiError::PineconeError(format!("Request failed: {}", e))
-            })?;
-
-        if !response.status().is_success() {
-            let status = response.status();
-            let text = response.text().await.unwrap_or_default();
-            error!("Pinecone API error: {} - {}", status, text);
-            return Err(ApiError::PineconeError(format!(
-                "API returned {}: {}",
-                status, text
-            )));
-        }
-
-        let query_result: QueryResponse = response.json().await.map_err(|e| {
-            error!("Failed to parse Pinecone response: {}", e);
-            ApiError::PineconeError(format!("Response parsing failed: {}", e))
-        })?;
-
         debug!(
-            "Pinecone query returned {} matches",
-            query_result.matches.as_ref().map_or(0, |m| m.len())
+            "Making Pinecone query to: {} with top_k: {}",
+            url, request.top_k
         );
 
-        self.process_pinecone_results(query_result)
+        // Retry logic with exponential backoff
+        let mut attempts = 0;
+        const MAX_RETRIES: u32 = 3;
+
+        loop {
+            attempts += 1;
+
+            let response = self
+                .client
+                .post(&url)
+                .header("Api-Key", &self.api_key)
+                .header("Content-Type", "application/json")
+                .header("X-Pinecone-API-Version", "2025-01")
+                .header("User-Agent", "recommend-a-book-rust-api/1.0")
+                .json(&request)
+                .send()
+                .await;
+
+            match response {
+                Ok(resp) if resp.status().is_success() => {
+                    let query_result: QueryResponse = resp.json().await.map_err(|e| {
+                        error!("Failed to parse Pinecone response: {}", e);
+                        ApiError::PineconeError(format!("Response parsing failed: {}", e))
+                    })?;
+
+                    debug!(
+                        "Pinecone query returned {} matches",
+                        query_result.matches.as_ref().map_or(0, |m| m.len())
+                    );
+
+                    return self.process_pinecone_results(query_result);
+                }
+                Ok(resp) => {
+                    let status = resp.status();
+                    let text = resp.text().await.unwrap_or_default();
+
+                    if status.as_u16() >= 500 && attempts < MAX_RETRIES {
+                        // Retry on server errors
+                        let delay = std::time::Duration::from_millis(100 * 2u64.pow(attempts - 1));
+                        debug!(
+                            "Retrying Pinecone request in {:?} (attempt {}/{})",
+                            delay, attempts, MAX_RETRIES
+                        );
+                        tokio::time::sleep(delay).await;
+                        continue;
+                    }
+
+                    error!("Pinecone API error: {} - {}", status, text);
+                    return Err(ApiError::PineconeError(format!(
+                        "API returned {}: {}",
+                        status, text
+                    )));
+                }
+                Err(e) if attempts < MAX_RETRIES => {
+                    // Retry on network errors
+                    let delay = std::time::Duration::from_millis(100 * 2u64.pow(attempts - 1));
+                    debug!(
+                        "Retrying Pinecone request after network error in {:?} (attempt {}/{}): {}",
+                        delay, attempts, MAX_RETRIES, e
+                    );
+                    tokio::time::sleep(delay).await;
+                    continue;
+                }
+                Err(e) => {
+                    error!(
+                        "Failed to send request to Pinecone after {} attempts: {}",
+                        MAX_RETRIES, e
+                    );
+                    return Err(ApiError::PineconeError(format!("Request failed: {}", e)));
+                }
+            }
+        }
     }
 
     fn process_pinecone_results(
@@ -175,43 +214,90 @@ impl Pinecone {
         query_result: QueryResponse,
     ) -> Result<Vec<crate::models::Book>> {
         let mut books = Vec::new();
+        let matches = query_result.matches.unwrap_or_default();
+
+        debug!("Processing {} matches from Pinecone", matches.len());
 
         // Process each match in the query results
-        for match_ in query_result.matches.unwrap_or_default() {
+        let matches_len = matches.len();
+        for (index, match_) in matches.into_iter().enumerate() {
             // Convert the match's metadata to a serde_json::Value
             let mut metadata_value = serde_json::Map::new();
 
             // Add the match ID
             metadata_value.insert("id".to_string(), serde_json::json!(match_.id));
 
-            // Add the score as rating
-            metadata_value.insert("rating".to_string(), serde_json::json!(match_.score));
+            // Add the score as rating (ensure it's a valid float)
+            let score = match_.score.max(0.0).min(1.0); // Clamp between 0 and 1
+            metadata_value.insert("rating".to_string(), serde_json::json!(score));
 
             // Add other metadata fields if they exist
             if let Some(metadata) = &match_.metadata {
-                if let serde_json::Value::Object(ref meta_obj) = metadata {
-                    for (key, value) in meta_obj {
-                        metadata_value.insert(key.clone(), value.clone());
+                match metadata {
+                    serde_json::Value::Object(ref meta_obj) => {
+                        for (key, value) in meta_obj {
+                            // Skip internal Pinecone fields
+                            if !key.starts_with("_") {
+                                metadata_value.insert(key.clone(), value.clone());
+                            }
+                        }
+                    }
+                    _ => {
+                        debug!(
+                            "Unexpected metadata format for match {}: {:?}",
+                            match_.id, metadata
+                        );
                     }
                 }
             }
 
+            // Ensure required fields have defaults if missing
+            if !metadata_value.contains_key("title") {
+                metadata_value.insert("title".to_string(), serde_json::json!("Unknown Title"));
+            }
+            if !metadata_value.contains_key("author") {
+                metadata_value.insert("author".to_string(), serde_json::json!("Unknown Author"));
+            }
+            if !metadata_value.contains_key("categories") {
+                metadata_value.insert(
+                    "categories".to_string(),
+                    serde_json::json!(Vec::<String>::new()),
+                );
+            }
+
             // Try to deserialize the metadata into a Book
-            match serde_json::from_value(serde_json::Value::Object(metadata_value)) {
-                Ok(book) => books.push(book),
+            match serde_json::from_value::<crate::models::Book>(serde_json::Value::Object(
+                metadata_value.clone(),
+            )) {
+                Ok(book) => {
+                    debug!(
+                        "Successfully processed book: {} by {}",
+                        book.title.as_deref().unwrap_or("Unknown"),
+                        book.author.as_deref().unwrap_or("Unknown")
+                    );
+                    books.push(book);
+                }
                 Err(e) => {
                     error!(
-                        "Failed to deserialize book metadata for ID {}: {}",
-                        match_.id, e
+                        "Failed to deserialize book metadata for match {} (ID: {}): {}. Metadata: {:?}",
+                        index, match_.id, e, metadata_value
                     );
+                    // Continue processing other matches instead of failing completely
                     continue;
                 }
             }
         }
 
+        if books.is_empty() && matches_len > 0 {
+            return Err(ApiError::PineconeError(
+                "No books could be processed from Pinecone results".to_string(),
+            ));
+        }
+
         debug!(
-            "Successfully processed {} books from Pinecone results",
-            books.len()
+            "Successfully processed {}/{} books from Pinecone results",
+            books.len(),
+            matches_len
         );
         Ok(books)
     }

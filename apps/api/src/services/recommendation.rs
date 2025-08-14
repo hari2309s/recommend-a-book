@@ -298,8 +298,8 @@ impl RecommendationService {
             QueryIntent::Author { name, .. } => {
                 let name_lower = name.to_lowercase();
                 results.sort_by(|a, b| {
-                    let a_author = a.author.to_lowercase();
-                    let b_author = b.author.to_lowercase();
+                    let a_author = a.author.as_deref().unwrap_or("").to_lowercase();
+                    let b_author = b.author.as_deref().unwrap_or("").to_lowercase();
 
                     let a_exact = a_author.contains(&name_lower) as i32;
                     let b_exact = b_author.contains(&name_lower) as i32;
@@ -341,7 +341,11 @@ impl RecommendationService {
         results
             .into_iter()
             .filter(|book| {
-                let key = format!("{}-{}", &book.title, &book.author);
+                let key = format!(
+                    "{}-{}",
+                    book.title.as_deref().unwrap_or("Unknown"),
+                    book.author.as_deref().unwrap_or("Unknown")
+                );
                 seen.insert(key)
             })
             .take(top_k)
