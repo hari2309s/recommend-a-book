@@ -29,9 +29,10 @@ impl Application {
 
     /// Build and run the server
     pub async fn run(&self) -> Result<()> {
-        let address = format!("{}:{}", self.host, self.port);
-        let listener = TcpListener::bind(&address)?;
-        info!("Starting server at http://{}", address);
+        // Always bind to 0.0.0.0 for Docker/Render compatibility
+        let bind_address = format!("0.0.0.0:{}", self.port);
+        let listener = TcpListener::bind(&bind_address)?;
+        info!("Starting server at http://{}:{}", self.host, self.port);
 
         self.run_with_listener(listener).await
     }
