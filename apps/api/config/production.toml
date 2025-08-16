@@ -15,7 +15,7 @@ supabase_key = ""
 
 # Pinecone configuration - set via Render dashboard environment variables
 pinecone_api_key = ""
-pinecone_environment = "gcp-starter"
+pinecone_environment = "aped-4627-b74a"
 pinecone_index = "books-index"
 
 # HuggingFace configuration - optional for production

@@ -150,7 +150,7 @@ curl -X POST https://your-service-name.onrender.com/api/recommendations/ \
 
 #### 1. Build Timeouts
 **Problem**: Cargo build times out
-**Solution**: 
+**Solution**:
 - Use Render Standard plan or higher
 - Enable cargo caching (automatic on Render)
 
