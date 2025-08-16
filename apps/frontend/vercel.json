@@ -1,5 +1,6 @@
 {
   "version": 2,
-  "buildCommand": "cd apps/frontend && rm -rf node_modules package-lock.json && npm install --ignore-scripts && npm run build",
-  "outputDirectory": "apps/frontend/dist"
+  "buildCommand": "cd apps/frontend && pnpm install && pnpm run build",
+  "outputDirectory": "apps/frontend/dist",
+  "installCommand": "pnpm install --ignore-scripts"
 }
