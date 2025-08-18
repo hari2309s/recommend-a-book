@@ -19,8 +19,8 @@ pub struct Config {
 
 impl Config {
     pub fn load() -> Result<Self> {
-        use tracing::{info, debug, warn};
-        
+        use tracing::{debug, info, warn};
+
         let run_mode = env::var("RUN_MODE").unwrap_or_else(|_| "development".into());
         info!("Loading configuration for environment: {}", run_mode);
 
@@ -35,10 +35,10 @@ impl Config {
             .add_source(File::from(PathBuf::from("config/local.toml")).required(false))
             // Add environment variables with prefix "APP_"
             .add_source(Environment::with_prefix("APP").separator("_"));
-            
+
         // Clone the config for debugging before consuming it
         let debug_config = config_builder.build_cloned()?;
-        
+
         // Log all configuration sources for debugging
         debug!("Configuration sources:");
         if let Ok(sources) = debug_config.collect() {
@@ -48,25 +48,30 @@ impl Config {
                 }
             }
         }
-        
+
         // Build the final config
         let mut config: Config = config_builder.build()?.try_deserialize()?;
-        
+
         // Override with environment variables if they exist
-        if let Ok(port) = env::var("PORT") {
+        if let Ok(port) = env::var("APP_PORT") {
             if let Ok(port_num) = port.parse::<u16>() {
-                info!("Using port from PORT environment variable: {}", port_num);
+                info!(
+                    "Using port from APP_PORT environment variable: {}",
+                    port_num
+                );
                 config.port = port_num;
             } else {
-                warn!("Invalid PORT environment variable value: {}", port);
+                warn!("Invalid APP_PORT environment variable value: {}", port);
             }
         } else {
             info!("Using default port from config: {}", config.port);
         }
-        
+
         // Log final Pinecone configuration
-        debug!("Final Pinecone configuration - Environment: {}, Index: {}", 
-               config.pinecone_environment, config.pinecone_index);
+        debug!(
+            "Final Pinecone configuration - Environment: {}, Index: {}",
+            config.pinecone_environment, config.pinecone_index
+        );
 
         Ok(config)
     }

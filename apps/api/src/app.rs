@@ -57,11 +57,8 @@ impl Application {
             .await
             .context("Failed to initialize sentence encoder")?;
 
-        let recommendation_service = web::Data::new(RecommendationService::new(
-            sentence_encoder,
-            pinecone,
-            supabase.clone(),
-        ));
+        let recommendation_service =
+            web::Data::new(RecommendationService::new(sentence_encoder, pinecone));
         let search_history_service = web::Data::new(SearchHistoryService::new(supabase));
 
         HttpServer::new(move || {

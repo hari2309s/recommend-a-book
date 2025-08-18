@@ -2,7 +2,7 @@
 
 # Server configuration
 host = "0.0.0.0"
-port = 10000
+port = "${APP_PORT}"
 environment = "development"
 frontend_url = "http://localhost:3000"
 
@@ -10,13 +10,13 @@ frontend_url = "http://localhost:3000"
 database_url = "postgres://localhost:5432/books"
 
 # Supabase configuration
-supabase_url = ""
-supabase_key = ""
+supabase_url = "${APP_SUPABASE_URL}"
+supabase_key = "${APP_SUPABASE_KEY}"
 
 # Pinecone configuration
-pinecone_api_key = ""
-pinecone_environment = "aped-4627-b74a"
-pinecone_index = "books-index"
+pinecone_api_key = "${APP_PINECONE_API_KEY}"
+pinecone_environment = "${APP_PINECONE_ENV}"
+pinecone_index = "${APP_PINECONE_INDEX_NAME}"
 
 # Logging configuration
 log_level = "info"

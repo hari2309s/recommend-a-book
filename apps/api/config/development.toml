@@ -1,7 +1,6 @@
 # Development-specific configuration overrides
 
 # Server configuration
-port = 3000
 # Development-specific overrides
 environment = "development"
 frontend_url = "http://localhost:3000"
@@ -11,8 +10,8 @@ database_url = "postgres://localhost:5432/books"
 
 # ML Model configuration
 model_path = "apps/api/models"
-sentence_transformer_model = "all-MiniLM-L6-v2"
-max_sequence_length = 128
+sentence_transformer_model = "all-mpnet-base-v2"
+max_sequence_length = 512
 
 # Security
 # WARNING: These are for development only. In production, use secure keys.

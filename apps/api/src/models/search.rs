@@ -1,11 +1,15 @@
+use crate::models::Book;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SearchHistory {
-    pub id: Uuid,
-    pub user_id: Option<Uuid>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub id: Option<Uuid>,
+    pub user_id: Uuid,
     pub query: String,
-    pub timestamp: DateTime<Utc>,
+    pub recommendations: Vec<Book>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub created_at: Option<DateTime<Utc>>,
 }

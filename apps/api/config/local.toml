@@ -3,7 +3,7 @@
 
 # Server configuration
 host = "127.0.0.1"
-port = 3000
+port = 10000
 environment = "development"
 frontend_url = "http://localhost:5173"
 
@@ -13,8 +13,8 @@ supabase_key = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJ
 
 # Pinecone configuration
 pinecone_api_key = "pcsk_fLc4m_RWNgDbGDB6qAf58GYMgDitXGEBpU2nPPEeyooKXbnbfE3xF2rLTh1ycMx6gWQW4"
-pinecone_environment = "gcp-starter"
-pinecone_index = "books-index"
+pinecone_environment = "aped-4627-b74a"
+pinecone_index = "books-index-0rnb22r"
 
 # Database configuration - using Supabase Postgres
 database_url = "postgres://postgres:postgres@localhost:5432/books_dev"

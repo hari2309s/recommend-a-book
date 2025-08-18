@@ -16,14 +16,12 @@ pub struct Pinecone {
 pub struct QueryMatch {
     pub id: String,
     pub score: f32,
-    pub values: Option<Vec<f32>>,
     pub metadata: Option<serde_json::Value>,
 }
 
 #[derive(Debug, Deserialize)]
 pub struct QueryResponse {
     pub matches: Option<Vec<QueryMatch>>,
-    pub namespace: Option<String>,
 }
 
 #[derive(Debug, Serialize)]
@@ -88,13 +86,19 @@ impl Pinecone {
         &self,
         field: &str,
         value: &str,
-        _exact_match: bool,
+        exact_match: bool,
         top_k: usize,
     ) -> Result<Vec<crate::models::Book>> {
         // Create a metadata filter
-        let filter = json!({
-            field: {"$eq": value}
-        });
+        let filter = if exact_match {
+            json!({
+                field: {"$eq": value}
+            })
+        } else {
+            json!({
+                field: {"$containsStr": value}
+            })
+        };
 
         // Create query request with dummy vector and metadata filter
         let query_request = QueryRequest {
@@ -221,34 +225,33 @@ impl Pinecone {
         // Process each match in the query results
         let matches_len = matches.len();
         for (index, match_) in matches.into_iter().enumerate() {
-            // Convert the match's metadata to a serde_json::Value
-            let mut metadata_value = serde_json::Map::new();
+            // Extract metadata from the match
+            let metadata = match_
+                .metadata
+                .and_then(|m| {
+                    if let serde_json::Value::Object(obj) = m {
+                        Some(obj)
+                    } else {
+                        None
+                    }
+                })
+                .unwrap_or_default();
 
-            // Add the match ID
+            // Build normalized metadata
+            let mut metadata_value = serde_json::Map::new();
             metadata_value.insert("id".to_string(), serde_json::json!(match_.id));
 
-            // Add the score as rating (ensure it's a valid float)
-            let score = match_.score.max(0.0).min(1.0); // Clamp between 0 and 1
-            metadata_value.insert("rating".to_string(), serde_json::json!(score));
-
-            // Add other metadata fields if they exist
-            if let Some(metadata) = &match_.metadata {
-                match metadata {
-                    serde_json::Value::Object(ref meta_obj) => {
-                        for (key, value) in meta_obj {
-                            // Skip internal Pinecone fields
-                            if !key.starts_with("_") {
-                                metadata_value.insert(key.clone(), value.clone());
-                            }
-                        }
-                    }
-                    _ => {
-                        debug!(
-                            "Unexpected metadata format for match {}: {:?}",
-                            match_.id, metadata
-                        );
-                    }
+            // Copy all non-internal fields
+            for (key, value) in metadata.iter() {
+                if !key.starts_with("_") {
+                    metadata_value.insert(key.clone(), value.clone());
                 }
+            }
+
+            // Ensure rating exists as a string for proper deserialization
+            if !metadata_value.contains_key("rating") {
+                let score = match_.score.max(0.0).min(5.0); // Scale to 0-5 range
+                metadata_value.insert("rating".to_string(), serde_json::json!(score.to_string()));
             }
 
             // Ensure required fields have defaults if missing
@@ -259,10 +262,13 @@ impl Pinecone {
                 metadata_value.insert("author".to_string(), serde_json::json!("Unknown Author"));
             }
             if !metadata_value.contains_key("categories") {
-                metadata_value.insert(
-                    "categories".to_string(),
-                    serde_json::json!(Vec::<String>::new()),
-                );
+                metadata_value.insert("categories".to_string(), serde_json::json!("Unknown"));
+            }
+            if !metadata_value.contains_key("year") {
+                metadata_value.insert("year".to_string(), serde_json::json!(null));
+            }
+            if !metadata_value.contains_key("page_count") {
+                metadata_value.insert("page_count".to_string(), serde_json::json!(null));
             }
 
             // Try to deserialize the metadata into a Book

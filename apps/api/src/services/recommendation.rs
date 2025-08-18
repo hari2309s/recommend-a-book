@@ -1,9 +1,7 @@
 use crate::error::Result;
 use crate::{
-    error::ApiError,
-    ml::universal_sentence_encoder::UniversalSentenceEncoder,
-    models::Book,
-    services::{pinecone::Pinecone, supabase::SupabaseClient},
+    error::ApiError, ml::universal_sentence_encoder::UniversalSentenceEncoder, models::Book,
+    services::pinecone::Pinecone,
 };
 use regex::Regex;
 use serde::Serialize;
@@ -74,7 +72,6 @@ enum QueryIntent {
         original_query: String,
     },
     SimilarTo {
-        reference: String,
         original_query: String,
     },
     General {
@@ -100,19 +97,13 @@ struct MetadataFilter {
 pub struct RecommendationService {
     sentence_encoder: UniversalSentenceEncoder,
     pinecone: Pinecone,
-    supabase: SupabaseClient,
 }
 
 impl RecommendationService {
-    pub fn new(
-        sentence_encoder: UniversalSentenceEncoder,
-        pinecone: Pinecone,
-        supabase: SupabaseClient,
-    ) -> Self {
+    pub fn new(sentence_encoder: UniversalSentenceEncoder, pinecone: Pinecone) -> Self {
         Self {
             sentence_encoder,
             pinecone,
-            supabase,
         }
     }
 
@@ -176,9 +167,8 @@ impl RecommendationService {
 
         // Try to match similar-to patterns
         for pattern in SIMILAR_PATTERNS.iter() {
-            if let Some(cap) = pattern.captures(query) {
+            if pattern.captures(query).is_some() {
                 return QueryIntent::SimilarTo {
-                    reference: cap[1].trim().to_string(),
                     original_query: query.to_string(),
                 };
             }
@@ -259,15 +249,12 @@ impl RecommendationService {
             let query_text = match intent {
                 QueryIntent::Author { original_query, .. }
                 | QueryIntent::Genre { original_query, .. }
-                | QueryIntent::SimilarTo { original_query, .. } => original_query,
+                | QueryIntent::SimilarTo { original_query } => original_query,
                 QueryIntent::General { query } => query,
             };
 
             let embedding = self.sentence_encoder.encode(query_text).await?;
-            let semantic_results = self
-                .pinecone
-                .query_vector(embedding.as_slice().unwrap(), top_k * 2)
-                .await?;
+            let semantic_results = self.pinecone.query_vector(&embedding, top_k * 2).await?;
 
             if strategy.hybrid_search {
                 // Weight semantic results
