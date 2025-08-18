@@ -9,18 +9,16 @@ type SearchFormProps = {
   loading: boolean;
   setLoading: (loading: boolean) => void;
   deviceId: string | null;
-  setVisibleCount: (count: number) => void;
+  resetScroll: () => void;
   setAllRecommendations: (books: Book[]) => void;
-  setRecommendations: (books: Book[]) => void;
 };
 
 const SearchForm: React.FC<SearchFormProps> = ({
   loading,
   setLoading,
   deviceId,
-  setVisibleCount,
+  resetScroll,
   setAllRecommendations,
-  setRecommendations,
 }: SearchFormProps) => {
   const [isSticky, setIsSticky] = useState<boolean>(false);
   const { scrollY } = useScroll();
@@ -36,18 +34,23 @@ const SearchForm: React.FC<SearchFormProps> = ({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!input.trim()) return;
+
     setLoading(true);
-    setVisibleCount(10);
+    resetScroll();
 
     try {
-      const data = await fetchRecommendations(input, deviceId!, 51);
-      setAllRecommendations(data.recommendations);
-      setRecommendations(data.recommendations.slice(0, 10));
+      const data = await fetchRecommendations(input, deviceId || '', 51);
+      if (data.recommendations && Array.isArray(data.recommendations)) {
+        setAllRecommendations(data.recommendations);
+      } else {
+        console.error('Invalid recommendations format received');
+      }
     } catch (error) {
       console.error('Error fetching recommendations:', error);
+    } finally {
+      setLoading(false);
     }
-
-    setLoading(false);
   };
 
   const formVariants = {
@@ -106,6 +109,7 @@ const SearchForm: React.FC<SearchFormProps> = ({
               placeholder="Enter your book preferences"
               value={input}
               onChange={(e) => setInput(e.target.value)}
+              onBlur={(e) => setInput(e.target.value)}
               className="w-full"
               style={{
                 backgroundColor: 'rgba(255, 255, 255, 0.9)',
@@ -124,7 +128,7 @@ const SearchForm: React.FC<SearchFormProps> = ({
               variant="soft"
               type="submit"
               loading={loading}
-              disabled={loading || input.trim() === ''}
+              disabled={loading || !input.trim()}
               size="3"
               className="whitespace-nowrap bg-green-600 hover:bg-green-700 text-white"
               style={{

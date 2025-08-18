@@ -8,37 +8,23 @@ import { RecommendationList } from '@/components/RecommendationList';
 import FingerprintJS from '@fingerprintjs/fingerprintjs';
 import SearchForm from '@/components/SearchForm';
 import Header from '@/components/Header';
+import { useInfiniteScroll } from '@/hooks';
 
 const App: FC = () => {
-  const [recommendations, setRecommendations] = useState<Book[]>([]);
   const [deviceId, setDeviceId] = useState<string | null>(null);
-  const [allRecommendations, setAllRecommendations] = useState<Book[]>([]);
-  const [visibleCount, setVisibleCount] = useState<number>(10);
-  const [showLoader, setShowLoader] = useState<boolean>(false);
   const [loading, setLoading] = useState<boolean>(false);
-  const [searchPerformed, _] = useState<boolean>(false);
 
-  useEffect(() => {
-    const handleScroll = () => {
-      if (
-        window.innerHeight + window.scrollY >= document.body.offsetHeight - 100 &&
-        !loading &&
-        visibleCount < allRecommendations.length
-      ) {
-        setShowLoader(true);
-        setTimeout(() => {
-          setVisibleCount((prev) => Math.min(prev + 10, allRecommendations.length));
-          setShowLoader(false);
-        }, 600);
-      }
-    };
-    window.addEventListener('scroll', handleScroll);
-    return () => window.removeEventListener('scroll', handleScroll);
-  }, [loading, visibleCount, allRecommendations.length]);
-
-  useEffect(() => {
-    setRecommendations(allRecommendations.slice(0, visibleCount));
-  }, [visibleCount, allRecommendations]);
+  const {
+    visibleItems: recommendations,
+    setAllItems: setAllRecommendations,
+    isLoading: showLoader,
+    resetScroll,
+    searchPerformed,
+  } = useInfiniteScroll<Book>({
+    initialItemsToShow: 10,
+    itemsToLoadPerPage: 10,
+    threshold: 100,
+  });
 
   useEffect(() => {
     const initializeFingerprint = async () => {
@@ -81,9 +67,8 @@ const App: FC = () => {
             loading={loading}
             setLoading={setLoading}
             deviceId={deviceId}
-            setVisibleCount={setVisibleCount}
+            resetScroll={resetScroll}
             setAllRecommendations={setAllRecommendations}
-            setRecommendations={setRecommendations}
           />
           <AnimatePresence mode="wait">
             {recommendations?.length > 0 && (

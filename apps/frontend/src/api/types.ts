@@ -1,74 +1,50 @@
-// Types for API responses and requests
+/**
+ * Book recommendation types and interfaces
+ */
 
-// Book type returned by the backend
+/**
+ * Represents a book with its metadata
+ */
 export interface Book {
   id: string;
   title?: string;
   author?: string;
   description?: string;
-  thumbnail?: string;
   categories: string[];
+  thumbnail?: string;
   rating: number;
-  published_year?: number;
   ratings_count?: number;
-  similarity_score?: number;
+  published_year?: number;
+  year?: number;
+  isbn?: string;
+  page_count?: number;
+  language?: string;
+  publisher?: string;
 }
 
-// Search/Recommendation request
+/**
+ * Request parameters for book recommendations
+ */
 export interface RecommendationRequest {
   query: string;
-  top_k?: number;
   user_id?: string;
+  topK?: number;
 }
 
-// Recommendation response
+/**
+ * Response from the recommendations API
+ */
 export interface RecommendationResponse {
-  recommendations: Array<Book>;
-  query: string;
-  created_at: string;
-}
-
-// Search history entry
-export interface SearchHistoryEntry {
-  id: string;
-  query: string;
-  created_at: string;
   recommendations: Book[];
+  user_id: string;
 }
 
-// Search history response
-export interface SearchHistoryResponse {
-  history: SearchHistoryEntry[];
-  total: number;
-}
-
-// Error response from the backend
+/**
+ * API error response structure
+ */
 export interface ApiErrorResponse {
   error: {
-    code: string;
     message: string;
-    details?: Record<string, any>;
+    details?: Record<string, unknown>;
   };
-}
-
-// Health check response
-export interface HealthCheckResponse {
-  status: 'ok' | 'error';
-  version: string;
-  timestamp: string;
-}
-
-// Pagination parameters
-export interface PaginationParams {
-  page: number;
-  per_page: number;
-}
-
-// Generic paginated response
-export interface PaginatedResponse<T> {
-  items: T[];
-  total: number;
-  page: number;
-  per_page: number;
-  total_pages: number;
 }
