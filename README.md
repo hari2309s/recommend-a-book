@@ -1,89 +1,67 @@
 # Book Recommendation System
 
-A full-stack application that provides personalized book recommendations based on user preferences. The system uses a dataset from Kaggle to suggest books that match your reading interests.
+A full-stack application that provides personalized book recommendations based on user preferences. The system uses advanced natural language processing and vector similarity search to suggest books that match your reading interests.
 
 ## Features
 
-- **Semantic Search**: Find books using natural language queries that understand meaning, not just keywords
-- **Personalized Recommendations**: Get book suggestions based on semantic understanding of your preferences
-- **Modern Tech Stack**: Built with React, TypeScript, Vite, and Node.js
-- **Responsive Design**: Works on both desktop and mobile devices
-- **Context-Aware Results**: Get more relevant results that understand the context of your search
-
-## Dataset
-
-The book dataset is sourced from [Kaggle](https://www.kaggle.com/). The dataset (`books.csv`) contains information about various books including titles, authors, publication details, and user ratings.
+- **Semantic Search**: Advanced natural language search powered by sentence embeddings using Rust-BERT models
+- **Smart Book Recommendations**: Get book suggestions based on semantic understanding of your preferences using vector similarity search
+- **Search History**: Keep track of your previous searches and recommendations
+- **Fast and Efficient**: Built with Rust for high-performance backend operations
+- **Modern UI**: Clean and responsive interface built with React and Radix UI
+- **Real-time Updates**: Smooth user experience with infinite scrolling and dynamic loading
 
 ## Tech Stack
 
-- **Frontend**:
+### Backend (Rust)
+- **Web Framework**: Actix-web 4.4
+- **Machine Learning**:
+  - Rust-BERT for sentence embeddings
+  - Universal Sentence Encoder model
+  - Vector similarity search using Pinecone
+- **Database**: Supabase with PostgreSQL
+- **Deployment**: Render
+- **API Features**:
+  - CORS support
+  - Structured error handling
+  - Configuration management
+  - Comprehensive logging and tracing
+
+### Frontend (React)
+- **Core**:
   - React 19
   - TypeScript 5.8
-  - Vite
+  - Vite 6
+- **UI/UX**:
+  - Radix UI Themes & Components
   - Tailwind CSS
-  - Radix UI Components
   - Framer Motion for animations
+  - Lucide icons
+- **Deployment**: Vercel
+- **Features**:
+  - Fingerprint-based user tracking
+  - Responsive design
+  - Progressive loading
+  - Modern component architecture
 
-- **Backend**:
-  - Node.js
-  - Express 5
-  - TypeScript 5.8
-  - TensorFlow.js for machine learning
-  - Pinecone for efficient vector similarity search
-  - Universal Sentence Encoder for generating semantic embeddings
-  - Semantic search pipeline for understanding query context
+## Architecture
 
-## Getting Started
+The application follows a modern client-server architecture:
 
-### Prerequisites
+- **Backend**: Rust-based API server providing high-performance endpoints for search and recommendations
+- **Frontend**: React single-page application with modern state management and UI components
+- **ML Pipeline**: Efficient text embedding generation and similarity search using Rust-BERT and Pinecone
+- **Data Storage**: Supabase (PostgreSQL) for structured data and search history, Pinecone for vector embeddings
+- **Deployment**: Render for hosting the api and Vercel for hosting the frontend
 
-- Node.js (v18 or later)
-- pnpm or yarn or npm
+## Environment Variables
 
-### Installation
+### Backend
+- `DATABASE_URL`: PostgreSQL connection string
+- `PINECONE_API_KEY`: API key for Pinecone vector database
+- `RUST_LOG`: Logging level configuration
+- Additional configuration in `config/*.toml` files
 
-1. Clone the repository:
-   ```bash
-   git clone https://github.com/yourusername/recommend-a-book.git
-   cd recommend-a-book
-   ```
-
-2. Install dependencies for both frontend and backend:
-   ```bash
-   # Install backend dependencies
-   cd apps/backend
-   npm install
-
-   # Install frontend dependencies
-   cd ../frontend
-   npm install
-   ```
-
-3. Set up environment variables:
-   - Create a `.env` file in the `apps/backend` directory
-   - Add any required environment variables (check with the development team if needed)
-
-### Running the Application
-
-1. Start the backend server:
-   ```bash
-   cd apps/backend
-   npm run dev
-   ```
-
-2. In a new terminal, start the frontend development server:
-   ```bash
-   cd apps/frontend
-   npm run dev
-   ```
-
-3. Open your browser and navigate to `http://localhost:5173`
-
-## License
-
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
-
-## Acknowledgments
-
-- Book dataset provided by [Kaggle](https://www.kaggle.com/)
-- Built with amazing open source technologies
+### Frontend
+- `VITE_API_URL`: Backend API endpoint
+- `VITE_ENVIRONMENT`: Development/production environment setting
