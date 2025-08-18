@@ -1,33 +1,25 @@
 {
-  "$schema": "https://turborepo.org/schema.json",
-  "ui": "tui",
-  "globalDependencies": [".env*"],
+  "$schema": "https://turbo.build/schema.json",
+  "globalDependencies": ["**/.env.*local"],
   "tasks": {
     "build": {
       "dependsOn": ["^build"],
-      "inputs": ["$TURBO_DEFAULT$", ".env*"],
-      "outputs": ["dist/**"]
+      "outputs": ["dist/**", "build/**", ".next/**", "!.next/cache/**"]
+    },
+    "test": {
+      "dependsOn": ["^build"],
+      "outputs": ["coverage/**"],
+      "inputs": ["src/**/*.tsx", "src/**/*.ts", "test/**/*.ts", "test/**/*.tsx"]
     },
     "lint": {
-      "dependsOn": ["^lint"],
-      "outputs": []
-    },
-    "format": {
-      "dependsOn": ["^format"],
       "outputs": []
     },
     "dev": {
       "cache": false,
-      "persistent": true,
-      "env": [
-        "NODE_ENV",
-        "PORT",
-        "VITE_*",
-        "PINECONE_API_KEY",
-        "PINECONE_INDEX_NAME",
-        "SUPABASE_URL",
-        "SUPABASE_KEY"
-      ]
+      "persistent": true
+    },
+    "clean": {
+      "cache": false
     }
   }
 }

@@ -57,7 +57,11 @@ export function RecommendationCard({ book, resetAccordion }: RecommendationCardP
         >
           <Flex gap="2" direction="column" align="stretch">
             <Flex gap="2" direction="row" justify="between">
-              <BookThumbnail src={book.thumbnail} alt={book.title} className="mr-4" />
+              <BookThumbnail
+                src={book.thumbnail}
+                alt={book.title || 'Book cover'}
+                className="mr-4"
+              />
               <Flex
                 gap="2"
                 direction="column"
@@ -73,7 +77,7 @@ export function RecommendationCard({ book, resetAccordion }: RecommendationCardP
                     <h3>{book.title}</h3>
                   </Heading>
                 </motion.div>
-                <AuthorBadges authors={book.author.split(';')} />
+                {book.author && <AuthorBadges authors={book.author.split(';')} />}
               </Flex>
             </Flex>
             <Separator size="4" />
@@ -99,23 +103,23 @@ export function RecommendationCard({ book, resetAccordion }: RecommendationCardP
                     <Star fill="green" />
                   </motion.div>
                   <Text>
-                    {book.rating} / {book.ratingsCount}
+                    {book.rating} / {book.ratings_count || 0}
                   </Text>
                 </Flex>
-                {book.publishedYear && (
+                {book.published_year && (
                   <motion.div
                     initial={{ opacity: 0 }}
                     animate={{ opacity: 1 }}
                     transition={{ duration: 0.3, delay: 0.5 }}
                   >
-                    <Text className="italic">{book.publishedYear}</Text>
+                    <Text className="italic">{book.published_year}</Text>
                   </motion.div>
                 )}
               </Flex>
               <Separator size="4" />
               <div className="mt-3 w-full">
                 <BookDescriptionAccordion
-                  description={book.description}
+                  description={book.description || 'No description available'}
                   isOpen={isAccordionOpen}
                   onToggle={() => setIsAccordionOpen(!isAccordionOpen)}
                 />

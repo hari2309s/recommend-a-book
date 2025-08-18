@@ -3,26 +3,27 @@
 // Book type returned by the backend
 export interface Book {
   id: string;
-  title: string;
-  author: string;
+  title?: string;
+  author?: string;
   description?: string;
-  cover_url?: string;
-  genres?: string[];
-  rating?: number;
+  thumbnail?: string;
+  categories: string[];
+  rating: number;
   published_year?: number;
+  ratings_count?: number;
   similarity_score?: number;
 }
 
 // Search/Recommendation request
 export interface RecommendationRequest {
   query: string;
-  limit?: number;
-  include_description?: boolean;
+  top_k?: number;
+  user_id?: string;
 }
 
 // Recommendation response
 export interface RecommendationResponse {
-  recommendations: Book[];
+  recommendations: Array<Book>;
   query: string;
   created_at: string;
 }

@@ -2,30 +2,28 @@ import { z } from 'zod';
 
 // Environment variables schema
 const envSchema = z.object({
-  VITE_API_URL: z.string().url().default('http://localhost:8080/api'),
+  VITE_API_URL: z.string().url().default('http://localhost:3000/api'),
   VITE_PROD_API_URL: z.string().url(),
   VITE_ENABLE_MOCK_API: z
     .string()
     .transform((v) => v === 'true')
-    .default('false'),
+    .default(false),
   VITE_ENABLE_ANALYTICS: z
     .string()
     .transform((v) => v === 'true')
-    .default('false'),
+    .default(false),
 });
 
 // Validate environment variables
 const env = envSchema.parse(import.meta.env);
 
 // API version
-const API_VERSION = 'v1';
-
 // Determine the base URL based on environment
 const BASE_URL = import.meta.env.MODE === 'production' ? env.VITE_PROD_API_URL : env.VITE_API_URL;
 
 // API configuration object
 export const apiConfig = {
-  baseURL: `${BASE_URL}/${API_VERSION}`,
+  baseURL: BASE_URL,
   enableMockApi: env.VITE_ENABLE_MOCK_API,
   enableAnalytics: env.VITE_ENABLE_ANALYTICS,
   endpoints: {
@@ -52,8 +50,8 @@ export const apiConfig = {
   },
   // Rate limiting
   rateLimit: {
-    maxRequestsPerMinute: 60,
-    recommendationsPerMinute: 10,
+    maxRequestsPerMinute: 100,
+    recommendationsPerMinute: 20,
   },
   // Pagination defaults
   pagination: {

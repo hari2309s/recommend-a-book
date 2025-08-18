@@ -27,7 +27,7 @@
   "engines": {
     "node": ">=18.0.0"
   },
-  "packageManager": "pnpm@8.15.6",
+  "packageManager": "pnpm@10.14.0",
   "resolutions": {
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0"
@@ -38,18 +38,29 @@
       "react-dom": "^19.0.0",
       "@types/react": "^19.0.0",
       "@types/react-dom": "^19.0.0"
-    }
+    },
+    "onlyBuiltDependencies": [
+      "@tailwindcss/oxide",
+      "esbuild"
+    ]
   },
   "devDependencies": {
-    "@typescript-eslint/eslint-plugin": "^7.18.0",
-    "@typescript-eslint/parser": "^7.18.0",
+    "@eslint/js": "^9.33.0",
+    "@types/react": "^19.1.10",
+    "@types/react-dom": "^19.1.7",
+    "@typescript-eslint/eslint-plugin": "^8.39.1",
+    "@typescript-eslint/parser": "^8.39.1",
     "concurrently": "^8.2.2",
-    "eslint": "^8.57.1",
-    "eslint-config-prettier": "^9.1.0",
-    "eslint-plugin-prettier": "^5.4.1",
-    "prettier": "^3.5.3",
-    "turbo": "^2.5.0",
+    "eslint": "^9.33.0",
+    "eslint-config-prettier": "^10.1.8",
+    "eslint-plugin-prettier": "^5.5.4",
+    "eslint-plugin-react-hooks": "^5.2.0",
+    "eslint-plugin-react-refresh": "^0.4.19",
+    "globals": "^16.3.0",
+    "prettier": "^3.6.2",
+    "turbo": "^2.5.6",
     "typescript": "~5.8.3",
-    "wait-on": "^7.2.0"
+    "wait-on": "^8.0.4",
+    "zod": "^4.0.17"
   }
 }

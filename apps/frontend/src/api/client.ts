@@ -1,5 +1,5 @@
-import axios, { AxiosError, type AxiosInstance } from 'axios';
-import {
+import axios, { AxiosError, type AxiosInstance, type AxiosResponse } from 'axios';
+import type {
   ApiErrorResponse,
   Book,
   HealthCheckResponse,
@@ -36,10 +36,10 @@ class ApiClient {
 
     // Response interceptor for standardized error handling
     this.client.interceptors.response.use(
-      (response) => ({
-        data: response.data,
-        error: null,
-      }),
+      (response: AxiosResponse) => {
+        // Return the original response to maintain AxiosResponse type compatibility
+        return response;
+      },
       (error: AxiosError<ApiErrorResponse>) => {
         const defaultError = {
           code: 'UNKNOWN_ERROR',
@@ -48,8 +48,7 @@ class ApiClient {
 
         // Handle network errors
         if (!error.response) {
-          return {
-            data: null,
+          throw {
             error: {
               code: 'NETWORK_ERROR',
               message: 'Network error occurred. Please check your connection.',
@@ -59,8 +58,7 @@ class ApiClient {
 
         // Handle timeout errors
         if (error.code === 'ECONNABORTED') {
-          return {
-            data: null,
+          throw {
             error: {
               code: 'TIMEOUT_ERROR',
               message: 'Request timed out. Please try again.',
@@ -71,8 +69,7 @@ class ApiClient {
         // Use error from API if available, otherwise use default
         const apiError = error.response.data?.error || defaultError;
 
-        return {
-          data: null,
+        throw {
           error: apiError,
         };
       }
@@ -88,7 +85,12 @@ class ApiClient {
   async getRecommendations(
     request: RecommendationRequest
   ): Promise<ApiResult<RecommendationResponse>> {
-    return this.client.post(apiConfig.endpoints.recommendations, request);
+    const payload = {
+      query: request.query,
+      top_k: request.top_k || 10,
+      user_id: request.user_id,
+    };
+    return this.client.post(apiConfig.endpoints.recommendations, payload);
   }
 
   // Get search history with pagination
@@ -110,7 +112,25 @@ class ApiClient {
 
   // Get book details
   async getBookDetails(id: string): Promise<ApiResult<Book>> {
-    return this.client.get(`${apiConfig.endpoints.books}/${id}`);
+    const response = await this.client.get(`${apiConfig.endpoints.books}/${id}`);
+    if (response.data) {
+      // Map the response to match our Book interface
+      const book = response.data;
+      return {
+        data: {
+          ...book,
+          categories: book.categories || [],
+          rating: book.rating || 0,
+        },
+        error: null,
+      };
+    }
+    throw {
+      error: {
+        code: 'NOT_FOUND',
+        message: 'Book not found',
+      },
+    };
   }
 
   // Clear all search history
