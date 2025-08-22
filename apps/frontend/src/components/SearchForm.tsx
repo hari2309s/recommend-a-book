@@ -11,6 +11,7 @@ type SearchFormProps = {
   deviceId: string | null;
   resetScroll: () => void;
   setAllRecommendations: (books: Book[]) => void;
+  setErrorMessage: (message: string) => void;
 };
 
 const SearchForm: React.FC<SearchFormProps> = ({
@@ -19,6 +20,7 @@ const SearchForm: React.FC<SearchFormProps> = ({
   deviceId,
   resetScroll,
   setAllRecommendations,
+  setErrorMessage,
 }: SearchFormProps) => {
   const [isSticky, setIsSticky] = useState<boolean>(false);
   const { scrollY } = useScroll();
@@ -48,6 +50,7 @@ const SearchForm: React.FC<SearchFormProps> = ({
       }
     } catch (error) {
       console.error('Error fetching recommendations:', error);
+      setErrorMessage('Failed to fetch recommendations');
     } finally {
       setLoading(false);
     }

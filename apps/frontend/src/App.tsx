@@ -9,10 +9,12 @@ import FingerprintJS from '@fingerprintjs/fingerprintjs';
 import SearchForm from '@/components/SearchForm';
 import Header from '@/components/Header';
 import { useInfiniteScroll } from '@/hooks';
+import Error from './components/Error';
 
 const App: FC = () => {
   const [deviceId, setDeviceId] = useState<string | null>(null);
   const [loading, setLoading] = useState<boolean>(false);
+  const [errorMessage, setErrorMessage] = useState<string>('');
 
   const {
     visibleItems: recommendations,
@@ -69,6 +71,7 @@ const App: FC = () => {
             deviceId={deviceId}
             resetScroll={resetScroll}
             setAllRecommendations={setAllRecommendations}
+            setErrorMessage={setErrorMessage}
           />
           <AnimatePresence mode="wait">
             {recommendations?.length > 0 && (
@@ -98,6 +101,7 @@ const App: FC = () => {
               </motion.div>
             )}
           </AnimatePresence>
+          {errorMessage && <Error message={errorMessage} />}
         </Flex>
       </Box>
     </motion.div>

@@ -21,7 +21,6 @@ const Error = ({ message }: ErrorProps) => {
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        background: 'rgba(255, 0, 0, 0.1)',
       }}
     >
       <motion.div
