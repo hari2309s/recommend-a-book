@@ -1,10 +1,10 @@
-import apiConfig from './config';
+import apiConfig from '@api/config';
 import type {
   Book,
   RecommendationRequest,
   RecommendationResponse,
   ApiErrorResponse,
-} from './types';
+} from '@api/types';
 
 /**
  * Fetches book recommendations based on the provided search criteria

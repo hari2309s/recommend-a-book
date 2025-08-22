@@ -1,8 +1,4 @@
 /**
- * Book recommendation types and interfaces
- */
-
-/**
  * Represents a book with its metadata
  */
 export interface Book {
