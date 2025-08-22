@@ -1,0 +1,30 @@
+# Development-specific configuration overrides
+
+# Server configuration
+# Development-specific overrides
+environment = "development"
+frontend_url = "http://localhost:3000"
+
+# Database configuration
+database_url = ""
+
+# ML Model configuration
+sentence_transformer_model = ""
+max_sequence_length = 512
+
+# Security
+# WARNING: These are for development only. In production, use secure keys.
+api_key = "dev-secret-key"
+
+# Pinecone configuration
+# These should be overridden with environment variables in development
+pinecone_api_key = ""
+pinecone_environment = ""
+pinecone_index = ""
+
+# HuggingFace configuration
+# This should be overridden with environment variables in development
+huggingface_api_key = ""
+
+# Logging configuration
+log_level = "debug"

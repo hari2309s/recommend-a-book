@@ -28,13 +28,8 @@ sqlx = { version = "0.7", features = [
 tokio = { version = "1.32", features = ["full"] }
 futures = "0.3"
 
-# ML & Text Processing
-rust-bert = { version = "0.23", features = ["download-libtorch", "remote"] }
-tch = { version = "0.17", features = ["download-libtorch"] }
-tokenizers = "0.14"
+# Lightweight array operations (keep this for basic operations)
 ndarray = { version = "0.15", features = ["serde"] }
-
-# Vector Operations for Embeddings - using direct HTTP client
 
 # Utilities
 uuid = { version = "1.4", features = ["v4", "serde"] }
@@ -44,8 +39,6 @@ thiserror = "1.0"
 once_cell = "1.18"
 lazy_static = "1.4"
 regex = "1.10"
-indicatif = "0.16"
-console = { version = "0.16", features = ["std"] }
 
 # Logging & Tracing
 tracing = "0.1"
@@ -63,16 +56,7 @@ debug = false
 [profile.dev.package."*"]
 opt-level = 2
 
-# Optimize ML-related packages even in dev mode
-[profile.dev.package.tch]
-opt-level = 3
-
-[profile.dev.package.rust-bert]
-opt-level = 3
-
-[profile.dev.package.tokenizers]
-opt-level = 3
-
+# Remove these heavy ML optimizations since we're using API now
 [profile.dev]
 debug = true
 split-debuginfo = "unpacked"

@@ -3,6 +3,12 @@
 **/*.rs.bk
 *.pdb
 Cargo.lock
+/apps/api/config/development.toml
+/apps/api/config/local.toml
+/apps/api/config/production.toml
+
+# Keep only the example files
+!/apps/api/config/*.toml.example
 
 # IDE and editor files
 .idea/
