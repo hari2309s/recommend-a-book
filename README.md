@@ -4,7 +4,7 @@ A full-stack application that provides personalized book recommendations based o
 
 ## Features
 
-- **Semantic Search**: Advanced natural language search powered by sentence embeddings using Rust-BERT models
+- **Semantic Search**: Advanced natural language search powered by sentence embeddings using BAAI/bge-large-en-v1.5 via Hugging Face Inference API
 - **Smart Book Recommendations**: Get book suggestions based on semantic understanding of your preferences using vector similarity search
 - **Search History**: Keep track of your previous searches and recommendations
 - **Fast and Efficient**: Built with Rust for high-performance backend operations
@@ -16,8 +16,7 @@ A full-stack application that provides personalized book recommendations based o
 ### Backend (Rust)
 - **Web Framework**: Actix-web 4.4
 - **Machine Learning**:
-  - Rust-BERT for sentence embeddings
-  - Universal Sentence Encoder model
+  - BAAI/bge-large-en-v1.5 embeddings via Hugging Face Inference API
   - Vector similarity search using Pinecone
 - **Database**: Supabase with PostgreSQL
 - **Deployment**: Render
@@ -50,7 +49,7 @@ The application follows a modern client-server architecture:
 
 - **Backend**: Rust-based API server providing high-performance endpoints for search and recommendations
 - **Frontend**: React single-page application with modern state management and UI components
-- **ML Pipeline**: Efficient text embedding generation and similarity search using Rust-BERT and Pinecone
+- **ML Pipeline**: Text embedding generation using BAAI/bge-large-en-v1.5 via Hugging Face Inference API and similarity search using Pinecone
 - **Data Storage**: Supabase (PostgreSQL) for structured data and search history, Pinecone for vector embeddings
 - **Deployment**: Render for hosting the api and Vercel for hosting the frontend
 
@@ -59,6 +58,7 @@ The application follows a modern client-server architecture:
 ### Backend
 - `DATABASE_URL`: PostgreSQL connection string
 - `PINECONE_API_KEY`: API key for Pinecone vector database
+- `HUGGINGFACE_API_KEY`: API key for Hugging Face Inference API
 - `RUST_LOG`: Logging level configuration
 - Additional configuration in `config/*.toml` files
 
