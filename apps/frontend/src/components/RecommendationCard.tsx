@@ -103,7 +103,7 @@ export function RecommendationCard({ book, resetAccordion }: RecommendationCardP
                     <Star fill="green" />
                   </motion.div>
                   <Text>
-                    {book.rating} / {book.ratings_count || 0}
+                    {book.rating?.toFixed(2)} / {book.ratings_count || 0}
                   </Text>
                 </Flex>
                 {book.published_year && (
