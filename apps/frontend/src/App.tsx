@@ -9,7 +9,7 @@ import FingerprintJS from '@fingerprintjs/fingerprintjs';
 import SearchForm from '@/components/SearchForm';
 import Header from '@/components/Header';
 import { useInfiniteScroll } from '@/hooks';
-import Error from './components/Error';
+import Error from '@/components/Error';
 
 const App: FC = () => {
   const [deviceId, setDeviceId] = useState<string | null>(null);
