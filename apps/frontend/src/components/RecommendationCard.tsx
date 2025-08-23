@@ -106,15 +106,16 @@ export function RecommendationCard({ book, resetAccordion }: RecommendationCardP
                     {book.rating?.toFixed(2)} / {book.ratings_count || 0}
                   </Text>
                 </Flex>
-                {book.published_year && (
-                  <motion.div
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    transition={{ duration: 0.3, delay: 0.5 }}
-                  >
-                    <Text className="italic">{book.published_year}</Text>
-                  </motion.div>
-                )}
+                {book.published_year ||
+                  (book.year && (
+                    <motion.div
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      transition={{ duration: 0.3, delay: 0.5 }}
+                    >
+                      <Text className="italic">{book.published_year || book.year}</Text>
+                    </motion.div>
+                  ))}
               </Flex>
               <Separator size="4" />
               <div className="mt-3 w-full">
