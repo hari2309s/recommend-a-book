@@ -1,1 +1,1 @@
-pub mod universal_sentence_encoder;
+pub mod huggingface_embedder;

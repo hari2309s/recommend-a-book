@@ -19,14 +19,14 @@ const MAX_TEXT_PREVIEW_LENGTH: usize = 100;
 /// Provides sentence embeddings using HuggingFace Inference API
 /// This eliminates the need to download and load large models locally
 #[derive(Clone)]
-pub struct UniversalSentenceEncoder {
+pub struct HuggingFaceEmbedder {
     client: Client,
     api_key: String,
     model_url: String,
     model_name: String,
 }
 
-impl UniversalSentenceEncoder {
+impl HuggingFaceEmbedder {
     /// Creates a new instance of the sentence encoder using HuggingFace API
     /// Uses a 512-dimensional model for better quality embeddings
     pub async fn new() -> Result<Self, ApiError> {

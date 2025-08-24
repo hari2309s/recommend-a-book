@@ -1,6 +1,6 @@
 use crate::error::Result;
 use crate::{
-    error::ApiError, ml::universal_sentence_encoder::UniversalSentenceEncoder, models::Book,
+    error::ApiError, ml::huggingface_embedder::HuggingFaceEmbedder, models::Book,
     services::pinecone::Pinecone,
 };
 use regex::Regex;
@@ -95,12 +95,12 @@ struct MetadataFilter {
 
 #[derive(Clone)]
 pub struct RecommendationService {
-    sentence_encoder: UniversalSentenceEncoder,
+    sentence_encoder: HuggingFaceEmbedder,
     pinecone: Pinecone,
 }
 
 impl RecommendationService {
-    pub fn new(sentence_encoder: UniversalSentenceEncoder, pinecone: Pinecone) -> Self {
+    pub fn new(sentence_encoder: HuggingFaceEmbedder, pinecone: Pinecone) -> Self {
         Self {
             sentence_encoder,
             pinecone,

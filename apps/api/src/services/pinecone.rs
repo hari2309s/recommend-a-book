@@ -2,7 +2,7 @@ use crate::error::{ApiError, Result};
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
-use tracing::{debug, error};
+use tracing::{debug, error, warn};
 
 #[derive(Clone)]
 pub struct Pinecone {
@@ -222,75 +222,122 @@ impl Pinecone {
 
         debug!("Processing {} matches from Pinecone", matches.len());
 
-        // Process each match in the query results
         let matches_len = matches.len();
         for (index, match_) in matches.into_iter().enumerate() {
             // Extract metadata from the match
-            let metadata = match_
-                .metadata
-                .and_then(|m| {
-                    if let serde_json::Value::Object(obj) = m {
-                        Some(obj)
-                    } else {
-                        None
+            let metadata = match_.metadata.and_then(|m| {
+                if let serde_json::Value::Object(obj) = m {
+                    Some(obj)
+                } else {
+                    None
+                }
+            });
+
+            if let Some(mut metadata_map) = metadata {
+                // Add the ID to metadata for Book deserialization
+                metadata_map.insert("id".to_string(), serde_json::json!(match_.id));
+
+                // Try to deserialize the metadata into a Book using serde
+                // The Book model already has the correct aliases set up
+                match serde_json::from_value::<crate::models::Book>(serde_json::Value::Object(
+                    metadata_map.clone(),
+                )) {
+                    Ok(book) => {
+                        debug!(
+                            "Successfully processed book: {} by {}",
+                            book.title.as_deref().unwrap_or("Unknown"),
+                            book.author.as_deref().unwrap_or("Unknown")
+                        );
+                        books.push(book);
                     }
-                })
-                .unwrap_or_default();
+                    Err(e) => {
+                        warn!(
+                            "Failed to deserialize book metadata for match {} (ID: {}): {}",
+                            index, match_.id, e
+                        );
 
-            // Build normalized metadata
-            let mut metadata_value = serde_json::Map::new();
-            metadata_value.insert("id".to_string(), serde_json::json!(match_.id));
+                        // Log the problematic metadata for debugging
+                        debug!("Problematic metadata: {:?}", metadata_map);
 
-            // Copy all non-internal fields
-            for (key, value) in metadata.iter() {
-                if !key.starts_with("_") {
-                    metadata_value.insert(key.clone(), value.clone());
+                        // Create minimal fallback book
+                        let minimal_book = crate::models::Book {
+                            id: Some(match_.id.clone()),
+                            title: metadata_map
+                                .get("title")
+                                .and_then(|v| v.as_str())
+                                .map(|s| s.to_string()),
+                            author: metadata_map
+                                .get("author")
+                                .and_then(|v| v.as_str())
+                                .map(|s| s.to_string()),
+                            description: metadata_map
+                                .get("description")
+                                .and_then(|v| v.as_str())
+                                .map(|s| s.to_string()),
+                            categories: metadata_map
+                                .get("categories")
+                                .and_then(|v| v.as_str())
+                                .map(|s| vec![s.to_string()])
+                                .unwrap_or_else(|| vec!["Unknown".to_string()]),
+                            thumbnail: metadata_map
+                                .get("thumbnail")
+                                .and_then(|v| v.as_str())
+                                .map(|s| s.to_string()),
+                            rating: metadata_map
+                                .get("rating")
+                                .and_then(|v| v.as_str())
+                                .and_then(|s| s.parse().ok())
+                                .unwrap_or(0.0),
+                            year: metadata_map
+                                .get("publishedYear")
+                                .and_then(|v| v.as_str())
+                                .and_then(|s| s.parse().ok()),
+                            isbn: Some(match_.id.clone()),
+                            page_count: metadata_map
+                                .get("pageCount")
+                                .or_else(|| metadata_map.get("page_count"))
+                                .and_then(|v| v.as_str())
+                                .and_then(|s| s.parse().ok()),
+                            ratings_count: metadata_map
+                                .get("ratingsCount")
+                                .and_then(|v| v.as_str())
+                                .and_then(|s| s.parse().ok()),
+                            language: metadata_map
+                                .get("language")
+                                .and_then(|v| v.as_str())
+                                .map(|s| s.to_string()),
+                            publisher: metadata_map
+                                .get("publisher")
+                                .and_then(|v| v.as_str())
+                                .map(|s| s.to_string()),
+                        };
+
+                        debug!("Created minimal book fallback for ID: {}", match_.id);
+                        books.push(minimal_book);
+                    }
                 }
-            }
+            } else {
+                warn!("Match {} has no metadata", match_.id);
 
-            // Ensure rating exists as a string for proper deserialization
-            if !metadata_value.contains_key("rating") {
-                let score = match_.score.max(0.0).min(5.0); // Scale to 0-5 range
-                metadata_value.insert("rating".to_string(), serde_json::json!(score.to_string()));
-            }
+                // Create minimal fallback book
+                let minimal_book = crate::models::Book {
+                    id: Some(match_.id.clone()),
+                    title: Some("Unknown Title".to_string()),
+                    author: Some("Unknown Author".to_string()),
+                    description: None,
+                    categories: vec!["Unknown".to_string()],
+                    thumbnail: None,
+                    rating: 0.0,
+                    year: None,
+                    isbn: Some(match_.id.clone()),
+                    page_count: None,
+                    ratings_count: None,
+                    language: None,
+                    publisher: None,
+                };
 
-            // Ensure required fields have defaults if missing
-            if !metadata_value.contains_key("title") {
-                metadata_value.insert("title".to_string(), serde_json::json!("Unknown Title"));
-            }
-            if !metadata_value.contains_key("author") {
-                metadata_value.insert("author".to_string(), serde_json::json!("Unknown Author"));
-            }
-            if !metadata_value.contains_key("categories") {
-                metadata_value.insert("categories".to_string(), serde_json::json!("Unknown"));
-            }
-            if !metadata_value.contains_key("year") {
-                metadata_value.insert("year".to_string(), serde_json::json!(null));
-            }
-            if !metadata_value.contains_key("page_count") {
-                metadata_value.insert("page_count".to_string(), serde_json::json!(null));
-            }
-
-            // Try to deserialize the metadata into a Book
-            match serde_json::from_value::<crate::models::Book>(serde_json::Value::Object(
-                metadata_value.clone(),
-            )) {
-                Ok(book) => {
-                    debug!(
-                        "Successfully processed book: {} by {}",
-                        book.title.as_deref().unwrap_or("Unknown"),
-                        book.author.as_deref().unwrap_or("Unknown")
-                    );
-                    books.push(book);
-                }
-                Err(e) => {
-                    error!(
-                        "Failed to deserialize book metadata for match {} (ID: {}): {}. Metadata: {:?}",
-                        index, match_.id, e, metadata_value
-                    );
-                    // Continue processing other matches instead of failing completely
-                    continue;
-                }
+                debug!("Created minimal book fallback for ID: {}", match_.id);
+                books.push(minimal_book);
             }
         }
 

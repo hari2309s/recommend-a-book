@@ -13,7 +13,14 @@ where
     }
 
     match StringOrVec::deserialize(deserializer)? {
-        StringOrVec::String(s) => Ok(vec![s]),
+        StringOrVec::String(s) => {
+            // Handle comma-separated categories or single category
+            if s.contains(',') {
+                Ok(s.split(',').map(|s| s.trim().to_string()).collect())
+            } else {
+                Ok(vec![s])
+            }
+        }
         StringOrVec::Vec(v) => Ok(v),
     }
 }
@@ -81,12 +88,20 @@ pub struct Book {
         deserialize_with = "deserialize_f32_from_string"
     )]
     pub rating: f32,
-    #[serde(default, deserialize_with = "deserialize_optional_i32")]
+    #[serde(
+        alias = "publishedYear",
+        default,
+        deserialize_with = "deserialize_optional_i32"
+    )]
     pub year: Option<i32>,
     pub isbn: Option<String>,
     #[serde(default, deserialize_with = "deserialize_optional_i32")]
     pub page_count: Option<i32>,
-    #[serde(default, deserialize_with = "deserialize_optional_i32")]
+    #[serde(
+        alias = "ratingsCount",
+        default,
+        deserialize_with = "deserialize_optional_i32"
+    )]
     pub ratings_count: Option<i32>,
     pub language: Option<String>,
     pub publisher: Option<String>,

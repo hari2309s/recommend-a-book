@@ -1,7 +1,7 @@
 use crate::{
     config::Config,
     error::Result,
-    ml::universal_sentence_encoder::UniversalSentenceEncoder,
+    ml::huggingface_embedder::HuggingFaceEmbedder,
     routes::api_routes,
     services::{Pinecone, RecommendationService, SearchHistoryService, SupabaseClient},
 };
@@ -53,7 +53,7 @@ impl Application {
         .context("Failed to initialize Pinecone client")?;
 
         // Initialize ML model
-        let sentence_encoder = UniversalSentenceEncoder::new()
+        let sentence_encoder = HuggingFaceEmbedder::new()
             .await
             .context("Failed to initialize sentence encoder")?;
 
