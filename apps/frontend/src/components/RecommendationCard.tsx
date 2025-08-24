@@ -1,11 +1,12 @@
 import type { Book } from '@/api/types';
 import { Card, Heading, Badge, Flex, Text, Separator } from '@radix-ui/themes';
 import { motion } from 'framer-motion';
-import { Star } from 'lucide-react';
+import { ShoppingCartIcon, Star } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import BookThumbnail from '@/components/BookThumbnail';
 import AuthorBadges from '@/components/AuthorBadges';
 import BookDescriptionAccordion from '@/components/BookDescriptionAccordion';
+import { formatRatingsCount, getBookStoreLinks } from '@/utils';
 
 type RecommendationCardProps = {
   book: Book;
@@ -87,10 +88,36 @@ export function RecommendationCard({ book, resetAccordion }: RecommendationCardP
                   initial={{ opacity: 0, scale: 0.8 }}
                   animate={{ opacity: 1, scale: 1 }}
                   transition={{ duration: 0.3, delay: 0.3 }}
+                  className="w-full flex justify-between"
                 >
                   <Badge size="3" variant="surface" className="max-w-max">
                     {book.categories ? book.categories : 'Unknown'}
                   </Badge>
+                  <div>
+                    {getBookStoreLinks().map((store, index) => (
+                      <motion.a
+                        key={index}
+                        href={store.url}
+                        title={`Buy at ${store.name}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-block"
+                        whileHover={{
+                          x: index === 0 ? -8 : 8,
+                        }}
+                        whileTap={{
+                          scale: 0.95,
+                        }}
+                        transition={{
+                          type: 'spring',
+                          stiffness: 400,
+                          damping: 10,
+                        }}
+                      >
+                        <ShoppingCartIcon fill="green" color="green" />
+                      </motion.a>
+                    ))}
+                  </div>
                 </motion.div>
               }
               <Flex gap="3" justify="between" align="center" className="w-full">
@@ -103,7 +130,7 @@ export function RecommendationCard({ book, resetAccordion }: RecommendationCardP
                     <Star fill="green" />
                   </motion.div>
                   <Text>
-                    {book.rating?.toFixed(2)} / {book.ratings_count || 0}
+                    {book.rating?.toFixed(2)} / {formatRatingsCount(book.ratings_count || 0)}
                   </Text>
                 </Flex>
                 {book.published_year ||
