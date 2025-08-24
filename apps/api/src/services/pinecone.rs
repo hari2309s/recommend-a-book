@@ -89,14 +89,19 @@ impl Pinecone {
         exact_match: bool,
         top_k: usize,
     ) -> Result<Vec<crate::models::Book>> {
-        // Create a metadata filter
         let filter = if exact_match {
             json!({
                 field: {"$eq": value}
             })
         } else {
+            let variations = vec![
+                value.to_lowercase(),
+                value.to_uppercase(),
+                format!("{}", value),
+            ];
+
             json!({
-                field: {"$containsStr": value}
+                field: {"$in": variations}
             })
         };
 
