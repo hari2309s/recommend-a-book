@@ -98,7 +98,7 @@ export function RecommendationCard({ book, resetAccordion }: RecommendationCardP
                       <motion.a
                         key={index}
                         href={store.url}
-                        title={`Buy at ${store.name}`}
+                        title={`Buy from ${store.name}`}
                         target="_blank"
                         rel="noopener noreferrer"
                         className="inline-block"
