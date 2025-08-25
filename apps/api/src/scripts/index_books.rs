@@ -50,14 +50,14 @@ struct BookCsvRecord {
     publisher: Option<String>,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, Clone)]
 struct PineconeVector {
     id: String,
     values: Vec<f32>,
     metadata: serde_json::Value,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, Clone)]
 struct UpsertRequest {
     vectors: Vec<PineconeVector>,
     namespace: Option<String>,
@@ -215,10 +215,16 @@ fn csv_record_to_book(record: BookCsvRecord, row_index: usize) -> Option<Book> {
         rating: record.rating.and_then(|r| r.parse().ok()).unwrap_or(0.0),
         year: record.published_year.and_then(|y| y.parse().ok()),
         isbn: record.isbn.filter(|i| !i.trim().is_empty()),
-        page_count: record.page_count.and_then(|p| p.parse().ok()),
+        page_count: record.page_count.and_then(|p| p.parse().ok()).or(Some(0)),
         ratings_count: record.ratings_count.and_then(|r| r.parse().ok()),
-        language: record.language.filter(|l| !l.trim().is_empty()),
-        publisher: record.publisher.filter(|p| !p.trim().is_empty()),
+        language: record
+            .language
+            .filter(|l| !l.trim().is_empty())
+            .or(Some("unknown".to_string())),
+        publisher: record
+            .publisher
+            .filter(|p| !p.trim().is_empty())
+            .or(Some("unknown".to_string())),
     })
 }
 
@@ -286,13 +292,14 @@ async fn upsert_vectors_to_pinecone(
                     .send()
                     .await?;
 
-                if response.status().is_success() {
+                let status = response.status();
+                if status.is_success() {
                     Ok(())
                 } else {
                     let error_text = response.text().await.unwrap_or_default();
                     Err(anyhow::anyhow!(
                         "Pinecone API error: {} - {}",
-                        response.status(),
+                        status,
                         error_text
                     ))
                 }

@@ -3,6 +3,11 @@ name = "recommend-a-book-api"
 version = "0.1.0"
 edition = "2021"
 
+# Binary targets
+[[bin]]
+name = "index_books"
+path = "src/scripts/index_books.rs"
+
 [dependencies]
 # Web framework and related
 actix-web = "4.4"
@@ -24,11 +29,14 @@ sqlx = { version = "0.7", features = [
     "json",
 ] }
 
+# CSV processing for indexing
+csv = "1.3"
+
 # Async Runtime
 tokio = { version = "1.32", features = ["full"] }
 futures = "0.3"
 
-# Lightweight array operations (keep this for basic operations)
+# Lightweight array operations
 ndarray = { version = "0.15", features = ["serde"] }
 
 # Utilities
@@ -56,7 +64,6 @@ debug = false
 [profile.dev.package."*"]
 opt-level = 2
 
-# Remove these heavy ML optimizations since we're using API now
 [profile.dev]
 debug = true
 split-debuginfo = "unpacked"
