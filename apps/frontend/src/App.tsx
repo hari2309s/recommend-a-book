@@ -14,7 +14,7 @@ import Error from '@/components/Error';
 const App: FC = () => {
   const [deviceId, setDeviceId] = useState<string | null>(null);
   const [loading, setLoading] = useState<boolean>(false);
-  const [errorMessage, setErrorMessage] = useState<string>('');
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   const {
     visibleItems: recommendations,

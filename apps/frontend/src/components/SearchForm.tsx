@@ -11,7 +11,7 @@ type SearchFormProps = {
   deviceId: string | null;
   resetScroll: () => void;
   setAllRecommendations: (books: Book[]) => void;
-  setErrorMessage: (message: string) => void;
+  setErrorMessage: (message: string | null) => void;
 };
 
 const SearchForm: React.FC<SearchFormProps> = ({
@@ -39,6 +39,7 @@ const SearchForm: React.FC<SearchFormProps> = ({
     if (!input.trim()) return;
 
     setLoading(true);
+    setErrorMessage(null);
     resetScroll();
 
     try {
@@ -71,7 +72,7 @@ const SearchForm: React.FC<SearchFormProps> = ({
 
   return (
     <motion.div
-      className={`z-51 fixed top-[190px] left-4 right-4 w-[50%] max-w-4xl bg-green-500/40
+      className={`z-51 fixed top-[190px] left-4 right-4 w-[70%] sm:w-[50%] bg-green-500/40
         backdrop-blur-lg border border-dashed border-green-300/20 shadow-lg
         shadow-green-500/10 flex justify-center items-center min-h-[75px]
         ${isSticky ? 'shadow-2xl shadow-green-500/20' : 'shadow-lg shadow-green-500/10'}`}
