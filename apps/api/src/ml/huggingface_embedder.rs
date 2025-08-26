@@ -16,8 +16,6 @@ const DEFAULT_TIMEOUT_SECONDS: u64 = 60;
 /// Text processing limits
 const MAX_TEXT_PREVIEW_LENGTH: usize = 100;
 
-/// Provides sentence embeddings using HuggingFace Inference API
-/// This eliminates the need to download and load large models locally
 #[derive(Clone)]
 pub struct HuggingFaceEmbedder {
     client: Client,

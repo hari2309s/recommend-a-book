@@ -56,10 +56,7 @@ impl Pinecone {
             .build()
             .map_err(|e| ApiError::PineconeError(format!("Failed to create HTTP client: {}", e)))?;
 
-        // Construct the host URL using modern Pinecone URL format
-        // Try to detect project ID from API key if possible, otherwise use simplified format
         let host = if environment.contains("-") {
-            // Modern format: https://index-name.svc.environment.pinecone.io
             format!("https://{}.svc.{}.pinecone.io", index_name, environment)
         } else {
             // Legacy format fallback
@@ -71,7 +68,6 @@ impl Pinecone {
 
         debug!("Pinecone host URL: {}", host);
 
-        // For now, use a default dimension of 512 (Universal Sentence Encoder)
         let dimension = 512;
 
         Ok(Self {
