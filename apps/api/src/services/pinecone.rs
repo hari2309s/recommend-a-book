@@ -15,7 +15,6 @@ pub struct Pinecone {
 #[derive(Debug, Clone, Deserialize)]
 pub struct QueryMatch {
     pub id: String,
-    pub score: f32,
     pub metadata: Option<serde_json::Value>,
 }
 

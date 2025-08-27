@@ -7,9 +7,6 @@ use std::{env, path::PathBuf};
 pub struct Config {
     pub host: String,
     pub port: u16,
-    pub environment: String,
-    pub frontend_url: String,
-    pub database_url: String,
     pub supabase_url: String,
     pub supabase_key: String,
     pub pinecone_api_key: String,
