@@ -20,8 +20,8 @@
     "clean:api": "cd apps/api && cargo clean",
     "clean:frontend": "turbo run clean --filter=frontend",
     "lint": "eslint . --ext .ts --ignore-path .gitignore",
-    "format": "prettier --write \"**/*.{ts,js,json}\" --ignore-path .prettierignore",
-    "format:check": "prettier --check \"**/*.{ts,js,json}\" --ignore-path .prettierignore",
+    "format": "prettier --write \"**/*.{ts,tsx,js,json}\" --ignore-path .prettierignore",
+    "format:check": "prettier --check \"**/*.{ts,tsx,js,json}\" --ignore-path .prettierignore",
     "setup": "npm install && cd apps/api && cargo fetch"
   },
   "engines": {

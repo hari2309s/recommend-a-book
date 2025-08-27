@@ -9,10 +9,10 @@ type BookDescriptionAccordionProps = {
   onToggle: () => void;
 };
 
-const BookDescriptionAccordion: FC<BookDescriptionAccordionProps> = ({ 
+const BookDescriptionAccordion: FC<BookDescriptionAccordionProps> = ({
   description,
   isOpen,
-  onToggle 
+  onToggle,
 }) => {
   if (!description || description.trim() === '') {
     return null;
