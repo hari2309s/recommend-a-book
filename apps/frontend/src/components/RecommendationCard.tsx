@@ -78,7 +78,7 @@ export function RecommendationCard({ book, resetAccordion }: RecommendationCardP
                     <h3>{book.title}</h3>
                   </Heading>
                 </motion.div>
-                {book.author && <AuthorBadges authors={book.author.split(';')} />}
+                {book.author && <AuthorBadges authors={book.author.split(',')} />}
               </Flex>
             </Flex>
             <Separator size="4" />
