@@ -1,6 +1,5 @@
 use anyhow::{Context, Result};
 use csv::ReaderBuilder;
-use futures::StreamExt;
 use log::{error, info, warn};
 use recommend_a_book_api::{
     config::Config, ml::huggingface_embedder::HuggingFaceEmbedder, models::Book,
@@ -11,10 +10,10 @@ use std::{
     collections::{HashMap, HashSet},
     env,
     fs::File,
-    path::{Path, PathBuf},
+    path::PathBuf,
 };
 use tokio::time::{sleep, Duration};
-use tracing::{debug, Level};
+use tracing::debug;
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
 #[derive(Debug, Deserialize)]
