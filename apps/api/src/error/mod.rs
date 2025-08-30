@@ -7,6 +7,7 @@ pub type Result<T> = std::result::Result<T, ApiError>;
 #[derive(Error, Debug)]
 pub enum ApiError {
     #[error("Not found: {0}")]
+    #[allow(dead_code)]
     NotFound(String),
 
     #[error("Invalid input: {0}")]
