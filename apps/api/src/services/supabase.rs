@@ -18,6 +18,7 @@ impl SupabaseClient {
         }
     }
 
+    #[allow(dead_code)]
     pub async fn get_book<T: DeserializeOwned>(&self, id: &str) -> Result<T, ApiError> {
         let url = format!("{}/rest/v1/books?id=eq.{}", self.base_url, id);
         let response = self

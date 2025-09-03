@@ -266,7 +266,7 @@ where
 
 /// Upsert vectors to Pinecone with proper error handling
 async fn upsert_vectors_to_pinecone(
-    pinecone: &Pinecone,
+    _pinecone: &Pinecone,
     vectors: Vec<PineconeVector>,
     batch_index: usize,
 ) -> Result<()> {

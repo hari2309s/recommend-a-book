@@ -27,6 +27,8 @@ pub struct HuggingFaceEmbedder {
 impl HuggingFaceEmbedder {
     /// Creates a new instance of the sentence encoder using HuggingFace API
     /// Uses a 512-dimensional model for better quality embeddings
+    /// # Returns
+    /// * `Result<HuggingFaceEmbedder, ApiError>` - A new instance of the encoder or an error
     pub async fn new() -> Result<Self, ApiError> {
         info!("Initializing HuggingFace API sentence encoder...");
 
@@ -142,6 +144,10 @@ impl HuggingFaceEmbedder {
     }
 
     /// Encodes a single text string into a 512-dimensional vector embedding
+    /// # Arguments
+    /// * `text` - The text to encode
+    /// # Returns
+    /// * `Result<Vec<f32>, ApiError>` - The encoded embedding or an error
     pub async fn encode(&self, text: &str) -> Result<Vec<f32>, ApiError> {
         debug!(
             "Encoding text with {}: '{}'",
@@ -226,6 +232,11 @@ impl HuggingFaceEmbedder {
     }
 
     /// Encodes multiple texts in a batch
+    /// # Arguments
+    /// * `texts` - A slice of strings to encode
+    /// # Returns
+    /// * `Result<Array2<f32>, ApiError>` - A 2D array of embeddings or an error
+    #[allow(dead_code)]
     pub async fn encode_batch(&self, texts: &[String]) -> Result<Array2<f32>, ApiError> {
         if texts.is_empty() {
             return Err(ApiError::InvalidInput("Empty batch provided".to_string()));
@@ -408,6 +419,10 @@ impl HuggingFaceEmbedder {
     }
 
     /// Get information about the current model
+    ///
+    /// # Returns
+    /// * `(String, usize)` - The model name and the target embedding size
+    #[allow(dead_code)]
     pub fn model_info(&self) -> (String, usize) {
         (self.model_name.clone(), TARGET_EMBEDDING_SIZE)
     }
