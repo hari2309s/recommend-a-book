@@ -23,7 +23,7 @@ pub struct RecommendationRequest {
 }
 
 fn default_top_k() -> usize {
-    51
+    50
 }
 
 /// Request structure for fetching search history
