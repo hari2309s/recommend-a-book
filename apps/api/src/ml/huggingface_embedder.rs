@@ -74,73 +74,11 @@ impl HuggingFaceEmbedder {
             model_name,
         };
 
-        // Test the connection
-        encoder.test_connection().await?;
-
         info!(
             "Successfully initialized HuggingFace API encoder with {}",
             encoder.model_name
         );
         Ok(encoder)
-    }
-
-    /// Test the API connection and key validity
-    pub async fn test_connection(&self) -> Result<(), ApiError> {
-        info!(
-            "Testing HuggingFace API connection with model: {}",
-            self.model_name
-        );
-
-        let test_response = self
-            .client
-            .post(&self.model_url)
-            .header("Authorization", format!("Bearer {}", self.api_key))
-            .header("Content-Type", "application/json")
-            .json(&json!({
-                "inputs": "test connection",
-                "options": {
-                    "wait_for_model": true,
-                    "use_cache": false
-                }
-            }))
-            .send()
-            .await
-            .map_err(|e| {
-                error!("Connection test failed: {}", e);
-                ApiError::ExternalServiceError(format!("HuggingFace connection test failed: {}", e))
-            })?;
-
-        let status = test_response.status();
-        match status.as_u16() {
-            200..=299 => {
-                info!("HuggingFace API connection test successful");
-                Ok(())
-            }
-            401 => {
-                error!("HuggingFace API key is invalid (401 Unauthorized)");
-                Err(ApiError::AuthenticationError(
-                    "Invalid HuggingFace API key".to_string(),
-                ))
-            }
-            403 => {
-                error!("HuggingFace API access forbidden (403)");
-                Err(ApiError::AuthenticationError(
-                    "HuggingFace API access forbidden".to_string(),
-                ))
-            }
-            503 => {
-                warn!("Model is currently loading, this is normal for first request");
-                Ok(())
-            }
-            _ => {
-                let error_text = test_response.text().await.unwrap_or_default();
-                warn!(
-                    "HuggingFace API test returned {}: {} (might be normal)",
-                    status, error_text
-                );
-                Ok(()) // Don't fail here as model might just be loading
-            }
-        }
     }
 
     /// Encodes a single text string into a 512-dimensional vector embedding
