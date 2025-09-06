@@ -1,0 +1,13 @@
+{
+  "name": "@recommend-a-book/api",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "cargo run --bin recommend-a-book-api",
+    "build": "cargo build --release",
+    "clean": "cargo clean",
+    "lint": "cargo clippy",
+    "check": "cargo check",
+    "test": "cargo test"
+  }
+}

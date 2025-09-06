@@ -9,20 +9,22 @@
   "scripts": {
     "dev": "turbo run dev",
     "dev:frontend": "turbo run dev --filter=frontend",
-    "dev:api": "turbo run dev --filter=api",
-    "build": "turbo run build",
+    "dev:api": "cd apps/api && cargo run --bin recommend-a-book-api",
+    "build": "turbo run build && cd apps/api && cargo build --release",
     "build:frontend": "turbo run build --filter=frontend",
     "build:api": "cd apps/api && cargo build --release",
-    "start": "concurrently \"npm run start:api\" \"npm run start:frontend\"",
-    "start:api": "cd apps/api && cargo run --release",
-    "start:frontend": "cd apps/frontend && npm run preview",
-    "clean": "turbo run clean && rm -rf node_modules",
+    "start": "concurrently \"pnpm run start:api\" \"pnpm run start:frontend\"",
+    "start:api": "cd apps/api && cargo run --release --bin recommend-a-book-api",
+    "start:frontend": "cd apps/frontend && pnpm run preview",
+    "clean": "turbo run clean && rm -rf node_modules && cd apps/api && cargo clean",
     "clean:api": "cd apps/api && cargo clean",
-    "clean:frontend": "turbo run clean --filter=frontend",
-    "lint": "eslint . --ext .ts --ignore-path .gitignore",
+    "clean:frontend": "turbo run clean --filter=@recommend-a-book/frontend",
+    "lint": "turbo run lint",
+    "lint:frontend": "turbo run lint --filter=@recommend-a-book/frontend",
     "format": "prettier --write \"**/*.{ts,tsx,js,json}\" --ignore-path .prettierignore",
     "format:check": "prettier --check \"**/*.{ts,tsx,js,json}\" --ignore-path .prettierignore",
-    "setup": "npm install && cd apps/api && cargo fetch"
+    "setup": "pnpm install && cd apps/api && cargo fetch",
+    "index:books": "cd apps/api && cargo run --bin index_books -- data/books.csv"
   },
   "engines": {
     "node": ">=18.0.0"
