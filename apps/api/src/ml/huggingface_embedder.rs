@@ -3,7 +3,7 @@ use ndarray::{Array1, Array2};
 use reqwest::Client;
 use serde_json::json;
 use std::env;
-use tracing::{debug, error, info, warn};
+use tracing::{debug, error, info};
 
 /// Target dimension for Pinecone index
 const TARGET_EMBEDDING_SIZE: usize = 512;
