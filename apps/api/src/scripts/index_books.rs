@@ -83,7 +83,7 @@ fn normalize_author(author: &str) -> String {
     author
         .trim()
         .split(&[',', ';', '|', '&'][..])
-        .map(|name| name.trim().split_whitespace().collect::<Vec<_>>().join(" "))
+        .map(|name| name.split_whitespace().collect::<Vec<_>>().join(" "))
         .filter(|name| !name.is_empty())
         .collect::<Vec<_>>()
         .join(", ")
@@ -170,7 +170,7 @@ fn csv_record_to_book(record: BookCsvRecord, row_index: usize) -> Option<Book> {
 
     // Clean and validate author
     let author = record.authors.as_ref().map(|a| normalize_author(a));
-    if author.as_ref().map_or(true, |a| a.is_empty()) {
+    if author.as_ref().is_none_or(|a| a.is_empty()) {
         warn!("Row {}: Book '{}' has no valid author", row_index, title);
     }
 
@@ -282,9 +282,7 @@ async fn upsert_vectors_to_pinecone(
                 // Create a simple HTTP client request since we need more control
                 let client = reqwest::Client::new();
                 let response = client
-                    .post(&format!(
-                        "https://books-index-0rnb22r.svc.aped-4627-b74a.pinecone.io/vectors/upsert"
-                    ))
+                    .post(("https://books-index-0rnb22r.svc.aped-4627-b74a.pinecone.io/vectors/upsert").to_owned())
                     .header("Api-Key", std::env::var("APP_PINECONE_API_KEY").unwrap())
                     .header("Content-Type", "application/json")
                     .json(&request)
@@ -397,7 +395,7 @@ async fn index_books_from_csv(csv_path: PathBuf) -> Result<()> {
         if seen_titles.contains_key(&key) {
             duplicate_count += 1;
         } else {
-            seen_titles.insert(key, unique_books.len());
+            seen_titles.entry(key).or_insert(unique_books.len());
             unique_books.push(book);
         }
     }
@@ -408,7 +406,7 @@ async fn index_books_from_csv(csv_path: PathBuf) -> Result<()> {
 
     // Process books in batches
     let batch_size = 25; // Smaller batches for better reliability
-    let total_batches = (unique_books.len() + batch_size - 1) / batch_size;
+    let total_batches = unique_books.len().div_ceil(batch_size);
     let mut successfully_indexed = 0;
 
     for (batch_index, batch) in unique_books.chunks(batch_size).enumerate() {
