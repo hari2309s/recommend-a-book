@@ -16,6 +16,14 @@ interface UseInfiniteScrollResult<T> {
   searchPerformed: boolean;
 }
 
+/**
+ * Custom hook for implementing infinite scrolling functionality.
+ *
+ * @param initialItemsToShow - The number of items to initially display.
+ * @param itemsToLoadPerPage - The number of items to load per page.
+ * @param threshold - The distance from the bottom of the page at which to trigger loading more items.
+ * @returns UseInfiniteScrollResult<T> - An object containing the visible items, all items, a function to set all items, a boolean indicating if there are more items to load, a boolean indicating if the hook is currently loading, a function to reset the scroll position, and a boolean indicating if a search has been performed.
+ */
 export function useInfiniteScroll<T>({
   initialItemsToShow = 10,
   itemsToLoadPerPage = 10,

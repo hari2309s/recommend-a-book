@@ -1,3 +1,6 @@
+/**
+ * Formats a number into a string with a rating count.
+ */
 export const formatRatingsCount = (num: number): string => {
   if (num >= 1000000) {
     return (num / 1000000).toFixed(1).replace(/\.0$/, '') + 'M';
@@ -8,6 +11,9 @@ export const formatRatingsCount = (num: number): string => {
   return num.toString();
 };
 
+/**
+ * Returns an array of book store links.
+ */
 export const getBookStoreLinks = () => [
   { name: 'Hugendubel', url: `https://www.hugendubel.de` },
   { name: 'Thalia', url: `https://www.thalia.de` },
