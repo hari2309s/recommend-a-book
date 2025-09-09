@@ -28,7 +28,7 @@ export default defineConfig(({ mode }) => {
       proxy: {
         // Forward /api requests to the Rust backend
         '/api': {
-          target: env.VITE_API_URL || 'http://localhost:8080',
+          target: env.VITE_API_URL || 'http://localhost:10000',
           changeOrigin: true,
           secure: false,
           ws: true,

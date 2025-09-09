@@ -3,8 +3,7 @@
   "version": "1.0.0",
   "private": true,
   "workspaces": [
-    "apps/*",
-    "packages/*"
+    "apps/*"
   ],
   "scripts": {
     "dev": "turbo run dev",
@@ -14,8 +13,8 @@
     "build:frontend": "turbo run build --filter=frontend",
     "build:api": "cd apps/api && cargo build --release",
     "start": "concurrently \"pnpm run start:api\" \"pnpm run start:frontend\"",
-    "start:api": "cd apps/api && cargo run --release --bin recommend-a-book-api",
-    "start:frontend": "cd apps/frontend && pnpm run preview",
+    "start:api": "cd apps/api && cargo run --bin recommend-a-book-api",
+    "start:frontend": "cd apps/frontend && pnpm run build && pnpm run preview",
     "clean": "turbo run clean && rm -rf node_modules && cd apps/api && cargo clean",
     "clean:api": "cd apps/api && cargo clean",
     "clean:frontend": "turbo run clean --filter=@recommend-a-book/frontend",
