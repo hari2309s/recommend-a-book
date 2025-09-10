@@ -40,5 +40,5 @@ export default [
       ...js.configs.recommended.rules,
       ...tseslint.configs.recommended.rules,
     },
-  }
+  },
 ];
