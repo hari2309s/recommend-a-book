@@ -94,7 +94,7 @@ export function RecommendationCard({ book, resetAccordion }: RecommendationCardP
                     {book.categories ? book.categories : 'Unknown'}
                   </Badge>
                   <div>
-                    {getBookStoreLinks().map((store, index) => (
+                    {getBookStoreLinks(book.isbn).map((store, index) => (
                       <motion.a
                         key={index}
                         href={store.url}
