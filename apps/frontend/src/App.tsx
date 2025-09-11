@@ -1,18 +1,16 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import type { Book } from '@/api/types';
 import { Box, Flex } from '@radix-ui/themes';
 import '@/App.css';
 import { LoaderCircle } from 'lucide-react';
 import RecommendationList from '@/components/RecommendationList';
-import FingerprintJS from '@fingerprintjs/fingerprintjs';
 import SearchForm from '@/components/SearchForm';
 import Header from '@/components/Header';
 import { useInfiniteScroll } from '@/hooks';
 import Error from '@/components/Error';
 
 const App: React.FC = () => {
-  const [deviceId, setDeviceId] = useState<string | null>(null);
   const [loading, setLoading] = useState<boolean>(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
@@ -27,15 +25,6 @@ const App: React.FC = () => {
     itemsToLoadPerPage: 10,
     threshold: 100,
   });
-
-  useEffect(() => {
-    const initializeFingerprint = async () => {
-      const fp = await FingerprintJS.load();
-      const result = await fp.get();
-      setDeviceId(result.visitorId);
-    };
-    initializeFingerprint();
-  }, []);
 
   const pageVariants = {
     initial: { opacity: 0, y: 20 },
@@ -68,7 +57,6 @@ const App: React.FC = () => {
           <SearchForm
             loading={loading}
             setLoading={setLoading}
-            deviceId={deviceId}
             resetScroll={resetScroll}
             setAllRecommendations={setAllRecommendations}
             setErrorMessage={setErrorMessage}
