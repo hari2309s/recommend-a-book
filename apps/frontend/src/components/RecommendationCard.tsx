@@ -2,7 +2,7 @@ import type { Book } from '@/api/types';
 import { Card, Heading, Badge, Flex, Text, Separator } from '@radix-ui/themes';
 import { motion } from 'framer-motion';
 import { ShoppingCartIcon, Star } from 'lucide-react';
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import BookThumbnail from '@/components/BookThumbnail';
 import AuthorBadges from '@/components/AuthorBadges';
 import BookDescriptionAccordion from '@/components/BookDescriptionAccordion';
@@ -13,7 +13,7 @@ type RecommendationCardProps = {
   resetAccordion: boolean;
 };
 
-export function RecommendationCard({ book, resetAccordion }: RecommendationCardProps) {
+const RecommendationCard: React.FC<RecommendationCardProps> = ({ book, resetAccordion }) => {
   const [isAccordionOpen, setIsAccordionOpen] = useState<boolean>(false);
 
   useEffect(() => {
@@ -158,6 +158,6 @@ export function RecommendationCard({ book, resetAccordion }: RecommendationCardP
       </Card>
     </motion.div>
   );
-}
+};
 
 export default RecommendationCard;

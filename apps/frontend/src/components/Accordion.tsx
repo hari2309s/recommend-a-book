@@ -1,4 +1,4 @@
-import { type FC, useState } from 'react';
+import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ChevronDown } from 'lucide-react';
 
@@ -11,7 +11,7 @@ type AccordionProps = {
   items: AccordionItem[];
 };
 
-const Accordion: FC<AccordionProps> = ({ items }) => {
+const Accordion: React.FC<AccordionProps> = ({ items }) => {
   const [openIndex, setOpenIndex] = useState<number | null>(null);
 
   return (

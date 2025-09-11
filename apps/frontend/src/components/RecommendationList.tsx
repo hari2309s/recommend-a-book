@@ -1,15 +1,18 @@
 import { Flex, Grid, Text, Heading } from '@radix-ui/themes';
 import { motion } from 'framer-motion';
-import { useEffect, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import type { Book } from '@/api/types';
-import { RecommendationCard } from '@/components/RecommendationCard';
+import RecommendationCard from '@/components/RecommendationCard';
 
 type RecommendationListProps = {
   recommendations: Book[];
   searchPerformed: boolean;
 };
 
-export function RecommendationList({ recommendations, searchPerformed }: RecommendationListProps) {
+const RecommendationList: React.FC<RecommendationListProps> = ({
+  recommendations,
+  searchPerformed,
+}: RecommendationListProps) => {
   const [resetAccordions, setResetAccordions] = useState<boolean>(false);
 
   useEffect(() => {
@@ -90,4 +93,6 @@ export function RecommendationList({ recommendations, searchPerformed }: Recomme
       </motion.div>
     </Flex>
   );
-}
+};
+
+export default RecommendationList;

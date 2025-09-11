@@ -1,5 +1,5 @@
 import { motion } from 'framer-motion';
-import type { FC } from 'react';
+import React from 'react';
 import { useState } from 'react';
 import imageNotAvailable from '@/assets/image-not-available.png';
 
@@ -9,7 +9,11 @@ type BookThumbnailProps = {
   className?: string;
 };
 
-const BookThumbnail: FC<BookThumbnailProps> = ({ src, alt, className }: BookThumbnailProps) => {
+const BookThumbnail: React.FC<BookThumbnailProps> = ({
+  src,
+  alt,
+  className,
+}: BookThumbnailProps) => {
   const [imageLoaded, setImageLoaded] = useState<boolean>(false);
   const [imageError, setImageError] = useState<boolean>(false);
   const isImageAvailable: boolean = (src && src.trim() !== '') as boolean;

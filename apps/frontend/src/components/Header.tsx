@@ -1,8 +1,8 @@
 import { Box, Heading } from '@radix-ui/themes';
-import type { FC } from 'react';
+import React from 'react';
 import { motion } from 'framer-motion';
 
-const Header: FC = () => {
+const Header: React.FC = () => {
   const headerVariants = {
     initial: { opacity: 0, y: -30 },
     animate: {
@@ -54,9 +54,8 @@ const Header: FC = () => {
             transition: { duration: 0.6 },
           }}
         />
-        <Heading size="7" asChild>
-          <motion.h1
-            className="text-3xl font-bold mb-6"
+        <Heading asChild className="text-sm font-small mb-6">
+          <motion.h2
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{
@@ -66,7 +65,7 @@ const Header: FC = () => {
             }}
           >
             Book Recommendation System
-          </motion.h1>
+          </motion.h2>
         </Heading>
       </Box>
     </motion.div>

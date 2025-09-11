@@ -1,12 +1,13 @@
 import { Box } from '@radix-ui/themes';
 import { motion } from 'framer-motion';
 import { Text } from '@radix-ui/themes';
+import React from 'react';
 
 type ErrorProps = {
   message?: string;
 };
 
-const Error = ({ message }: ErrorProps) => {
+const Error: React.FC<ErrorProps> = ({ message }: ErrorProps) => {
   return (
     <Box
       asChild

@@ -1,12 +1,12 @@
 import { motion } from 'framer-motion';
-import type { FC } from 'react';
+import React from 'react';
 import { Badge, Flex } from '@radix-ui/themes';
 
 type AuthorBadgesProps = {
   authors: string[];
 };
 
-const AuthorBadges: FC<AuthorBadgesProps> = ({ authors }) => {
+const AuthorBadges: React.FC<AuthorBadgesProps> = ({ authors }) => {
   const containerVariants = {
     hidden: { opacity: 0 },
     visible: {

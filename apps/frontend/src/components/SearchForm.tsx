@@ -96,13 +96,7 @@ const SearchForm: React.FC<SearchFormProps> = ({
       animate="animate"
     >
       <motion.form onSubmit={handleSubmit} className="w-full">
-        <Flex
-          gap="4"
-          direction={{ initial: 'column', sm: 'row' }}
-          align="center"
-          justify="center"
-          className="w-full"
-        >
+        <Flex gap="4" direction={{ sm: 'row' }} align="center" justify="center" className="w-full">
           <motion.div
             whileFocus={{ scale: 1.02 }}
             transition={{ type: 'spring', stiffness: 400, damping: 25 }}

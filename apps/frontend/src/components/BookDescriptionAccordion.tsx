@@ -1,4 +1,4 @@
-import { type FC } from 'react';
+import React from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ChevronDown } from 'lucide-react';
 import { Text } from '@radix-ui/themes';
@@ -9,7 +9,7 @@ type BookDescriptionAccordionProps = {
   onToggle: () => void;
 };
 
-const BookDescriptionAccordion: FC<BookDescriptionAccordionProps> = ({
+const BookDescriptionAccordion: React.FC<BookDescriptionAccordionProps> = ({
   description,
   isOpen,
   onToggle,
