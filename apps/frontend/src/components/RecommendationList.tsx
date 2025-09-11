@@ -54,15 +54,7 @@ const RecommendationList: React.FC<RecommendationListProps> = ({
   };
 
   return (
-    <Flex
-      asChild
-      width="100%"
-      p="4"
-      m="4"
-      direction="column"
-      align="center"
-      style={{ marginTop: '100px' }}
-    >
+    <Flex asChild p="4" m="4" direction="column" align="center" style={{ marginTop: '100px' }}>
       <motion.div variants={containerVariants} initial="hidden" animate="visible">
         <motion.div
           initial={{ opacity: 0, y: -20 }}
