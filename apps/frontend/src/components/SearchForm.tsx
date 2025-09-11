@@ -8,16 +8,15 @@ import { fetchRecommendations } from '@/api';
 type SearchFormProps = {
   loading: boolean;
   setLoading: (loading: boolean) => void;
-  deviceId: string | null;
   resetScroll: () => void;
   setAllRecommendations: (books: Book[]) => void;
   setErrorMessage: (message: string | null) => void;
+  deviceId?: string | null;
 };
 
 const SearchForm: React.FC<SearchFormProps> = ({
   loading,
   setLoading,
-  deviceId,
   resetScroll,
   setAllRecommendations,
   setErrorMessage,
