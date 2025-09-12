@@ -14,7 +14,7 @@ const Error: React.FC<ErrorProps> = ({ message }: ErrorProps) => {
       width="full"
       p="4"
       style={{
-        marginTop: '150px',
+        marginTop: '180px',
         border: '1px dashed red',
         borderRadius: '5px',
         width: '70%',
