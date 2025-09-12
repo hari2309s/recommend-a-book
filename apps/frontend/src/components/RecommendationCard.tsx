@@ -1,12 +1,12 @@
 import type { Book } from '@/api/types';
 import { Card, Heading, Badge, Flex, Text, Separator } from '@radix-ui/themes';
 import { motion } from 'framer-motion';
-import { ShoppingCartIcon, Star } from 'lucide-react';
+import { Star } from 'lucide-react';
 import React, { useState, useEffect } from 'react';
 import BookThumbnail from '@/components/BookThumbnail';
 import AuthorBadges from '@/components/AuthorBadges';
 import BookDescriptionAccordion from '@/components/BookDescriptionAccordion';
-import { formatRatingsCount, getBookStoreLinks } from '@/utils';
+import { formatRatingsCount } from '@/utils';
 
 type RecommendationCardProps = {
   book: Book;
@@ -93,31 +93,6 @@ const RecommendationCard: React.FC<RecommendationCardProps> = ({ book, resetAcco
                   <Badge size="3" variant="surface" className="max-w-max">
                     {book.categories ? book.categories : 'Unknown'}
                   </Badge>
-                  <div>
-                    {getBookStoreLinks(book.isbn).map((store, index) => (
-                      <motion.a
-                        key={index}
-                        href={store.url}
-                        title={`Buy from ${store.name}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="inline-block"
-                        whileHover={{
-                          x: index === 0 ? -8 : 8,
-                        }}
-                        whileTap={{
-                          scale: 0.95,
-                        }}
-                        transition={{
-                          type: 'spring',
-                          stiffness: 400,
-                          damping: 10,
-                        }}
-                      >
-                        <ShoppingCartIcon fill="green" color="green" />
-                      </motion.a>
-                    ))}
-                  </div>
                 </motion.div>
               }
               <Flex gap="3" justify="between" align="center" className="w-full">
