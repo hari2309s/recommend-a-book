@@ -6,7 +6,7 @@ import React, { useState, useEffect } from 'react';
 import BookThumbnail from '@/components/BookThumbnail';
 import AuthorBadges from '@/components/AuthorBadges';
 import BookDescriptionAccordion from '@/components/BookDescriptionAccordion';
-import { formatRatingsCount } from '@/utils';
+import { formatRatingsCount, getBookStoreLinks } from '@/utils';
 
 type RecommendationCardProps = {
   book: Book;

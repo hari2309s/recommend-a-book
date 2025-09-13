@@ -76,7 +76,7 @@ const SearchForm: React.FC<SearchFormProps> = ({
         shadow-green-500/10 flex justify-center items-center min-h-[75px]
         ${isSticky ? 'shadow-2xl shadow-green-500/20' : 'shadow-lg shadow-green-500/10'}`}
       style={{
-        padding: '0 19px',
+        padding: '19px',
         backdropFilter: 'blur(20px)',
         WebkitBackdropFilter: 'blur(20px)',
         background: 'rgba(34, 197, 94, 0.4)',
@@ -95,7 +95,13 @@ const SearchForm: React.FC<SearchFormProps> = ({
       animate="animate"
     >
       <motion.form onSubmit={handleSubmit} className="w-full">
-        <Flex gap="4" direction={{ sm: 'row' }} align="center" justify="center" className="w-full">
+        <Flex
+          gap="4"
+          direction={{ initial: 'column', sm: 'row' }}
+          align={{ initial: 'center' }}
+          justify="center"
+          className="w-full contents"
+        >
           <motion.div
             whileFocus={{ scale: 1.02 }}
             transition={{ type: 'spring', stiffness: 400, damping: 25 }}
