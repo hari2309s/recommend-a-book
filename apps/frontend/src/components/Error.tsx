@@ -17,8 +17,8 @@ const Error: React.FC<ErrorProps> = ({ message }: ErrorProps) => {
         marginTop: '180px',
         border: '1px dashed red',
         borderRadius: '5px',
-        width: '70%',
-        height: '300px',
+        width: '100%',
+        height: '350px',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
@@ -28,9 +28,26 @@ const Error: React.FC<ErrorProps> = ({ message }: ErrorProps) => {
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ duration: 0.5, ease: 'easeInOut' }}
+        className="flex flex-col"
       >
+        <motion.img
+          src="/error.png"
+          width={35}
+          height={35}
+          alt="Error"
+          initial={{ opacity: 0, rotate: -180 }}
+          animate={{ opacity: 1, rotate: 0 }}
+          transition={{
+            type: 'spring',
+            duration: 1,
+            stiffness: 100,
+            damping: 10,
+          }}
+        />
         {message ? (
-          <Text size="5">{message}</Text>
+          <Text size="5" color="red">
+            {message}
+          </Text>
         ) : (
           <Text size="5" color="red">
             An error occurred. Try again later.

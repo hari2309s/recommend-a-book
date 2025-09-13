@@ -9,6 +9,7 @@ import SearchForm from '@/components/SearchForm';
 import Header from '@/components/Header';
 import { useInfiniteScroll } from '@/hooks';
 import Error from '@/components/Error';
+import Empty from './components/Empty';
 
 const App: React.FC = () => {
   const [loading, setLoading] = useState<boolean>(false);
@@ -62,6 +63,8 @@ const App: React.FC = () => {
             setErrorMessage={setErrorMessage}
           />
           <AnimatePresence mode="wait">
+            {errorMessage && <Error message={errorMessage} />}
+            {errorMessage === null && recommendations.length === 0 && <Empty />}
             {recommendations?.length > 0 && (
               <motion.div
                 key="recommendations"
@@ -89,7 +92,6 @@ const App: React.FC = () => {
               </motion.div>
             )}
           </AnimatePresence>
-          {errorMessage && <Error message={errorMessage} />}
         </Flex>
       </Box>
     </motion.div>
