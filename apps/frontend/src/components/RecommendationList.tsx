@@ -3,6 +3,7 @@ import { motion } from 'framer-motion';
 import React, { useEffect, useState } from 'react';
 import type { Book } from '@/api/types';
 import RecommendationCard from '@/components/RecommendationCard';
+import { listVariants, listItemVariants } from '@/utils/animations';
 
 type RecommendationListProps = {
   recommendations: Book[];
@@ -24,51 +25,22 @@ const RecommendationList: React.FC<RecommendationListProps> = ({
     }
   }, [searchPerformed]);
 
-  const containerVariants = {
-    hidden: { opacity: 0 },
-    visible: {
-      opacity: 1,
-      transition: {
-        staggerChildren: 0.1,
-        delayChildren: 0.2,
-      },
-    },
-  };
-
-  const itemVariants = {
-    hidden: {
-      opacity: 0,
-      y: 20,
-      scale: 0.95,
-    },
-    visible: {
-      opacity: 1,
-      y: 0,
-      scale: 1,
-      transition: {
-        type: 'spring' as const,
-        stiffness: 100,
-        damping: 12,
-      },
-    },
-  };
-
   return (
     <Flex asChild p="4" m="4" direction="column" align="center" style={{ marginTop: '100px' }}>
-      <motion.div variants={containerVariants} initial="hidden" animate="visible">
+      <motion.div variants={listVariants} initial="hidden" animate="visible">
         <motion.div
           initial={{ opacity: 0, y: -20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.6, ease: 'easeOut' }}
         >
-          <Heading size="6" mb="6" className="text-center" color="green">
+          <Heading size="6" mb="6" className="text-center mt-[65px]" color="green">
             Recommended Books
           </Heading>
         </motion.div>
         {recommendations && recommendations.length > 0 ? (
           <Grid columns={{ initial: '1', sm: '2', md: '3' }} gapY="5" gapX="4">
             {recommendations.map((book) => (
-              <motion.div key={`${book.title}-${book.author}`} variants={itemVariants}>
+              <motion.div key={`${book.title}-${book.author}`} variants={listItemVariants}>
                 <RecommendationCard book={book} resetAccordion={resetAccordions} />
               </motion.div>
             ))}

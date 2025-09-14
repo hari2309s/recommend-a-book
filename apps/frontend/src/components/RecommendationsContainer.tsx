@@ -1,7 +1,7 @@
 import type { Book } from '@/api/types';
 import React from 'react';
 import { motion } from 'framer-motion';
-import RecommendationList from './RecommendationList';
+import RecommendationList from '@/components/RecommendationList';
 import { Flex, Spinner, Text } from '@radix-ui/themes';
 import { containerVariants, imageVariants } from '@/utils/animations';
 import { RECOMMENDATIONS_MESSAGES } from '@/utils/messages';
@@ -21,7 +21,6 @@ const RecommendationContainer: React.FC<RecommendationContainerProps> = ({
 }) => {
   return (
     <motion.div
-      key="recommendations"
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, y: -20 }}
