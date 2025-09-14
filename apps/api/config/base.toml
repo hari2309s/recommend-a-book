@@ -18,5 +18,8 @@ pinecone_api_key = "${APP_PINECONE_API_KEY}"
 pinecone_environment = "${APP_PINECONE_ENV}"
 pinecone_index = "${APP_PINECONE_INDEX_NAME}"
 
+# HuggingFace configuration
+huggingface_api_key = "${APP_HUGGINGFACE_API_KEY}"
+
 # Logging configuration
 log_level = "info"
