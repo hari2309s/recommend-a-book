@@ -1,5 +1,4 @@
 use serde::{Deserialize, Serialize};
-use uuid::Uuid;
 
 // Re-export Book and BookRecommendation from book.rs
 pub use book::Book;
@@ -18,8 +17,6 @@ pub struct RecommendationRequest {
     /// Optional number of recommendations to return
     #[serde(default = "default_top_k")]
     pub top_k: usize,
-    /// Optional user ID for tracking search history
-    pub user_id: Option<Uuid>,
 }
 
 fn default_top_k() -> usize {

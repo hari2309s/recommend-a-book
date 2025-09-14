@@ -3,7 +3,7 @@ use crate::{
     error::Result,
     ml::huggingface_embedder::HuggingFaceEmbedder,
     routes::api_routes,
-    services::{Pinecone, RecommendationService, SearchHistoryService, SupabaseClient},
+    services::{Pinecone, RecommendationService},
 };
 use actix_cors::Cors;
 use actix_web::{middleware::Logger, web, App, HttpServer};
@@ -40,9 +40,6 @@ impl Application {
     /// Run the server with a specific TCP listener
     /// This is useful for testing where we want to use a random port
     pub async fn run_with_listener(&self, listener: TcpListener) -> Result<()> {
-        // Initialize services
-        let supabase = SupabaseClient::new(&self.config.supabase_url, &self.config.supabase_key);
-
         // Initialize Pinecone client asynchronously
         let pinecone = Pinecone::new(
             &self.config.pinecone_api_key,
@@ -59,7 +56,6 @@ impl Application {
 
         let recommendation_service =
             web::Data::new(RecommendationService::new(sentence_encoder, pinecone));
-        let search_history_service = web::Data::new(SearchHistoryService::new(supabase));
 
         HttpServer::new(move || {
             let cors = Cors::default()
@@ -71,7 +67,6 @@ impl Application {
                 .wrap(cors)
                 .wrap(Logger::default())
                 .app_data(recommendation_service.clone())
-                .app_data(search_history_service.clone())
                 .service(api_routes())
         })
         .listen(listener)?

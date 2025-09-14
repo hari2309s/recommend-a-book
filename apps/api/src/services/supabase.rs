@@ -9,6 +9,7 @@ pub struct SupabaseClient {
     api_key: String,
 }
 
+#[allow(dead_code)]
 impl SupabaseClient {
     pub fn new(base_url: &str, api_key: &str) -> Self {
         Self {
@@ -18,7 +19,6 @@ impl SupabaseClient {
         }
     }
 
-    #[allow(dead_code)]
     pub async fn get_book<T: DeserializeOwned>(&self, id: &str) -> Result<T, ApiError> {
         let url = format!("{}/rest/v1/books?id=eq.{}", self.base_url, id);
         let response = self

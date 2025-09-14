@@ -7,7 +7,7 @@ use uuid::Uuid;
 pub struct SearchHistory {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub id: Option<Uuid>,
-    pub user_id: Uuid,
+    pub user_id: Option<Uuid>,
     pub query: String,
     pub recommendations: Vec<Book>,
     #[serde(skip_serializing_if = "Option::is_none")]

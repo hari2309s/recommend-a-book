@@ -2,11 +2,13 @@ use crate::{error::ApiError, models::SearchHistory, services::supabase::Supabase
 use chrono::Utc;
 use uuid::Uuid;
 
+#[allow(dead_code)]
 #[derive(Debug, Clone)]
 pub struct SearchHistoryService {
     supabase: SupabaseClient,
 }
 
+#[allow(dead_code)]
 impl SearchHistoryService {
     pub fn new(supabase: SupabaseClient) -> Self {
         Self { supabase }
@@ -25,7 +27,7 @@ impl SearchHistoryService {
     pub async fn save_search(&self, history: &SearchHistory) -> Result<(), ApiError> {
         let data = serde_json::json!({
             "id": history.id.unwrap_or_else(Uuid::new_v4).to_string(),
-            "user_id": history.user_id.to_string(),
+            "user_id": history.user_id.unwrap_or_else(Uuid::new_v4).to_string(),
             "query": history.query,
             "recommendations": history.recommendations,
             "created_at": history.created_at.unwrap_or_else(Utc::now).to_rfc3339(),

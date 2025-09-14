@@ -3,6 +3,7 @@ use config::{Config as ConfigFile, Environment, File, Source};
 use serde::Deserialize;
 use std::{env, path::PathBuf};
 
+#[allow(dead_code)]
 #[derive(Debug, Deserialize, Clone)]
 pub struct Config {
     pub host: String,
