@@ -15,7 +15,7 @@ import type {
  */
 export async function fetchRecommendations(
   searchText: string,
-  topK: number = 10
+  topK: number = 55
 ): Promise<RecommendationResponse> {
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), apiConfig.requestTimeout);
