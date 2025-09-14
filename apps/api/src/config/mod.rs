@@ -65,6 +65,32 @@ impl Config {
             info!("Using default port from config: {}", config.port);
         }
 
+        // Override sensitive values with environment variables
+        if let Ok(value) = env::var("APP_SUPABASE_URL") {
+            info!("Using Supabase URL from environment variable");
+            config.supabase_url = value;
+        }
+
+        if let Ok(value) = env::var("APP_SUPABASE_KEY") {
+            info!("Using Supabase key from environment variable");
+            config.supabase_key = value;
+        }
+
+        if let Ok(value) = env::var("APP_PINECONE_API_KEY") {
+            info!("Using Pinecone API key from environment variable");
+            config.pinecone_api_key = value;
+        }
+
+        if let Ok(value) = env::var("APP_PINECONE_ENVIRONMENT") {
+            info!("Using Pinecone environment from environment variable");
+            config.pinecone_environment = value;
+        }
+
+        if let Ok(value) = env::var("APP_PINECONE_INDEX") {
+            info!("Using Pinecone index from environment variable");
+            config.pinecone_index = value;
+        }
+
         // Log final Pinecone configuration
         debug!(
             "Final Pinecone configuration - Environment: {}, Index: {}",
