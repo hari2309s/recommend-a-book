@@ -19,13 +19,13 @@ api_key = "dev-secret-key"
 
 # Pinecone configuration
 # These should be overridden with environment variables in development
-pinecone_api_key = "your_api_key"
-pinecone_environment = "your_environment_name"
-pinecone_index = "your_index_name"
+pinecone_api_key = ""
+pinecone_environment = "aped-4627-b74a"
+pinecone_index = "books-index-0rnb22r"
 
 # HuggingFace configuration
 # This should be overridden with environment variables in development
-huggingface_api_key = "your_api_key"
+huggingface_api_key = "your_huggingface_api_key"
 
 # Logging configuration
 log_level = "debug"
