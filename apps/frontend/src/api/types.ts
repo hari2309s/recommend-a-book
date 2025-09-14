@@ -23,7 +23,6 @@ export interface Book {
  */
 export interface RecommendationRequest {
   query: string;
-  user_id?: string;
   topK?: number;
 }
 
@@ -32,7 +31,6 @@ export interface RecommendationRequest {
  */
 export interface RecommendationResponse {
   recommendations: Book[];
-  user_id: string;
 }
 
 /**

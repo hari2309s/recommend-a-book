@@ -1,9 +1,10 @@
 import React, { useState } from 'react';
 import { motion, useScroll } from 'framer-motion';
 import { Button, Flex, TextField } from '@radix-ui/themes';
-import { LoaderCircle, Search } from 'lucide-react';
+import { Search } from 'lucide-react';
 import type { Book } from '@/api/types';
 import { fetchRecommendations } from '@/api';
+import { containerVariants } from '@/utils/animations';
 
 type SearchFormProps = {
   loading: boolean;
@@ -11,7 +12,6 @@ type SearchFormProps = {
   resetScroll: () => void;
   setAllRecommendations: (books: Book[]) => void;
   setErrorMessage: (message: string | null) => void;
-  deviceId?: string | null;
 };
 
 const SearchForm: React.FC<SearchFormProps> = ({
@@ -42,7 +42,7 @@ const SearchForm: React.FC<SearchFormProps> = ({
     resetScroll();
 
     try {
-      const data = await fetchRecommendations(input, '', 50);
+      const data = await fetchRecommendations(input, 50);
       if (data.recommendations && Array.isArray(data.recommendations)) {
         setAllRecommendations(data.recommendations);
       } else {
@@ -54,19 +54,6 @@ const SearchForm: React.FC<SearchFormProps> = ({
     } finally {
       setLoading(false);
     }
-  };
-
-  const formVariants = {
-    initial: { opacity: 0, scale: 0.95 },
-    animate: {
-      opacity: 1,
-      scale: 1,
-      transition: {
-        duration: 0.6,
-        ease: 'easeOut' as const,
-        delay: 0.4,
-      },
-    },
   };
 
   return (
@@ -90,7 +77,7 @@ const SearchForm: React.FC<SearchFormProps> = ({
         scale: 1.01,
       }}
       transition={{ type: 'spring', stiffness: 300, damping: 20 }}
-      variants={formVariants}
+      variants={containerVariants}
       initial="initial"
       animate="animate"
     >
@@ -139,15 +126,7 @@ const SearchForm: React.FC<SearchFormProps> = ({
                 color: 'white',
               }}
             >
-              Get Recommendations{' '}
-              {loading && (
-                <motion.div
-                  animate={{ rotate: 360 }}
-                  transition={{ duration: 1, repeat: Infinity, ease: 'linear' }}
-                >
-                  <LoaderCircle size={16} />
-                </motion.div>
-              )}
+              Get Recommendations
             </Button>
           </motion.div>
         </Flex>

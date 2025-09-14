@@ -9,14 +9,12 @@ import type {
 /**
  * Fetches book recommendations based on the provided search criteria
  * @param searchText - The search query text
- * @param deviceId - Unique identifier for the user/device
  * @param topK - Number of recommendations to return (default: 10)
  * @returns Promise with recommendations response
  * @throws Error if the API request fails
  */
 export async function fetchRecommendations(
   searchText: string,
-  deviceId: string,
   topK: number = 10
 ): Promise<RecommendationResponse> {
   const controller = new AbortController();
@@ -31,7 +29,6 @@ export async function fetchRecommendations(
       },
       body: JSON.stringify({
         query: searchText.trim(),
-        user_id: deviceId,
         topK,
       } satisfies RecommendationRequest),
       signal: controller.signal,
@@ -71,7 +68,6 @@ export async function fetchRecommendations(
 
     return {
       recommendations,
-      user_id: data.user_id || deviceId,
     };
   } catch (error) {
     if (error instanceof Error) {
