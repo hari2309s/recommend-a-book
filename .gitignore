@@ -3,11 +3,10 @@
 **/*.rs.bk
 *.pdb
 Cargo.lock
-/apps/api/config/development.toml
-/apps/api/config/local.toml
-/apps/api/config/production.toml
 
-# Keep only the example files
+# Configuration files with sensitive API keys
+/apps/api/config/*.toml
+!/apps/api/config/base.toml
 !/apps/api/config/*.toml.example
 
 # IDE and editor files
@@ -43,6 +42,7 @@ Cargo.lock
 .env.development
 .env.test
 .env.production
+*.env
 
 # Debug logs
 **/*.log
