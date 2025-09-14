@@ -28,7 +28,9 @@ const Accordion: React.FC<AccordionProps> = ({ items }) => {
           }}
         >
           <motion.button
-            className="w-full text-sm text-green-800 bg-green-200 px-3 py-2 rounded hover:bg-green-300 focus:outline-none focus:ring-2 focus:ring-green-500 transition-colors duration-200 flex items-center justify-between"
+            className="w-full text-sm text-green-800 bg-green-200 px-3 py-2 rounded
+            hover:bg-green-300 focus:outline-none focus:ring-2 focus:ring-green-500
+            transition-colors duration-200 flex items-center justify-between"
             whileHover={{
               scale: 1.02,
               backgroundColor: '#bbf7d0',

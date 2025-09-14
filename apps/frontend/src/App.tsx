@@ -1,15 +1,13 @@
 import React, { useState } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion } from 'framer-motion';
 import type { Book } from '@/api/types';
-import { Box, Flex } from '@radix-ui/themes';
+import { Flex } from '@radix-ui/themes';
 import '@/App.css';
-import { LoaderCircle } from 'lucide-react';
-import RecommendationList from '@/components/RecommendationList';
 import SearchForm from '@/components/SearchForm';
 import Header from '@/components/Header';
 import { useInfiniteScroll } from '@/hooks';
-import Error from '@/components/Error';
-import Empty from './components/Empty';
+import { pageVariants } from '@/utils/animations';
+import RecommendationContainer from '@/components/RecommendationContainer';
 
 const App: React.FC = () => {
   const [loading, setLoading] = useState<boolean>(false);
@@ -18,7 +16,7 @@ const App: React.FC = () => {
   const {
     visibleItems: recommendations,
     setAllItems: setAllRecommendations,
-    isLoading: showLoader,
+    isLoading: isScrollLoading,
     resetScroll,
     searchPerformed,
   } = useInfiniteScroll<Book>({
@@ -27,74 +25,42 @@ const App: React.FC = () => {
     threshold: 100,
   });
 
-  const pageVariants = {
-    initial: { opacity: 0, y: 20 },
-    animate: {
-      opacity: 1,
-      y: 0,
-      transition: {
-        duration: 0.6,
-        ease: 'easeOut' as const,
-      },
-    },
-  };
-
   return (
-    <motion.div
-      variants={pageVariants}
-      initial="initial"
-      animate="animate"
-      className="min-h-screen"
+    <Flex
+      asChild
+      minHeight="100vh"
+      minWidth="100vw"
+      p="8"
+      style={{ backgroundColor: 'var(--accent-1)' }}
+      className="max-w-screen"
+      direction="column"
+      align="center"
+      justify="center"
+      gap="4"
     >
-      <Box
-        minHeight="100vh"
-        minWidth="100vw"
-        p="8"
-        style={{ backgroundColor: 'var(--accent-1)' }}
-        className="max-w-screen"
+      <motion.div
+        variants={pageVariants}
+        initial="initial"
+        animate="animate"
+        className="min-h-screen"
       >
-        <Flex direction="column" gap="4" align="center">
-          <Header />
-          <SearchForm
-            loading={loading}
-            setLoading={setLoading}
-            resetScroll={resetScroll}
-            setAllRecommendations={setAllRecommendations}
-            setErrorMessage={setErrorMessage}
-          />
-          <AnimatePresence mode="wait">
-            {errorMessage && <Error message={errorMessage} />}
-            {errorMessage === null && recommendations.length === 0 && <Empty />}
-            {recommendations?.length > 0 && (
-              <motion.div
-                key="recommendations"
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -20 }}
-                transition={{ duration: 0.5 }}
-              >
-                <RecommendationList
-                  recommendations={recommendations}
-                  searchPerformed={searchPerformed}
-                />
-                {showLoader && (
-                  <div
-                    style={{
-                      height: 40,
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                    }}
-                  >
-                    <LoaderCircle className="animate-spin text-green-600" />
-                  </div>
-                )}
-              </motion.div>
-            )}
-          </AnimatePresence>
-        </Flex>
-      </Box>
-    </motion.div>
+        <Header />
+        <SearchForm
+          loading={loading}
+          setLoading={setLoading}
+          resetScroll={resetScroll}
+          setAllRecommendations={setAllRecommendations}
+          setErrorMessage={setErrorMessage}
+        />
+
+        <RecommendationContainer
+          searchPerformed={searchPerformed}
+          loading={loading || isScrollLoading}
+          recommendations={recommendations}
+          error={errorMessage}
+        />
+      </motion.div>
+    </Flex>
   );
 };
 

@@ -21,7 +21,10 @@ const BookDescriptionAccordion: React.FC<BookDescriptionAccordionProps> = ({
   return (
     <div className="w-full">
       <motion.button
-        className="w-full px-3 py-2.5 rounded-[5px] border border-[var(--accent-7)] hover:bg-[var(--accent-5)] hover:cursor-pointer focus:outline-none focus:ring-2 focus:ring-[var(--accent-7)] focus:ring-offset-1 transition-all duration-200 flex items-center justify-between shadow-sm text-[var(--accent-11)] text-lg"
+        className="w-full px-3 py-2.5 rounded-[5px] border border-[var(--accent-7)]
+        hover:bg-[var(--accent-5)] hover:cursor-pointer focus:outline-none focus:ring-2
+        focus:ring-[var(--accent-7)] focus:ring-offset-1 transition-all duration-200 flex
+        items-center justify-between shadow-sm text-[var(--accent-11)] text-lg"
         style={{ backgroundColor: 'var(--accent-6)' }}
         whileHover={{
           scale: 1.01,
@@ -55,7 +58,8 @@ const BookDescriptionAccordion: React.FC<BookDescriptionAccordionProps> = ({
               stiffness: 100,
               damping: 15,
             }}
-            className="overflow-hidden rounded-[5px] p-4 bg-[var(--accent-6)] text-[var(--accent-11)] mt-[10px]"
+            className="overflow-hidden rounded-[5px] p-4 bg-[var(--accent-6)]
+            text-[var(--accent-11)] mt-[10px]"
           >
             <motion.div
               initial={{ opacity: 0 }}
