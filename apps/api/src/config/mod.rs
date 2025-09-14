@@ -17,10 +17,11 @@ pub struct Config {
 
 impl Config {
     pub fn load() -> Result<Self> {
-        use tracing::{debug, info, warn};
+        use tracing::{debug, error, info, warn};
 
         let run_mode = env::var("RUN_MODE").unwrap_or_else(|_| "development".into());
         info!("Loading configuration for environment: {}", run_mode);
+        debug!("Starting configuration loading process");
 
         let config_builder = ConfigFile::builder()
             // Start with base config
@@ -38,11 +39,32 @@ impl Config {
         let debug_config = config_builder.build_cloned()?;
 
         // Log all configuration sources for debugging
-        debug!("Configuration sources:");
+        debug!("Configuration sources loaded from files and environment:");
         if let Ok(sources) = debug_config.collect() {
             for (key, _) in sources.iter() {
-                if key.starts_with("pinecone") {
-                    debug!("  {} = {:?}", key, debug_config.get::<String>(key));
+                if key.starts_with("pinecone")
+                    || key.starts_with("supabase")
+                    || key == "host"
+                    || key == "port"
+                {
+                    let value = debug_config.get::<String>(key).unwrap_or_default();
+                    let display_value = if key.contains("key") || key.contains("api") {
+                        if value.len() > 10 {
+                            format!(
+                                "{}...{} (length: {})",
+                                &value[0..4],
+                                &value[value.len() - 4..],
+                                value.len()
+                            )
+                        } else if !value.is_empty() {
+                            "[non-empty value]".to_string()
+                        } else {
+                            "[empty]".to_string()
+                        }
+                    } else {
+                        value
+                    };
+                    debug!("  {} = {}", key, display_value);
                 }
             }
         }
@@ -77,24 +99,79 @@ impl Config {
         }
 
         if let Ok(value) = env::var("APP_PINECONE_API_KEY") {
-            info!("Using Pinecone API key from environment variable");
+            let display_value = if value.len() > 10 {
+                format!(
+                    "{}...{} (length: {})",
+                    &value[0..4],
+                    &value[value.len() - 4..],
+                    value.len()
+                )
+            } else {
+                "[redacted]".to_string()
+            };
+            info!(
+                "Using Pinecone API key from environment variable: {}",
+                display_value
+            );
             config.pinecone_api_key = value;
+        } else {
+            debug!("APP_PINECONE_API_KEY not found in environment, using value from config file");
         }
 
-        if let Ok(value) = env::var("APP_PINECONE_ENVIRONMENT") {
-            info!("Using Pinecone environment from environment variable");
+        if let Ok(value) = env::var("APP_PINECONE_ENV") {
+            info!(
+                "Using Pinecone environment from environment variable: '{}'",
+                value
+            );
             config.pinecone_environment = value;
+        } else {
+            debug!(
+                "APP_PINECONE_ENV not found in environment, using value from config file: '{}'",
+                config.pinecone_environment
+            );
         }
 
-        if let Ok(value) = env::var("APP_PINECONE_INDEX") {
-            info!("Using Pinecone index from environment variable");
+        if let Ok(value) = env::var("APP_PINECONE_INDEX_NAME") {
+            info!(
+                "Using Pinecone index from environment variable: '{}'",
+                value
+            );
             config.pinecone_index = value;
+        } else {
+            debug!(
+                "APP_PINECONE_INDEX_NAME not found in environment, using value from config file: '{}'",
+                config.pinecone_index
+            );
+        }
+
+        // Validate configuration values
+        if config.pinecone_api_key.is_empty() || config.pinecone_api_key.contains("your") {
+            warn!("Pinecone API key appears to be invalid or empty");
+        }
+
+        if config.pinecone_environment.is_empty() || config.pinecone_environment.contains("your") {
+            warn!(
+                "Pinecone environment appears to be invalid or empty: '{}'",
+                config.pinecone_environment
+            );
+        }
+
+        if config.pinecone_index.is_empty() || config.pinecone_index.contains("your") {
+            warn!(
+                "Pinecone index appears to be invalid or empty: '{}'",
+                config.pinecone_index
+            );
         }
 
         // Log final Pinecone configuration
-        debug!(
-            "Final Pinecone configuration - Environment: {}, Index: {}",
+        info!(
+            "Final Pinecone configuration - Environment: '{}', Index: '{}'",
             config.pinecone_environment, config.pinecone_index
+        );
+
+        debug!(
+            "Expected Pinecone URL will be: https://{}.svc.{}.pinecone.io",
+            config.pinecone_index, config.pinecone_environment
         );
 
         Ok(config)

@@ -55,6 +55,28 @@ impl Pinecone {
             .build()
             .map_err(|e| ApiError::PineconeError(format!("Failed to create HTTP client: {}", e)))?;
 
+        // Validate that we have actual values and not placeholders
+        if api_key.is_empty() || api_key.contains("your") || api_key.len() < 10 {
+            return Err(ApiError::PineconeError(
+                "Invalid Pinecone API key. Please set a valid APP_PINECONE_API_KEY environment variable.".to_string(),
+            ));
+        }
+
+        if environment.is_empty()
+            || environment.contains("your")
+            || environment == "your_environment_name"
+        {
+            return Err(ApiError::PineconeError(
+                "Invalid Pinecone environment. Please set a valid APP_PINECONE_ENVIRONMENT environment variable.".to_string(),
+            ));
+        }
+
+        if index_name.is_empty() || index_name.contains("your") || index_name == "your_index_name" {
+            return Err(ApiError::PineconeError(
+                "Invalid Pinecone index name. Please set a valid APP_PINECONE_INDEX environment variable.".to_string(),
+            ));
+        }
+
         let host = if environment.contains("-") {
             format!("https://{}.svc.{}.pinecone.io", index_name, environment)
         } else {
@@ -187,6 +209,18 @@ impl Pinecone {
                     }
 
                     error!("Pinecone API error: {} - {}", status, text);
+
+                    // Check for specific errors that might indicate configuration issues
+                    if text.contains("unauthorized")
+                        || text.contains("forbidden")
+                        || text.contains("not found")
+                    {
+                        return Err(ApiError::PineconeError(format!(
+                            "Pinecone authentication failed ({}). Please verify your API key, index name, and environment are correct.",
+                            status
+                        )));
+                    }
+
                     return Err(ApiError::PineconeError(format!(
                         "API returned {}: {}",
                         status, text
@@ -207,6 +241,16 @@ impl Pinecone {
                         "Failed to send request to Pinecone after {} attempts: {}",
                         MAX_RETRIES, e
                     );
+                    // Provide more helpful error for DNS issues
+                    if e.to_string().contains("dns error")
+                        || e.to_string().contains("lookup address")
+                    {
+                        return Err(ApiError::PineconeError(format!(
+                            "Connection to Pinecone failed: DNS error. Please verify your APP_PINECONE_ENVIRONMENT and APP_PINECONE_INDEX environment variables. Error details: {}",
+                            e
+                        )));
+                    }
+
                     return Err(ApiError::PineconeError(format!("Request failed: {}", e)));
                 }
             }

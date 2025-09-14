@@ -16,6 +16,7 @@ services:
         value: 0.0.0.0
       - key: APP_PORT
         value: 10000
+      # IMPORTANT: Make sure to set RUST_LOG to at least "info" to see important configuration messages
       - key: APP_ENVIRONMENT
         value: production
       - key: APP_FRONTEND_URL
@@ -23,19 +24,20 @@ services:
       # Database configuration
       - key: APP_DATABASE_URL
         value: postgres://localhost:5432/books
-      # Supabase configuration (set via Render dashboard)
-      - key: APP_SUPABASE_URL
+      # Supabase configuration - REQUIRED, must be set via Render dashboard
+      - key: APP_SUPABASE_URL  # Your Supabase project URL
         sync: false
-      - key: APP_SUPABASE_KEY
+      - key: APP_SUPABASE_KEY  # Your Supabase API key
         sync: false
-      # Pinecone configuration (set via Render dashboard)
-      - key: APP_PINECONE_API_KEY
+      # Pinecone configuration - REQUIRED, must be set via Render dashboard
+      # These values must be set correctly for the API to function
+      - key: APP_PINECONE_API_KEY  # Your Pinecone API key (from Pinecone dashboard)
         sync: false
-      - key: APP_PINECONE_ENVIRONMENT
+      - key: APP_PINECONE_ENV  # Pinecone environment (e.g., "gcp-starter" or "us-west1-gcp")
         sync: false
-      - key: APP_PINECONE_INDEX
+      - key: APP_PINECONE_INDEX_NAME  # Name of your Pinecone index (without -project suffix)
         sync: false
-      # HuggingFace API key for ML models (optional)
+      # HuggingFace API key for ML models (optional, only needed if using HuggingFace embeddings)
       - key: APP_HUGGINGFACE_API_KEY
         sync: false
     autoDeploy: true
