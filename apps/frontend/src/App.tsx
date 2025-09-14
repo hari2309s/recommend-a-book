@@ -16,7 +16,6 @@ const App: React.FC = () => {
   const {
     visibleItems: recommendations,
     setAllItems: setAllRecommendations,
-    isLoading: isScrollLoading,
     resetScroll,
     searchPerformed,
   } = useInfiniteScroll<Book>({
@@ -55,7 +54,7 @@ const App: React.FC = () => {
 
         <RecommendationContainer
           searchPerformed={searchPerformed}
-          loading={loading || isScrollLoading}
+          loading={loading}
           recommendations={recommendations}
           error={errorMessage}
         />
