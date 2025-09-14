@@ -17,7 +17,7 @@ pub struct Config {
 
 impl Config {
     pub fn load() -> Result<Self> {
-        use tracing::{debug, error, info, warn};
+        use tracing::{debug, info, warn};
 
         let run_mode = env::var("RUN_MODE").unwrap_or_else(|_| "development".into());
         info!("Loading configuration for environment: {}", run_mode);
