@@ -1,4 +1,4 @@
-import { Flex, Grid, Text, Heading } from '@radix-ui/themes';
+import { Flex, Grid, Text } from '@radix-ui/themes';
 import { motion } from 'framer-motion';
 import React, { useEffect, useState } from 'react';
 import type { Book } from '@/api/types';
@@ -26,19 +26,10 @@ const RecommendationList: React.FC<RecommendationListProps> = ({
   }, [searchPerformed]);
 
   return (
-    <Flex asChild p="4" m="4" direction="column" align="center" style={{ marginTop: '100px' }}>
+    <Flex asChild p="4" m="4" direction="column" align="center">
       <motion.div variants={listVariants} initial="hidden" animate="visible">
-        <motion.div
-          initial={{ opacity: 0, y: -20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6, ease: 'easeOut' }}
-        >
-          <Heading size="6" mb="6" className="text-center mt-[65px]" color="green">
-            Recommended Books
-          </Heading>
-        </motion.div>
         {recommendations && recommendations.length > 0 ? (
-          <Grid columns={{ initial: '1', sm: '2', md: '3' }} gapY="5" gapX="4">
+          <Grid columns={{ initial: '1', sm: '2', md: '3' }} gapY="5" gapX="4" mt="150px">
             {recommendations.map((book) => (
               <motion.div key={`${book.title}-${book.author}`} variants={listItemVariants}>
                 <RecommendationCard book={book} resetAccordion={resetAccordions} />
