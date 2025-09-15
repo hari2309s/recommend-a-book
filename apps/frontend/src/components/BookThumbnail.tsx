@@ -2,6 +2,7 @@ import { motion } from 'framer-motion';
 import React from 'react';
 import { useState } from 'react';
 import imageNotAvailable from '@/assets/image-not-available.png';
+import { thumbnailVariants } from '@/utils/animations';
 
 type BookThumbnailProps = {
   src?: string;
@@ -33,14 +34,9 @@ const BookThumbnail: React.FC<BookThumbnailProps> = ({
         scale: 1.05,
         transition: { type: 'spring', stiffness: 300, damping: 20 },
       }}
-      initial={{ opacity: 0, scale: 0.8 }}
-      animate={{ opacity: 1, scale: 1 }}
-      transition={{
-        duration: 0.4,
-        type: 'spring',
-        stiffness: 100,
-        damping: 15,
-      }}
+      initial="initial"
+      animate="animate"
+      variants={thumbnailVariants}
     >
       {isImageAvailable && !imageError ? (
         <>
