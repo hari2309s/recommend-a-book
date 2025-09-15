@@ -5,7 +5,6 @@ import path from 'path';
 // https://vitejs.dev/config/
 export default defineConfig(({ mode }) => {
   // Load env file based on `mode` in the current working directory.
-  // Set the third parameter to '' to load all env regardless of the `VITE_` prefix.
   const env = loadEnv(mode, process.cwd(), '');
 
   return {
@@ -32,8 +31,6 @@ export default defineConfig(({ mode }) => {
           changeOrigin: true,
           secure: false,
           ws: true,
-          // Rewrite path if needed
-          // rewrite: (path) => path.replace(/^\/api/, '')
         },
       },
     },
@@ -49,7 +46,6 @@ export default defineConfig(({ mode }) => {
         output: {
           manualChunks: {
             react: ['react', 'react-dom'],
-            // Add other vendor chunks as needed
           },
         },
       },
