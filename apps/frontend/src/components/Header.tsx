@@ -19,7 +19,7 @@ const Header: React.FC = () => {
       direction="column"
       justify="center"
       align="center"
-      width="50%"
+      width={{ initial: '70%', md: '50%' }}
     >
       <motion.div variants={headerVariants} initial="initial" animate="animate">
         <motion.img
@@ -35,7 +35,7 @@ const Header: React.FC = () => {
             transition: { duration: 0.2, ease: 'easeOut' as const },
           }}
         />
-        <Heading asChild className="text-sm font-small mb-6">
+        <Heading asChild className="mb-6">
           <motion.h2
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}

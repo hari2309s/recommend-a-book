@@ -92,9 +92,10 @@ const SearchForm: React.FC<SearchFormProps> = ({
           <motion.div
             whileFocus={{ scale: 1.02 }}
             transition={{ type: 'spring', stiffness: 400, damping: 25 }}
-            className="flex-1 max-w-md"
+            className="flex-1 w-full"
           >
             <TextField.Root
+              id="search-input"
               size="3"
               placeholder="Enter your book preferences"
               value={input}
