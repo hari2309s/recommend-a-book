@@ -25,23 +25,12 @@ const App: React.FC = () => {
   });
 
   return (
-    <Flex
-      asChild
-      minHeight="100vh"
-      minWidth="100vw"
-      p="8"
-      style={{ backgroundColor: 'var(--accent-1)' }}
-      className="max-w-screen"
-      direction="column"
-      align="center"
-      justify="center"
-      gap="4"
-    >
+    <Flex asChild p="7" direction="column" align="center" justify="center" gap="4">
       <motion.div
         variants={pageVariants}
         initial="initial"
         animate="animate"
-        className="min-h-screen"
+        className="min-h-screen max-w-screen bg-[var(--accent-1)]"
       >
         <Header />
         <SearchForm
@@ -51,7 +40,6 @@ const App: React.FC = () => {
           setAllRecommendations={setAllRecommendations}
           setErrorMessage={setErrorMessage}
         />
-
         <RecommendationsContainer
           searchPerformed={searchPerformed}
           loading={loading}
