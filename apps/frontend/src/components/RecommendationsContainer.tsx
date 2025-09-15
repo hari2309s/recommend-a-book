@@ -36,7 +36,6 @@ const RecommendationContainer: React.FC<RecommendationContainerProps> = ({
           p="4"
           style={{
             marginTop: '180px',
-            border: error ? '1px dashed red' : '1px dashed green',
             borderRadius: '5px',
             height: '350px',
             textAlign: 'center',

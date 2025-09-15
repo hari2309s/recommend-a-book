@@ -25,7 +25,7 @@ const App: React.FC = () => {
   });
 
   return (
-    <Flex asChild p="7" direction="column" align="center" justify="center" gap="4">
+    <Flex asChild p="7" direction="column" align="center" justify="start" gap="4">
       <motion.div
         variants={pageVariants}
         initial="initial"
