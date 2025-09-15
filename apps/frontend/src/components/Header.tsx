@@ -15,18 +15,13 @@ const Header: React.FC = () => {
         boxShadow: '0 2px 4px rgba(0, 0, 0, 0.1)',
         backgroundColor: 'var(--accent-2)',
         color: 'var(--accent-11)',
-        width: 'w-[50%]',
       }}
       direction="column"
       justify="center"
       align="center"
+      width="50%"
     >
-      <motion.div
-        variants={headerVariants}
-        initial="initial"
-        animate="animate"
-        className="flex justify-center"
-      >
+      <motion.div variants={headerVariants} initial="initial" animate="animate">
         <motion.img
           src="/book-store.png"
           width={35}
