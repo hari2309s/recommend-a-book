@@ -1,38 +1,52 @@
 use serde::{Deserialize, Serialize};
+use utoipa::ToSchema;
 
-// Re-export Book and BookRecommendation from book.rs
-pub use book::Book;
-
-// Re-export SearchHistory from search.rs
-pub use search::SearchHistory;
+// Re-export types from book.rs
+pub use book::{Book, BookRecommendation};
 
 mod book;
-mod search;
 
 /// Request structure for book recommendations
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
 pub struct RecommendationRequest {
     /// The search query or description to find book recommendations
+    #[schema(example = "fantasy books with dragons and magic")]
     pub query: String,
-    /// Optional number of recommendations to return
+    /// Optional number of recommendations to return (default: 50)
     #[serde(default = "default_top_k")]
+    #[schema(example = 10, minimum = 1, maximum = 100)]
     pub top_k: usize,
+}
+
+/// Response structure for book recommendations
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+pub struct RecommendationResponse {
+    /// List of recommended books with similarity scores
+    pub recommendations: Vec<BookRecommendation>,
+}
+
+/// Health check response structure
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+pub struct HealthResponse {
+    /// Status of the service
+    #[schema(example = "ok")]
+    pub status: String,
+    /// Current timestamp in RFC3339 format
+    #[schema(example = "2024-01-15T10:30:00Z")]
+    pub timestamp: String,
+}
+
+/// Error response structure
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+pub struct ErrorResponse {
+    /// Error message
+    #[schema(example = "Query cannot be empty")]
+    pub error: String,
+    /// HTTP status code
+    #[schema(example = 400)]
+    pub status: u16,
 }
 
 fn default_top_k() -> usize {
     50
-}
-
-/// Request structure for fetching search history
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct SearchHistoryRequest {
-    /// User ID to fetch history for
-    pub user_id: String,
-    /// Optional limit on number of history items to return
-    #[serde(default = "default_history_limit")]
-    pub limit: i32,
-}
-
-fn default_history_limit() -> i32 {
-    20
 }

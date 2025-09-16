@@ -1,6 +1,5 @@
 pub mod pinecone;
 pub mod recommendation;
-pub mod search_history;
 pub mod supabase;
 
 // Re-export public types

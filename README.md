@@ -6,7 +6,7 @@ A full-stack application that provides personalized book recommendations based o
 
 - **Semantic Search**: Advanced natural language search powered by sentence embeddings using BAAI/bge-large-en-v1.5 via Hugging Face Inference API
 - **Smart Book Recommendations**: Get book suggestions based on semantic understanding of your preferences using vector similarity search
-- **Search History**: Keep track of your previous searches and recommendations with user fingerprinting [in-progress]
+- **OpenAPI Documentation**: Interactive API documentation with Swagger UI for easy testing and integration
 - **Fast and Efficient**: Built with Rust for high-performance backend operations
 - **Modern UI**: Clean and responsive interface built with React 19, Radix UI, and Tailwind CSS
 - **Infinite Scrolling**: Smooth user experience with progressive loading and dynamic content
@@ -24,7 +24,8 @@ A full-stack application that provides personalized book recommendations based o
 - **Vector Database**: Pinecone for embeddings storage and similarity search
 - **Deployment**: Render with production configuration
 - **API Features**:
-  - RESTful API endpoints for recommendations and search history
+  - RESTful API endpoints for recommendations
+  - OpenAPI/Swagger documentation for interactive testing
   - Structured error handling with custom error types
   - Configuration management with TOML files
   - Comprehensive logging and tracing
@@ -42,7 +43,6 @@ A full-stack application that provides personalized book recommendations based o
 - **State Management**: Custom hooks with infinite scroll
 - **Deployment**: Vercel with optimized build configuration
 - **Features**:
-  - Fingerprint-based user tracking for search history [in-progress]
   - Responsive design with mobile-first approach
   - Infinite scrolling with progressive loading
   - Modern component architecture with TypeScript
@@ -56,7 +56,7 @@ The application follows a modern client-server architecture with a monorepo stru
 - **Frontend**: React single-page application with modern state management and UI components
 - **ML Pipeline**: Text embedding generation using BAAI/bge-large-en-v1.5 via Hugging Face Inference API and similarity search using Pinecone
 - **Data Storage**:
-  - Supabase (PostgreSQL) for structured data and search history
+  - Supabase (PostgreSQL) for structured data
   - Pinecone for vector embeddings and similarity search
 - **Deployment**:
   - Render for hosting the Rust API
@@ -108,6 +108,10 @@ The application follows a modern client-server architecture with a monorepo stru
    pnpm start
    ```
 
+   After starting the backend, you can access the API documentation at:
+   - Swagger UI: `http://localhost:10000/swagger-ui/`
+   - OpenAPI JSON: `http://localhost:10000/api-doc/openapi.json`
+
 ### Book Indexing
 
 To index books from a CSV file:
@@ -127,10 +131,27 @@ cargo run --bin index_books -- data/books.csv
 
 ### Recommendations
 - `POST /api/recommendations/` - Get book recommendations based on query
-- `POST /api/recommendations/history` - Get user's search history [in-progress]
 
 ### Health Check
 - `GET /api/health` - API health status
+
+### API Documentation
+- `/swagger-ui/` - Interactive Swagger UI documentation
+- `/api-doc/openapi.json` - OpenAPI specification in JSON format
+
+#### Using Swagger UI
+Once the server is running, you can access the Swagger UI documentation:
+
+1. Navigate to `http://localhost:10000/swagger-ui/` in your browser (using your configured port)
+2. The UI shows all available endpoints with their descriptions, parameters, and response formats
+3. To test an endpoint:
+   - Click on the endpoint to expand it
+   - Click the "Try it out" button
+   - Fill in any required parameters or request body
+   - Click "Execute" to make a real API call
+   - View the response directly in the UI
+
+This makes it easy to explore and test the API without writing any code.
 
 ## Environment Variables
 
@@ -190,6 +211,7 @@ The backend is deployed on Render with the following setup:
 - **Build Command**: `cargo build --release`
 - **Start Command**: `./target/release/recommend-a-book-api`
 - **Health Check**: `/api/health`
+- **Documentation**: `/swagger-ui/` (interactive API documentation)
 
 ### Frontend (Vercel)
 
