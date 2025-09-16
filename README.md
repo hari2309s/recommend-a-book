@@ -10,7 +10,6 @@ A full-stack application that provides personalized book recommendations based o
 - **Fast and Efficient**: Built with Rust for high-performance backend operations
 - **Modern UI**: Clean and responsive interface built with React 19, Radix UI, and Tailwind CSS
 - **Infinite Scrolling**: Smooth user experience with progressive loading and dynamic content
-- **Book Indexing**: Comprehensive CSV-based book indexing system with data preprocessing and deduplication
 - **Fast Development**: Optimized development scripts with instant startup and hot reloading
 
 ## Tech Stack
@@ -29,7 +28,6 @@ A full-stack application that provides personalized book recommendations based o
   - Structured error handling with custom error types
   - Configuration management with TOML files
   - Comprehensive logging and tracing
-  - CSV book indexing with data preprocessing
 
 ### Frontend (React)
 - **Core**:
@@ -211,7 +209,7 @@ The backend is deployed on Render with the following setup:
 - **Build Command**: `cargo build --release`
 - **Start Command**: `./target/release/recommend-a-book-api`
 - **Health Check**: `/api/health`
-- **Documentation**: `/swagger-ui/` (interactive API documentation)
+- **Documentation**: `/swagger-ui/`
 
 ### Frontend (Vercel)
 

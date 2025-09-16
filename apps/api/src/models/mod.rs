@@ -2,7 +2,7 @@ use serde::{Deserialize, Serialize};
 use utoipa::ToSchema;
 
 // Re-export types from book.rs
-pub use book::{Book, BookRecommendation};
+pub use book::Book;
 
 mod book;
 
@@ -21,8 +21,8 @@ pub struct RecommendationRequest {
 /// Response structure for book recommendations
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
 pub struct RecommendationResponse {
-    /// List of recommended books with similarity scores
-    pub recommendations: Vec<BookRecommendation>,
+    /// List of recommended books
+    pub recommendations: Vec<Book>,
 }
 
 /// Health check response structure

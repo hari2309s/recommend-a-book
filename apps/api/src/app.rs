@@ -2,10 +2,7 @@ use crate::{
     config,
     error::Result,
     ml::huggingface_embedder::HuggingFaceEmbedder,
-    models::{
-        Book, BookRecommendation, ErrorResponse, HealthResponse, RecommendationRequest,
-        RecommendationResponse,
-    },
+    models::{Book, ErrorResponse, HealthResponse, RecommendationRequest, RecommendationResponse},
     routes::api_routes,
     services::{Pinecone, RecommendationService},
 };
@@ -27,7 +24,6 @@ use utoipa_swagger_ui::{Config as SwaggerConfig, SwaggerUi};
     components(
         schemas(
             Book,
-            BookRecommendation,
             RecommendationRequest,
             RecommendationResponse,
             HealthResponse,
@@ -118,12 +114,10 @@ impl Application {
                 .wrap(Logger::default())
                 .app_data(recommendation_service.clone())
                 .service(api_routes())
-                // Route to serve the OpenAPI JSON
                 .route(
                     "/api-doc/openapi.json",
                     web::get().to(|| async { HttpResponse::Ok().json(ApiDoc::openapi()) }),
                 )
-                // Swagger UI service
                 .service(swagger_ui)
         })
         .listen(listener)?
