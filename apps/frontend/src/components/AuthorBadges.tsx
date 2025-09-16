@@ -16,11 +16,10 @@ const AuthorBadges: React.FC<AuthorBadgesProps> = ({ authors }) => {
             asChild
             size="1"
             variant="soft"
+            key={index}
             className="max-w-max hover:bg-green-200 transition-colors duration-200"
           >
-            <motion.div key={index} variants={badgeVariants}>
-              {author}
-            </motion.div>
+            <motion.div variants={badgeVariants}>{author}</motion.div>
           </Badge>
         ))}
       </motion.div>

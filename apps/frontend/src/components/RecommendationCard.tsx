@@ -78,7 +78,12 @@ const RecommendationCard: React.FC<RecommendationCardProps> = ({ book, resetAcco
               className="w-full flex justify-between"
             >
               <Badge size="3" variant="surface" className="max-w-max">
-                {book.categories ? book.categories : 'Unknown'}
+                {book.categories
+                  ? book.categories.reduce(
+                      (acc, curr) => (curr && acc ? `${curr} | ${acc}` : curr),
+                      ''
+                    )
+                  : 'Unknown'}
               </Badge>
               <div>
                 {getBookStoreLinks(book.isbn).map((store, index) => (
