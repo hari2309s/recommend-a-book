@@ -44,6 +44,7 @@ use utoipa_swagger_ui::{Config as SwaggerConfig, SwaggerUi};
         )
     ),
     servers(
+        (url = "https://recommend-a-book-api.onrender.com", description = "Production server"),
         (url = "/", description = "Local development server")
     )
 )]
