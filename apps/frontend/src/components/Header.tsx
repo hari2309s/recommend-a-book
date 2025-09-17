@@ -19,7 +19,7 @@ const Header: React.FC = () => {
       direction="column"
       justify="center"
       align="center"
-      width={{ initial: '70%', md: '50%' }}
+      gap="4"
     >
       <motion.div variants={headerVariants} initial="initial" animate="animate">
         <motion.img
@@ -35,18 +35,8 @@ const Header: React.FC = () => {
             transition: { duration: 0.2, ease: 'easeOut' as const },
           }}
         />
-        <Heading asChild className="mb-6">
-          <motion.h2
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{
-              type: 'spring',
-              duration: 1,
-              delay: 0.3,
-            }}
-          >
-            Book Recommendation System
-          </motion.h2>
+        <Heading size={{ initial: '3', sm: '4', md: '5', lg: '6' }}>
+          Book Recommendation System
         </Heading>
       </motion.div>
     </Flex>
