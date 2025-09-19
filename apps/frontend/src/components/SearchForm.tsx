@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { motion, useScroll } from 'framer-motion';
+import { motion, useScroll, useMotionValueEvent } from 'framer-motion';
 import { Button, Flex, TextField } from '@radix-ui/themes';
 import { Search } from 'lucide-react';
 import type { Book } from '@/api/types';
@@ -25,12 +25,8 @@ const SearchForm: React.FC<SearchFormProps> = ({
   const { scrollY } = useScroll();
   const [input, setInput] = useState<string>('');
 
-  scrollY.on('change', (latest) => {
-    if (latest > 50) {
-      setIsSticky(true);
-    } else {
-      setIsSticky(false);
-    }
+  useMotionValueEvent(scrollY, 'change', (latest) => {
+    setIsSticky(latest > 140);
   });
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -58,10 +54,9 @@ const SearchForm: React.FC<SearchFormProps> = ({
 
   return (
     <motion.div
-      className={`z-50 fixed top-[180px] left-4 right-4 w-[80%] sm:w-[50%] bg-green-500/40
+      className="z-50 fixed left-4 right-4 w-[80%] sm:w-[50%] bg-green-500/40
         backdrop-blur-lg border border-dashed border-green-300/20 shadow-lg
-        shadow-green-500/10 flex justify-center items-center min-h-[75px]
-        ${isSticky ? 'shadow-2xl shadow-green-500/20' : 'shadow-lg shadow-green-500/10'}`}
+        shadow-green-500/10 flex justify-center items-center min-h-[75px]"
       style={{
         padding: '19px',
         backdropFilter: 'blur(20px)',
@@ -69,17 +64,24 @@ const SearchForm: React.FC<SearchFormProps> = ({
         background: 'rgba(34, 197, 94, 0.4)',
         borderRadius: '6px',
         borderColor: 'green',
+      }}
+      variants={containerVariants}
+      initial="initial"
+      animate={{
+        ...containerVariants.animate,
+        top: isSticky ? 50 : 190,
         boxShadow: isSticky
           ? '0 25px 50px -12px rgba(34, 197, 94, 0.25), 0 8px 16px -8px rgba(34, 197, 94, 0.1)'
           : '0 10px 25px -5px rgba(34, 197, 94, 0.1), 0 4px 6px -2px rgba(34, 197, 94, 0.05)',
       }}
+      transition={{
+        ...containerVariants.animate.transition,
+        top: { duration: 0 },
+        boxShadow: { duration: 0 },
+      }}
       whileHover={{
         scale: 1.01,
       }}
-      transition={{ type: 'spring', stiffness: 300, damping: 20 }}
-      variants={containerVariants}
-      initial="initial"
-      animate="animate"
     >
       <motion.form onSubmit={handleSubmit} className="w-full">
         <Flex
