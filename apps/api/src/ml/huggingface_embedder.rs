@@ -91,18 +91,20 @@ impl HuggingFaceEmbedder {
     /// # Returns
     /// * `Result<Vec<f32>, ApiError>` - The encoded embedding or an error
     pub async fn encode(&self, text: &str) -> Result<Vec<f32>, ApiError> {
-        debug!(
-            "Encoding text with {}: '{}'",
+        info!(
+            "Encoding text with {}: '{}' (text length: {})",
             self.model_name,
             if text.len() > MAX_TEXT_PREVIEW_LENGTH {
                 &text[..MAX_TEXT_PREVIEW_LENGTH]
             } else {
                 text
-            }
+            },
+            text.len()
         );
 
         let processed_text = self.preprocess_text(text);
         if processed_text.is_empty() {
+            error!("Text preprocessing resulted in empty text");
             return Err(ApiError::InvalidInput(
                 "Empty text after preprocessing".to_string(),
             ));
@@ -132,12 +134,16 @@ impl HuggingFaceEmbedder {
             match self.make_api_request(&request_json).await {
                 Ok(response) => {
                     // If successful, process the response
-                    if attempt > 1 {
-                        info!(
-                            "HuggingFace API request succeeded after {} attempts",
-                            attempt
-                        );
-                    }
+                    info!(
+                        "HuggingFace API request for '{}' succeeded after {} attempt(s) with status: {}",
+                        if text.len() > MAX_TEXT_PREVIEW_LENGTH {
+                            &text[..MAX_TEXT_PREVIEW_LENGTH]
+                        } else {
+                            text
+                        },
+                        attempt,
+                        response.status()
+                    );
                     return self.process_api_response(response).await;
                 }
                 Err(e) => {
@@ -198,6 +204,11 @@ impl HuggingFaceEmbedder {
         response: reqwest::Response,
     ) -> Result<Vec<f32>, ApiError> {
         let status = response.status();
+        info!(
+            "Processing HuggingFace API response with status: {}",
+            status
+        );
+
         if !status.is_success() {
             let error_text = response.text().await.unwrap_or_default();
             error!("HuggingFace API error {}: {}", status, error_text);
@@ -222,7 +233,22 @@ impl HuggingFaceEmbedder {
             };
         }
 
-        let embeddings: Vec<f32> = response.json().await.map_err(|e| {
+        // Get the response body as bytes first for logging
+        let response_body = response.text().await.map_err(|e| {
+            error!("Failed to get HuggingFace response body: {}", e);
+            ApiError::SerializationError(format!("Failed to get response body: {}", e))
+        })?;
+
+        info!(
+            "HuggingFace API response body (preview): {}",
+            if response_body.len() > 100 {
+                &response_body[..100]
+            } else {
+                &response_body
+            }
+        );
+
+        let embeddings: Vec<f32> = serde_json::from_str(&response_body).map_err(|e| {
             error!("Failed to parse HuggingFace response: {}", e);
             ApiError::SerializationError(format!("Failed to parse HuggingFace response: {}", e))
         })?;
@@ -234,7 +260,17 @@ impl HuggingFaceEmbedder {
             ));
         }
 
-        debug!("Raw embedding dimensions: {}", embeddings.len());
+        // Calculate stats for logging
+        let _min_value = embeddings.iter().fold(f32::INFINITY, |a, &b| a.min(b));
+        let _max_value = embeddings.iter().fold(f32::NEG_INFINITY, |a, &b| a.max(b));
+        let sum: f32 = embeddings.iter().sum();
+        let _avg = sum / embeddings.len() as f32;
+
+        info!(
+            "Raw embedding dimensions: {} - First 5 values: {:?}",
+            embeddings.len(),
+            embeddings.iter().take(5).collect::<Vec<_>>()
+        );
 
         // Map to exactly 512 dimensions using intelligent dimensionality reduction
         let mapped_embeddings = self.map_to_512_dimensions(&embeddings);
@@ -440,11 +476,28 @@ impl HuggingFaceEmbedder {
             // For smaller embeddings, pad with zeros
             let mut result = original.to_vec();
             result.resize(TARGET_EMBEDDING_SIZE, 0.0);
+            info!(
+                "Padded {} dimensions to {} dimensions with zeros",
+                original_size, TARGET_EMBEDDING_SIZE
+            );
             return result;
         }
 
         // For larger embeddings (like 1024D from bge-large), use intelligent reduction
-        self.reduce_dimensions_intelligently(original)
+        let result = self.reduce_dimensions_intelligently(original);
+
+        // Calculate statistics for logging
+        let min_value = result.iter().fold(f32::INFINITY, |a, &b| a.min(b));
+        let max_value = result.iter().fold(f32::NEG_INFINITY, |a, &b| a.max(b));
+        let sum: f32 = result.iter().sum();
+        let avg = sum / result.len() as f32;
+
+        info!(
+            "Generated {}D embedding - Stats: avg={:.4}, min={:.4}, max={:.4}, sum={:.4}",
+            TARGET_EMBEDDING_SIZE, avg, min_value, max_value, sum
+        );
+
+        result
     }
 
     /// Reduce dimensions while preserving maximum information

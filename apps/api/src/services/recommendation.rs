@@ -133,47 +133,106 @@ impl RecommendationService {
 
         // Check cache for existing results
         let cache_key = format!("{}:{}", trimmed_query, top_k);
+        info!("Generated cache key: {}", cache_key);
 
         // Try to read from cache first (read lock is faster than write lock)
         if let Ok(cache) = self.result_cache.read() {
+            info!("Current cache keys: {:?}", cache.keys().collect::<Vec<_>>());
             if let Some(entry) = cache.get(&cache_key) {
                 // Return cached results if they're still valid
                 if entry.timestamp.elapsed() < Duration::from_secs(CACHE_TTL_SECONDS) {
-                    debug!("Cache hit for query: {}", trimmed_query);
+                    info!("CACHE HIT for query: {}", trimmed_query);
                     return Ok(entry.results.clone());
                 }
             }
         }
 
+        info!("CACHE MISS for query: {}", trimmed_query);
+
         // Parse query intent with caching
         let intent = self.get_cached_intent(trimmed_query);
-        debug!(?intent, "Detected query intent");
+        info!(?intent, "Detected query intent");
 
         // Get search strategy
         let strategy = self.get_search_strategy(&intent);
-        debug!(?strategy, "Using search strategy");
+        info!("Performing hybrid search with strategy: {:?}", strategy);
+
+        // Increase search scope to get more candidates for ranking
+        // This allows high-rated books to have a better chance of appearing
+        let expanded_k = top_k * 3;
 
         // Perform hybrid search with better error handling
-        let raw_results = match self.perform_hybrid_search(&intent, &strategy, top_k).await {
-            Ok(results) => results,
+        info!("Attempting to encode query text: '{}'", trimmed_query);
+        let raw_results = match self
+            .perform_hybrid_search(&intent, &strategy, expanded_k)
+            .await
+        {
+            Ok(results) => {
+                info!(
+                    "Vector search returned {} results, first book: {:?}",
+                    results.len(),
+                    results.first().and_then(|b| b.title.clone())
+                );
+                results
+            }
             Err(e) => {
                 error!("Search error: {}. Trying fallback strategy", e);
                 // Attempt fallback if the main search fails
-                self.perform_fallback_search(trimmed_query, top_k).await?
+                self.perform_fallback_search(trimmed_query, expanded_k)
+                    .await?
             }
         };
 
-        debug!(result_count = raw_results.len(), "Got raw search results");
+        // Log top 5 results before ranking
+        if !raw_results.is_empty() {
+            info!(
+                "PRE-RANKING: Top 5 raw results: {:?}",
+                raw_results
+                    .iter()
+                    .take(5)
+                    .map(|b| b.title.clone())
+                    .collect::<Vec<_>>()
+            );
+
+            for (i, book) in raw_results.iter().take(5).enumerate() {
+                info!(
+                    "PRE-RANKING #{}: Title: {:?}, Rating: {:.2}",
+                    i + 1,
+                    book.title,
+                    book.rating
+                );
+            }
+        }
+
+        // Find and log a specific book's position (for debugging the ranking algorithm)
+        if let Some(pos) = raw_results.iter().position(|book| {
+            book.title
+                .as_ref()
+                .map_or(false, |t| t.contains("Homicidal Psycho Jungle Cat"))
+        }) {
+            let book = &raw_results[pos];
+            info!("DEBUGGING: 'Homicidal Psycho Jungle Cat' found at position {} with rating {} before ranking",
+                  pos + 1, book.rating);
+        }
 
         // Rank and process results
         let ranked_results = self.rank_results(raw_results, &intent, top_k);
         info!(
-            final_count = ranked_results.len(),
-            "Returning ranked results"
+            "Returning {} ranked results for query '{}'. First book: {:?}",
+            ranked_results.len(),
+            trimmed_query,
+            ranked_results.first().and_then(|b| b.title.clone())
         );
 
         // Update cache with new results
         if let Ok(mut cache) = self.result_cache.write() {
+            info!(
+                "Updating cache for key '{}' with {} results. First book: {:?}",
+                cache_key,
+                ranked_results.len(),
+                ranked_results.first().and_then(|b| b.title.clone())
+            );
+
             cache.insert(
                 cache_key,
                 CacheEntry {
@@ -186,6 +245,8 @@ impl RecommendationService {
             if cache.len() > 100 {
                 self.cleanup_cache(&mut cache);
             }
+
+            info!("Current cache size: {} entries", cache.len());
         }
 
         Ok(ranked_results)
@@ -307,10 +368,15 @@ impl RecommendationService {
                 semantic_weight: 0.7,
                 hybrid_search: true,
             },
-            QueryIntent::SimilarTo { .. } | QueryIntent::General { .. } => SearchStrategy {
+            QueryIntent::SimilarTo { .. } => SearchStrategy {
                 metadata_filter: None,
-                semantic_weight: 1.0,
-                hybrid_search: false,
+                semantic_weight: 0.8,
+                hybrid_search: true,
+            },
+            QueryIntent::General { .. } => SearchStrategy {
+                metadata_filter: None,
+                semantic_weight: 0.6, // Lower weight gives more importance to ratings
+                hybrid_search: true,  // Enable hybrid search for better results
             },
         }
     }
@@ -362,14 +428,27 @@ impl RecommendationService {
             };
 
             // Try to get embeddings with fallback strategy
-            let (semantic_results, using_fallback) =
-                match self.sentence_encoder.encode(query_text).await {
-                    Ok(embedding) => {
-                        // Successfully got embedding, proceed with vector search
-                        let results = self.pinecone.query_vector(&embedding, top_k * 3).await?;
-                        (results, false) // Not using fallback
-                    }
-                    Err(e) => {
+            let (semantic_results, using_fallback) = match self
+                .sentence_encoder
+                .encode(query_text)
+                .await
+            {
+                Ok(embedding) => {
+                    // Successfully got embedding, proceed with vector search
+                    info!("Successfully encoded query '{}'. Embedding stats: length={}, avg={:.4}, min={:.4}, max={:.4}, sum={:.4}",
+                             query_text, embedding.len(),
+                             embedding.iter().sum::<f32>() / embedding.len() as f32,
+                             embedding.iter().fold(f32::INFINITY, |a, &b| a.min(b)),
+                             embedding.iter().fold(f32::NEG_INFINITY, |a, &b| a.max(b)),
+                             embedding.iter().sum::<f32>());
+                    info!(
+                        "Performing vector search with embedding for '{}', semantic_weight={}",
+                        query_text, strategy.semantic_weight
+                    );
+                    let results = self.pinecone.query_vector(&embedding, top_k * 3).await?;
+                    (results, false) // Not using fallback
+                }
+                Err(e) => {
                     // Check if the error is a timeout
                     if e.to_string().contains("timed out") || e.to_string().contains("timeout") {
                         // Log the timeout but continue with fallback strategy
@@ -378,21 +457,32 @@ impl RecommendationService {
                             e
                         );
 
-                            // Use fallback search strategy when embeddings are unavailable
-                            let fallback_results =
-                                self.perform_fallback_search(query_text, top_k).await?;
-                            (fallback_results, true) // Using fallback
-                        } else {
-                            // For non-timeout errors, propagate them
-                            return Err(e);
-                        }
+                        // Use fallback search strategy when embeddings are unavailable
+                        let fallback_results =
+                            self.perform_fallback_search(query_text, top_k).await?;
+                        (fallback_results, true) // Using fallback
+                    } else {
+                        // For non-timeout errors, propagate them
+                        return Err(e);
                     }
-                };
+                }
+            };
 
             if strategy.hybrid_search && !using_fallback {
                 // Weight semantic results (only if not using fallback)
+                info!(
+                    "Applying hybrid search weights: semantic_weight={}",
+                    strategy.semantic_weight
+                );
                 for result in &mut results {
-                    result.rating *= strategy.semantic_weight;
+                    // Apply semantic weight as a scaling factor for ratings
+                    // Higher semantic_weight means more trust in semantic search results
+                    let original_rating = result.rating;
+                    result.rating = result.rating * strategy.semantic_weight;
+                    debug!(
+                        "Adjusted rating for '{:?}': {} -> {}",
+                        result.title, original_rating, result.rating
+                    );
                 }
             }
 
@@ -496,12 +586,51 @@ impl RecommendationService {
                 results = sorted_results;
             }
             _ => {
-                // For general search, sort directly by rating for better performance
-                results.sort_by(|a, b| {
-                    b.rating
-                        .partial_cmp(&a.rating)
-                        .unwrap_or(std::cmp::Ordering::Equal)
-                });
+                info!("Using GENERAL search ranking logic");
+
+                // For general search, use more sophisticated ranking that balances
+                // semantic relevance with book quality
+                let total_results = results.len();
+                let mut scored_results = results.iter().enumerate()
+                    .map(|(idx, book)| {
+                        // Position score: 3.0 (best) to 0.01 (worst)
+                        let position_score = 3.0 * (1.0 - (idx as f32 / total_results as f32));
+
+                        // Rating score: Scale to 0-1 range and then to 0.85-0.95
+                        // This gives ratings influence but doesn't overpower position
+                        let rating_score = 0.85 + (book.rating / 5.0) * 0.10;
+
+                        // Compute final score
+                        let final_score = if idx < 50 {
+                            // For top results, position has more weight
+                            position_score + rating_score
+                        } else {
+                            // For later results, rating has more weight to help good books rise
+                            position_score * 0.7 + rating_score * 1.3
+                        };
+
+                        info!("Book scoring: {:?} - Position: {}/{} (score: {:.2}), Rating: {:.2} (scaled: {:.2}), Final score: {:.2}",
+                             book.title, idx + 1, total_results, position_score, book.rating, rating_score, final_score);
+
+                        (book.clone(), final_score)
+                    })
+                    .collect::<Vec<_>>();
+
+                // Sort by final score
+                scored_results
+                    .sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap_or(std::cmp::Ordering::Equal));
+
+                // Extract just the books in new order
+                results = scored_results.into_iter().map(|(book, _)| book).collect();
+
+                info!(
+                    "After custom scoring, top 5 results: {:?}",
+                    results
+                        .iter()
+                        .take(5)
+                        .map(|b| b.title.clone())
+                        .collect::<Vec<_>>()
+                );
             }
         }
 
@@ -527,8 +656,23 @@ impl RecommendationService {
             }
         }
 
-        // Only limit to exactly top_k at the very end
-        unique_results.into_iter().take(top_k).collect()
+        // Final ranking list
+        let final_results = unique_results
+            .into_iter()
+            .take(top_k)
+            .collect::<Vec<Book>>();
+
+        info!(
+            "FINAL RANKING: Top 5 results after ranking and deduplication: {:?}",
+            final_results
+                .iter()
+                .take(5)
+                .map(|b| b.title.clone())
+                .collect::<Vec<_>>()
+        );
+
+        // Return limited results
+        final_results
     }
 
     /// Fallback search when HuggingFace embedding service is unavailable
