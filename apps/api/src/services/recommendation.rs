@@ -370,14 +370,13 @@ impl RecommendationService {
                         (results, false) // Not using fallback
                     }
                     Err(e) => {
-                        // Check if the error is a timeout
-                        if e.to_string().contains("timed out") || e.to_string().contains("timeout")
-                        {
-                            // Log the timeout but continue with fallback strategy
-                            warn!(
-                                "HuggingFace API timed out, using fallback search strategy: {}",
-                                e
-                            );
+                    // Check if the error is a timeout
+                    if e.to_string().contains("timed out") || e.to_string().contains("timeout") {
+                        // Log the timeout but continue with fallback strategy
+                        warn!(
+                            "HuggingFace API timed out, using fallback search strategy: {}",
+                            e
+                        );
 
                             // Use fallback search strategy when embeddings are unavailable
                             let fallback_results =
