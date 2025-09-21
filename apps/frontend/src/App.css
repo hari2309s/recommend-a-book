@@ -7,13 +7,7 @@
   overflow-x: hidden;
 }
 
-.card {
-  padding: 2em;
-}
 
-.read-the-docs {
-  color: #888;
-}
 
 /* Custom animation utilities */
 @keyframes fadeInUp {
@@ -101,19 +95,13 @@
 }
 
 /* Loading states */
-.loading-skeleton {
-  background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
-  background-size: 200px 100%;
-  animation: shimmer 1.5s infinite;
-}
+
 
 /* Focus states for accessibility */
 .focus-ring:focus {
   outline: 2px solid #10b981;
   outline-offset: 2px;
 }
-
-
 
 
 
