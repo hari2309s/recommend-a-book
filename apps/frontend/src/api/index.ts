@@ -52,22 +52,21 @@ export class ApiError extends Error {
 /**
  * Fetches book recommendations based on the provided search criteria
  * @param searchText - The search query text
- * @param topK - Number of recommendations to return (default: 55)
+ * @param topK - Number of recommendations to return (default: 100)
  * @param options - Additional options like cache control and retry settings
  * @returns Promise with recommendations response
  * @throws ApiError if the API request fails
  */
 export async function fetchRecommendations(
   searchText: string,
-  topK: number = 100, // Default to 100 results for better coverage
+  topK: number = 100,
   options: {
     useCache?: boolean;
     retries?: number;
     signal?: AbortSignal;
-    limitResults?: boolean; // Option to limit results in the frontend
   } = {}
 ): Promise<RecommendationResponse> {
-  const { useCache = true, retries = MAX_RETRIES, signal, limitResults = false } = options;
+  const { useCache = true, retries = MAX_RETRIES, signal } = options;
   const trimmedQuery = searchText.trim();
   const cacheKey = `${trimmedQuery}:${topK}`;
 
@@ -104,9 +103,7 @@ export async function fetchRecommendations(
       }
 
       // Construct URL correctly by combining baseURL and endpoint
-      const baseUrl = apiConfig.baseURL || '';
-      const endpoint = apiConfig.endpoints.recommendations;
-      const url = baseUrl + endpoint;
+      const url = `${apiConfig.baseURL}${apiConfig.endpoints.recommendations}`;
 
       const response = await fetch(url, {
         method: 'POST',
@@ -168,12 +165,9 @@ export async function fetchRecommendations(
         publisher: book.publisher,
       }));
 
-      // Create result object - don't limit results unless specifically requested
-      const result = {
-        recommendations: limitResults ? recommendations.slice(0, topK) : recommendations,
-      };
+      const result = { recommendations };
 
-      // Store in cache if caching is enabled - always store the full result set
+      // Store in cache if caching is enabled
       if (useCache) {
         responseCache.set(cacheKey, {
           data: result,
@@ -239,26 +233,13 @@ function cleanupCache(): void {
 /**
  * Invalidates the cache for a specific query or all queries
  * @param query - Optional query to invalidate, if not provided all cache is cleared
- * @param preserveResults - Whether to preserve result data but mark as expired
  */
-export function invalidateCache(query?: string, preserveResults: boolean = false): void {
+export function invalidateCache(query?: string): void {
   if (query) {
     // Remove all cache entries that start with this query
     for (const key of responseCache.keys()) {
       if (key.startsWith(query.trim())) {
-        if (preserveResults) {
-          // Mark as expired but keep data (useful for transitions)
-          const entry = responseCache.get(key);
-          if (entry) {
-            responseCache.set(key, {
-              ...entry,
-              expiry: Date.now() - 1, // Set as expired
-            });
-          }
-        } else {
-          // Completely remove cache entry
-          responseCache.delete(key);
-        }
+        responseCache.delete(key);
       }
     }
   } else {

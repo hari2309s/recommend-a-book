@@ -38,7 +38,7 @@ const SearchForm: React.FC<SearchFormProps> = ({
     resetScroll();
 
     try {
-      const data = await fetchRecommendations(input, 155);
+      const data = await fetchRecommendations(input, 100);
       if (data.recommendations && Array.isArray(data.recommendations)) {
         setAllRecommendations(data.recommendations);
       } else {

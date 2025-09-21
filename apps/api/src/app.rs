@@ -111,12 +111,11 @@ impl Application {
         HttpServer::new(move || {
             // Configure CORS with optimized settings
             let cors = Cors::default()
-                .allow_any_origin()
-                .allow_any_method()
-                .allow_any_header()
-                .expose_headers(vec!["*"])
-                .max_age(3600)
-                .send_wildcard();
+                .allowed_origin("https://recommend-a-book-frontend.vercel.app")
+                .allowed_origin("http://localhost:3000")
+                .allowed_methods(vec!["GET", "POST", "OPTIONS"])
+                .allowed_headers(vec!["Content-Type", "Accept"])
+                .max_age(3600);
 
             // Configure Swagger UI
             let swagger_ui = SwaggerUi::new("/swagger-ui/{_:.*}")
