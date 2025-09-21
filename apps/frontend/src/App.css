@@ -5,6 +5,7 @@
   padding: 0;
   width: 100%;
   overflow-x: hidden;
+  color-scheme: light;
 }
 
 .logo {
@@ -156,5 +157,11 @@
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
+  }
+}
+
+@media (display-mode: standalone) {
+  body {
+    background-color: var(--green-9);
   }
 }
