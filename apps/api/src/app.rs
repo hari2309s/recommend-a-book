@@ -10,7 +10,9 @@ use actix_cors::Cors;
 use actix_web::{middleware::Logger, web, App, HttpResponse, HttpServer};
 use anyhow::Context;
 use log::info;
+use num_cpus;
 use std::net::TcpListener;
+
 use utoipa::OpenApi;
 use utoipa_swagger_ui::{Config as SwaggerConfig, SwaggerUi};
 
@@ -82,6 +84,10 @@ impl Application {
 
     /// Run the server with a specific TCP listener
     /// This is useful for testing where we want to use a random port
+    /// Run the server with a specific TCP listener
+    /// This is useful for testing where we want to use a random port
+    ///
+    /// The server is configured with optimized settings for production use
     pub async fn run_with_listener(&self, listener: TcpListener) -> Result<()> {
         // Initialize Pinecone client asynchronously
         let pinecone = Pinecone::new(
@@ -97,23 +103,39 @@ impl Application {
             .await
             .context("Failed to initialize sentence encoder")?;
 
+        // Create shareable recommendation service
         let recommendation_service =
             web::Data::new(RecommendationService::new(sentence_encoder, pinecone));
 
+        // Create a new HTTP server with optimized configuration
         HttpServer::new(move || {
+            // Configure CORS with optimized settings
             let cors = Cors::default()
                 .allow_any_origin()
                 .allow_any_method()
-                .allow_any_header();
+                .allow_any_header()
+                .expose_headers(vec!["*"])
+                .max_age(3600)
+                .send_wildcard();
 
             // Configure Swagger UI
             let swagger_ui = SwaggerUi::new("/swagger-ui/{_:.*}")
                 .config(SwaggerConfig::new(["/api-doc/openapi.json"]));
 
+            // Create app with enhanced logging and performance settings
             App::new()
                 .wrap(cors)
-                .wrap(Logger::default())
+                // Use a more informative logger format for better debugging
+                .wrap(Logger::new("%r %s %b %{User-Agent}i %D ms"))
+                // Add request payload limit
+                .app_data(web::JsonConfig::default().limit(1024 * 1024)) // 1MB limit
                 .app_data(recommendation_service.clone())
+                // Enable compression for responses
+                .wrap(actix_web::middleware::Compress::default())
+                // Add trailing slash handling
+                .wrap(actix_web::middleware::NormalizePath::new(
+                    actix_web::middleware::TrailingSlash::Trim,
+                ))
                 .service(api_routes())
                 .route(
                     "/api-doc/openapi.json",
@@ -122,6 +144,14 @@ impl Application {
                 .service(swagger_ui)
         })
         .listen(listener)?
+        // Configure server with worker settings for better performance
+        .workers(std::cmp::max(2, num_cpus::get()))
+        // Add backlog configuration for better connection handling
+        .backlog(2048)
+        // Increase max connection rate for better performance under load
+        .max_connection_rate(256)
+        // Add keep-alive timeout
+        .keep_alive(std::time::Duration::from_secs(75))
         .run()
         .await?;
 

@@ -12,9 +12,9 @@ pub struct RecommendationRequest {
     /// The search query or description to find book recommendations
     #[schema(example = "fantasy books with dragons and magic")]
     pub query: String,
-    /// Optional number of recommendations to return (default: 50)
+    /// Optional number of recommendations to return (default: 100)
     #[serde(default = "default_top_k")]
-    #[schema(example = 10, minimum = 1, maximum = 100)]
+    #[schema(example = 50, minimum = 1, maximum = 200)]
     pub top_k: usize,
 }
 
@@ -48,5 +48,5 @@ pub struct ErrorResponse {
 }
 
 fn default_top_k() -> usize {
-    50
+    100
 }

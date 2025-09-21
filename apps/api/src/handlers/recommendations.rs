@@ -4,13 +4,12 @@ use crate::{
     services::RecommendationService,
 };
 use actix_web::{
-    post,
     web::{self, Json},
     HttpResponse,
 };
 
 pub fn recommendations_config(cfg: &mut web::ServiceConfig) {
-    cfg.service(web::scope("/recommendations").service(get_recommendations));
+    cfg.service(web::resource("/recommendations").route(web::post().to(get_recommendations)));
 }
 
 /// Get book recommendations based on query
@@ -27,7 +26,7 @@ pub fn recommendations_config(cfg: &mut web::ServiceConfig) {
     summary = "Get book recommendations",
     description = "Returns a list of book recommendations based on the provided search query. Uses machine learning to find semantically similar books. Each recommendation includes the book details and a similarity score."
 )]
-#[post("/")]
+// Use a function without the post macro since we're using the route configuration above
 pub async fn get_recommendations(
     request: Json<RecommendationRequest>,
     recommendation_service: web::Data<RecommendationService>,

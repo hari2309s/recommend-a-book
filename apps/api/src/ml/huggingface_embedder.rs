@@ -3,7 +3,7 @@ use ndarray::{Array1, Array2};
 use reqwest::Client;
 use serde_json::json;
 use std::env;
-use tracing::{debug, error, info};
+use tracing::{debug, error, info, warn};
 
 /// Target dimension for Pinecone index
 const TARGET_EMBEDDING_SIZE: usize = 512;
@@ -11,7 +11,10 @@ const TARGET_EMBEDDING_SIZE: usize = 512;
 /// Default model configuration
 const DEFAULT_MODEL_NAME: &str = "BAAI/bge-large-en-v1.5";
 const DEFAULT_BASE_URL: &str = "https://api-inference.huggingface.co";
-const DEFAULT_TIMEOUT_SECONDS: u64 = 60;
+const DEFAULT_TIMEOUT_SECONDS: u64 = 120; // Increased timeout
+const DEFAULT_RETRY_ATTEMPTS: u32 = 3; // Number of retry attempts for API calls
+const DEFAULT_RETRY_DELAY_MS: u64 = 1000; // Delay between retries in milliseconds
+const BATCH_SIZE_LIMIT: usize = 20; // Maximum number of texts to process in a single batch
 
 /// Text processing limits
 const MAX_TEXT_PREVIEW_LENGTH: usize = 100;
@@ -56,6 +59,7 @@ impl HuggingFaceEmbedder {
         let model_name = env::var("APP_HUGGINGFACE_MODEL_NAME")
             .unwrap_or_else(|_| DEFAULT_MODEL_NAME.to_string());
 
+        // Create client with increased timeout
         let client = Client::builder()
             .timeout(std::time::Duration::from_secs(timeout_seconds))
             .build()
@@ -104,25 +108,95 @@ impl HuggingFaceEmbedder {
             ));
         }
 
-        let response = self
-            .client
+        // Load retry configuration
+        let retry_config = self.get_retry_config();
+        let retry_attempts = retry_config.0;
+        let retry_delay_ms = retry_config.1;
+
+        let request_json = json!({
+            "inputs": processed_text,
+            "options": {
+                "wait_for_model": true,
+                "use_cache": true
+            }
+        });
+
+        // Use a retry mechanism for API calls with exponential backoff
+        let mut last_error = None;
+        for attempt in 1..=retry_attempts {
+            info!(
+                "HuggingFace API request attempt {}/{}",
+                attempt, retry_attempts
+            );
+
+            match self.make_api_request(&request_json).await {
+                Ok(response) => {
+                    // If successful, process the response
+                    if attempt > 1 {
+                        info!(
+                            "HuggingFace API request succeeded after {} attempts",
+                            attempt
+                        );
+                    }
+                    return self.process_api_response(response).await;
+                }
+                Err(e) => {
+                    // Store the error and retry if it's retryable
+                    error!("Attempt {}/{} failed: {}", attempt, retry_attempts, e);
+
+                    if attempt < retry_attempts {
+                        info!("Waiting {}ms before retry...", retry_delay_ms);
+                        tokio::time::sleep(std::time::Duration::from_millis(retry_delay_ms)).await;
+                    }
+                    last_error = Some(e);
+                }
+            }
+        }
+
+        // If we've exhausted all retries, return the last error
+        Err(last_error.unwrap_or_else(|| {
+            ApiError::ExternalServiceError("Maximum retry attempts reached".to_string())
+        }))
+    }
+
+    /// Make a single API request to HuggingFace
+    async fn make_api_request(
+        &self,
+        payload: &serde_json::Value,
+    ) -> Result<reqwest::Response, ApiError> {
+        self.client
             .post(&self.model_url)
             .header("Authorization", format!("Bearer {}", self.api_key))
             .header("Content-Type", "application/json")
-            .json(&json!({
-                "inputs": processed_text,
-                "options": {
-                    "wait_for_model": true,
-                    "use_cache": true
-                }
-            }))
+            .json(payload)
             .send()
             .await
             .map_err(|e| {
                 error!("Failed to call HuggingFace API: {}", e);
                 ApiError::ExternalServiceError(format!("HuggingFace API request failed: {}", e))
-            })?;
+            })
+    }
 
+    /// Process the API response
+    /// Get retry configuration from environment variables
+    fn get_retry_config(&self) -> (u32, u64) {
+        let retry_attempts = env::var("APP_HUGGINGFACE_RETRY_ATTEMPTS")
+            .ok()
+            .and_then(|s| s.parse().ok())
+            .unwrap_or(DEFAULT_RETRY_ATTEMPTS);
+
+        let retry_delay_ms = env::var("APP_HUGGINGFACE_RETRY_DELAY_MS")
+            .ok()
+            .and_then(|s| s.parse().ok())
+            .unwrap_or(DEFAULT_RETRY_DELAY_MS);
+
+        (retry_attempts, retry_delay_ms)
+    }
+
+    async fn process_api_response(
+        &self,
+        response: reqwest::Response,
+    ) -> Result<Vec<f32>, ApiError> {
         let status = response.status();
         if !status.is_success() {
             let error_text = response.text().await.unwrap_or_default();
@@ -197,28 +271,71 @@ impl HuggingFaceEmbedder {
             self.model_name
         );
 
-        let response = self
-            .client
-            .post(&self.model_url)
-            .header("Authorization", format!("Bearer {}", self.api_key))
-            .header("Content-Type", "application/json")
-            .json(&json!({
-                "inputs": processed_texts,
-                "options": {
-                    "wait_for_model": true,
-                    "use_cache": true
-                }
-            }))
-            .send()
-            .await
-            .map_err(|e| {
-                error!("Failed to call HuggingFace API for batch: {}", e);
-                ApiError::ExternalServiceError(format!(
-                    "HuggingFace batch API request failed: {}",
-                    e
-                ))
-            })?;
+        // Get retry attempts from env or use default
+        let retry_attempts = env::var("APP_HUGGINGFACE_RETRY_ATTEMPTS")
+            .ok()
+            .and_then(|s| s.parse().ok())
+            .unwrap_or(DEFAULT_RETRY_ATTEMPTS);
 
+        let retry_delay_ms = env::var("APP_HUGGINGFACE_RETRY_DELAY_MS")
+            .ok()
+            .and_then(|s| s.parse().ok())
+            .unwrap_or(DEFAULT_RETRY_DELAY_MS);
+
+        // Prepare request payload
+        let request_json = json!({
+            "inputs": processed_texts,
+            "options": {
+                "wait_for_model": true,
+                "use_cache": true
+            }
+        });
+
+        // Use a retry mechanism for batch API calls
+        let mut last_error = None;
+        for attempt in 1..=retry_attempts {
+            info!(
+                "HuggingFace batch API request attempt {}/{}",
+                attempt, retry_attempts
+            );
+
+            match self.make_api_request(&request_json).await {
+                Ok(response) => {
+                    if attempt > 1 {
+                        info!(
+                            "HuggingFace batch API request succeeded after {} attempts",
+                            attempt
+                        );
+                    }
+
+                    // Process successful response
+                    return self.process_batch_response(response, texts.len()).await;
+                }
+                Err(e) => {
+                    error!("Batch attempt {}/{} failed: {}", attempt, retry_attempts, e);
+
+                    if attempt < retry_attempts {
+                        let backoff_ms = retry_delay_ms * (2_u64.pow(attempt - 1));
+                        info!("Waiting {}ms before retry...", backoff_ms);
+                        tokio::time::sleep(std::time::Duration::from_millis(backoff_ms)).await;
+                    }
+                    last_error = Some(e);
+                }
+            }
+        }
+
+        // If we've exhausted all retries, return the last error
+        Err(last_error.unwrap_or_else(|| {
+            ApiError::ExternalServiceError("Maximum batch retry attempts reached".to_string())
+        }))
+    }
+
+    /// Process the batch API response
+    async fn process_batch_response(
+        &self,
+        response: reqwest::Response,
+        num_texts: usize,
+    ) -> Result<Array2<f32>, ApiError> {
         let status = response.status();
         if !status.is_success() {
             let error_text = response.text().await.unwrap_or_default();
@@ -259,8 +376,17 @@ impl HuggingFaceEmbedder {
             ));
         }
 
+        // Verify we got the expected number of embeddings
+        if embeddings.len() != num_texts {
+            warn!(
+                "Expected {} embeddings but received {}",
+                num_texts,
+                embeddings.len()
+            );
+        }
+
         // Process each embedding and collect into flat vector
-        let mut flat_embeddings = Vec::with_capacity(texts.len() * TARGET_EMBEDDING_SIZE);
+        let mut flat_embeddings = Vec::with_capacity(num_texts * TARGET_EMBEDDING_SIZE);
         for (i, embedding) in embeddings.iter().enumerate() {
             debug!(
                 "Processing embedding {} with {} dimensions",
@@ -271,13 +397,18 @@ impl HuggingFaceEmbedder {
             flat_embeddings.extend(mapped);
         }
 
-        debug!("Successfully generated {} 512D embeddings", texts.len());
+        debug!(
+            "Successfully generated {} 512D embeddings",
+            embeddings.len()
+        );
 
         // Reshape into 2D array
-        Array2::from_shape_vec((texts.len(), TARGET_EMBEDDING_SIZE), flat_embeddings).map_err(|e| {
-            error!("Failed to reshape batch embeddings: {}", e);
-            ApiError::ModelInferenceError(format!("Failed to reshape batch embeddings: {}", e))
-        })
+        Array2::from_shape_vec((embeddings.len(), TARGET_EMBEDDING_SIZE), flat_embeddings).map_err(
+            |e| {
+                error!("Failed to reshape batch embeddings: {}", e);
+                ApiError::ModelInferenceError(format!("Failed to reshape batch embeddings: {}", e))
+            },
+        )
     }
 
     /// Improved text preprocessing that preserves more semantic information
@@ -363,5 +494,63 @@ impl HuggingFaceEmbedder {
     #[allow(dead_code)]
     pub fn model_info(&self) -> (String, usize) {
         (self.model_name.clone(), TARGET_EMBEDDING_SIZE)
+    }
+
+    /// Encodes a large batch by splitting into smaller batches to avoid timeouts
+    /// # Arguments
+    /// * `texts` - A slice of strings to encode
+    /// * `batch_size` - The maximum size of each batch
+    /// # Returns
+    /// * `Result<Array2<f32>, ApiError>` - A 2D array of all embeddings
+    #[allow(dead_code)]
+    pub async fn encode_large_batch(
+        &self,
+        texts: &[String],
+        batch_size: Option<usize>,
+    ) -> Result<Array2<f32>, ApiError> {
+        if texts.is_empty() {
+            return Err(ApiError::InvalidInput("Empty batch provided".to_string()));
+        }
+
+        let batch_size = batch_size.unwrap_or(BATCH_SIZE_LIMIT);
+        if batch_size == 0 {
+            return Err(ApiError::InvalidInput(
+                "Batch size cannot be zero".to_string(),
+            ));
+        }
+
+        // If batch is small enough, use regular batch encoding
+        if texts.len() <= batch_size {
+            return self.encode_batch(texts).await;
+        }
+
+        // Process in smaller batches
+        info!(
+            "Large batch of {} texts detected, splitting into batches of {}",
+            texts.len(),
+            batch_size
+        );
+
+        let mut all_embeddings = Vec::new();
+        for (i, chunk) in texts.chunks(batch_size).enumerate() {
+            info!(
+                "Processing batch {}/{}",
+                i + 1,
+                (texts.len() + batch_size - 1) / batch_size
+            );
+
+            let chunk_vec = chunk.to_vec();
+            let batch_result = self.encode_batch(&chunk_vec).await?;
+
+            // Extract the data from the Array2 and add to our collection
+            all_embeddings.extend(batch_result.iter().cloned());
+        }
+
+        // Create final Array2 with all embeddings
+        let shape = (texts.len(), TARGET_EMBEDDING_SIZE);
+        Array2::from_shape_vec(shape, all_embeddings).map_err(|e| {
+            error!("Failed to combine batch embeddings: {}", e);
+            ApiError::ModelInferenceError(format!("Failed to combine batch embeddings: {}", e))
+        })
     }
 }

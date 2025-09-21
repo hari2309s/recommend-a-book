@@ -6,7 +6,7 @@ import React, { useState, useEffect } from 'react';
 import BookThumbnail from '@/components/BookThumbnail';
 import AuthorBadges from '@/components/AuthorBadges';
 import BookDescriptionAccordion from '@/components/BookDescriptionAccordion';
-import { formatRatingsCount, getBookStoreLinks } from '@/utils';
+import { formatRatingsCount, getBookStoreLinks } from '@/utils/recommendations';
 import { cardVariants } from '@/utils/animations';
 
 type RecommendationCardProps = {
@@ -62,8 +62,8 @@ const RecommendationCard: React.FC<RecommendationCardProps> = ({ book, resetAcco
                 animate={{ opacity: 1, x: 0 }}
                 transition={{ duration: 0.4, delay: 0.2 }}
               >
-                <Heading size="6" asChild className="text-ellipsis overflow-hidden">
-                  <h3>{book.title}</h3>
+                <Heading size={{ initial: '6' }} className="text-ellipsis overflow-hidden">
+                  {book.title}
                 </Heading>
               </motion.div>
               {book.author && <AuthorBadges authors={book.author.split(',')} />}
