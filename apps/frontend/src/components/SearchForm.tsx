@@ -65,22 +65,54 @@ const SearchForm: React.FC<SearchFormProps> = ({
         borderRadius: '6px',
         borderColor: 'green',
       }}
-      variants={containerVariants}
+      variants={{
+        initial: {
+          opacity: 0,
+          scale: 0.95,
+        },
+        animate: {
+          opacity: 1,
+          scale: 1,
+          transition: {
+            duration: 0.6,
+            ease: 'easeOut',
+            delay: 0.4,
+          },
+        },
+      }}
       initial="initial"
       animate={{
         ...containerVariants.animate,
+        ...{
+          opacity: 1,
+          scale: 1,
+        },
         top: isSticky ? 50 : 190,
         boxShadow: isSticky
           ? '0 25px 50px -12px rgba(34, 197, 94, 0.25), 0 8px 16px -8px rgba(34, 197, 94, 0.1)'
           : '0 10px 25px -5px rgba(34, 197, 94, 0.1), 0 4px 6px -2px rgba(34, 197, 94, 0.05)',
       }}
       transition={{
-        ...containerVariants.animate.transition,
-        top: { duration: 0 },
-        boxShadow: { duration: 0 },
+        opacity: { duration: 0.6, ease: 'easeOut', delay: 0.4 },
+        scale: { duration: 0.6, ease: 'easeOut', delay: 0.4 },
+        top: {
+          type: 'spring',
+          stiffness: 300,
+          damping: 25,
+          mass: 0.7,
+        },
+        boxShadow: {
+          duration: 0.2,
+          ease: 'easeInOut',
+        },
       }}
       whileHover={{
         scale: 1.01,
+        transition: {
+          type: 'spring',
+          stiffness: 400,
+          damping: 25,
+        },
       }}
     >
       <motion.form onSubmit={handleSubmit} className="w-full">
@@ -92,8 +124,10 @@ const SearchForm: React.FC<SearchFormProps> = ({
           className="w-full contents"
         >
           <motion.div
-            whileFocus={{ scale: 1.02 }}
-            transition={{ type: 'spring', stiffness: 400, damping: 25 }}
+            whileFocus={{
+              scale: 1.02,
+              transition: { type: 'spring', stiffness: 400, damping: 25 },
+            }}
             className="flex-1 w-full"
           >
             <TextField.Root
@@ -116,7 +150,16 @@ const SearchForm: React.FC<SearchFormProps> = ({
               </TextField.Slot>
             </TextField.Root>
           </motion.div>
-          <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
+          <motion.div
+            whileHover={{
+              scale: 1.05,
+              transition: { type: 'spring', stiffness: 400, damping: 20 },
+            }}
+            whileTap={{
+              scale: 0.95,
+              transition: { type: 'spring', stiffness: 400, damping: 20 },
+            }}
+          >
             <Button
               variant="soft"
               type="submit"

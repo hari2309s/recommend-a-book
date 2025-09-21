@@ -62,7 +62,7 @@ const RecommendationContainer: React.FC<RecommendationContainerProps> = ({
                 style={{ marginBottom: '10px' }}
               />
             )}
-            <Text size="5" className="text-[var(--accent-12)]">
+            <Text size={{ initial: '4', md: '5', lg: '5' }} className="text-[var(--accent-12)]">
               {error
                 ? error !== ''
                   ? error
