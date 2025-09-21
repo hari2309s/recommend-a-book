@@ -168,10 +168,10 @@ impl RecommendationService {
             .await
         {
             Ok(results) => {
-                info!(
+                debug!(
                     "Vector search returned {} results, first book: {:?}",
                     results.len(),
-                    results.first().and_then(|b| b.title.clone())
+                    results.first().map(|r| r.title.clone())
                 );
                 results
             }
@@ -185,7 +185,7 @@ impl RecommendationService {
 
         // Log top 5 results before ranking
         if !raw_results.is_empty() {
-            info!(
+            debug!(
                 "PRE-RANKING: Top 5 raw results: {:?}",
                 raw_results
                     .iter()
@@ -194,13 +194,16 @@ impl RecommendationService {
                     .collect::<Vec<_>>()
             );
 
-            for (i, book) in raw_results.iter().take(5).enumerate() {
-                info!(
-                    "PRE-RANKING #{}: Title: {:?}, Rating: {:.2}",
-                    i + 1,
-                    book.title,
-                    book.rating
-                );
+            // Only log details for top 5 books if debug logging is enabled
+            if tracing::enabled!(tracing::Level::DEBUG) {
+                for (i, book) in raw_results.iter().take(5).enumerate() {
+                    debug!(
+                        "PRE-RANKING #{}: Title: {:?}, Rating: {:.2}",
+                        i + 1,
+                        book.title,
+                        book.rating
+                    );
+                }
             }
         }
 
@@ -211,7 +214,7 @@ impl RecommendationService {
                 .map_or(false, |t| t.contains("Homicidal Psycho Jungle Cat"))
         }) {
             let book = &raw_results[pos];
-            info!("DEBUGGING: 'Homicidal Psycho Jungle Cat' found at position {} with rating {} before ranking",
+            debug!("DEBUGGING: 'Homicidal Psycho Jungle Cat' found at position {} with rating {} before ranking",
                   pos + 1, book.rating);
         }
 
@@ -428,49 +431,50 @@ impl RecommendationService {
             };
 
             // Try to get embeddings with fallback strategy
-            let (semantic_results, using_fallback) = match self
-                .sentence_encoder
-                .encode(query_text)
-                .await
-            {
-                Ok(embedding) => {
-                    // Successfully got embedding, proceed with vector search
-                    info!("Successfully encoded query '{}'. Embedding stats: length={}, avg={:.4}, min={:.4}, max={:.4}, sum={:.4}",
-                             query_text, embedding.len(),
-                             embedding.iter().sum::<f32>() / embedding.len() as f32,
-                             embedding.iter().fold(f32::INFINITY, |a, &b| a.min(b)),
-                             embedding.iter().fold(f32::NEG_INFINITY, |a, &b| a.max(b)),
-                             embedding.iter().sum::<f32>());
-                    info!(
-                        "Performing vector search with embedding for '{}', semantic_weight={}",
-                        query_text, strategy.semantic_weight
+            let (semantic_results, using_fallback) =
+                match self.sentence_encoder.encode(query_text).await {
+                    Ok(embedding) => {
+                        // Successfully got embedding, proceed with vector search
+                        info!("Successfully encoded query '{}'", query_text);
+                        debug!(
+                        "Embedding stats: length={}, avg={:.4}, min={:.4}, max={:.4}, sum={:.4}",
+                        embedding.len(),
+                        embedding.iter().sum::<f32>() / embedding.len() as f32,
+                        embedding.iter().fold(f32::INFINITY, |a, &b| a.min(b)),
+                        embedding.iter().fold(f32::NEG_INFINITY, |a, &b| a.max(b)),
+                        embedding.iter().sum::<f32>()
                     );
-                    let results = self.pinecone.query_vector(&embedding, top_k * 3).await?;
-                    (results, false) // Not using fallback
-                }
-                Err(e) => {
-                    // Check if the error is a timeout
-                    if e.to_string().contains("timed out") || e.to_string().contains("timeout") {
-                        // Log the timeout but continue with fallback strategy
-                        warn!(
-                            "HuggingFace API timed out, using fallback search strategy: {}",
-                            e
+                        debug!(
+                            "Performing vector search with embedding for '{}', semantic_weight={}",
+                            query_text, strategy.semantic_weight
                         );
-
-                        // Use fallback search strategy when embeddings are unavailable
-                        let fallback_results =
-                            self.perform_fallback_search(query_text, top_k).await?;
-                        (fallback_results, true) // Using fallback
-                    } else {
-                        // For non-timeout errors, propagate them
-                        return Err(e);
+                        let results = self.pinecone.query_vector(&embedding, top_k * 3).await?;
+                        (results, false) // Not using fallback
                     }
-                }
-            };
+                    Err(e) => {
+                        // Check if the error is a timeout
+                        if e.to_string().contains("timed out") || e.to_string().contains("timeout")
+                        {
+                            // Log the timeout but continue with fallback strategy
+                            warn!(
+                                "HuggingFace API timed out, using fallback search strategy: {}",
+                                e
+                            );
+
+                            // Use fallback search strategy when embeddings are unavailable
+                            let fallback_results =
+                                self.perform_fallback_search(query_text, top_k).await?;
+                            (fallback_results, true) // Using fallback
+                        } else {
+                            // For non-timeout errors, propagate them
+                            return Err(e);
+                        }
+                    }
+                };
 
             if strategy.hybrid_search && !using_fallback {
                 // Weight semantic results (only if not using fallback)
-                info!(
+                debug!(
                     "Applying hybrid search weights: semantic_weight={}",
                     strategy.semantic_weight
                 );
@@ -609,8 +613,10 @@ impl RecommendationService {
                             position_score * 0.7 + rating_score * 1.3
                         };
 
-                        info!("Book scoring: {:?} - Position: {}/{} (score: {:.2}), Rating: {:.2} (scaled: {:.2}), Final score: {:.2}",
-                             book.title, idx + 1, total_results, position_score, book.rating, rating_score, final_score);
+                        if tracing::enabled!(tracing::Level::DEBUG) {
+                            debug!("Book scoring: {:?} - Position: {}/{} (score: {:.2}), Rating: {:.2} (scaled: {:.2}), Final score: {:.2}",
+                                 book.title, idx + 1, total_results, position_score, book.rating, rating_score, final_score);
+                        }
 
                         (book.clone(), final_score)
                     })
@@ -623,14 +629,20 @@ impl RecommendationService {
                 // Extract just the books in new order
                 results = scored_results.into_iter().map(|(book, _)| book).collect();
 
-                info!(
-                    "After custom scoring, top 5 results: {:?}",
-                    results
-                        .iter()
-                        .take(5)
-                        .map(|b| b.title.clone())
-                        .collect::<Vec<_>>()
-                );
+                // Just log a summary at info level
+                info!("Completed scoring of {} books", results.len());
+
+                // Add detailed information only at debug level
+                if tracing::enabled!(tracing::Level::DEBUG) {
+                    debug!(
+                        "After custom scoring, top 5 results: {:?}",
+                        results
+                            .iter()
+                            .take(5)
+                            .map(|b| b.title.clone())
+                            .collect::<Vec<_>>()
+                    );
+                }
             }
         }
 
@@ -663,12 +675,9 @@ impl RecommendationService {
             .collect::<Vec<Book>>();
 
         info!(
-            "FINAL RANKING: Top 5 results after ranking and deduplication: {:?}",
-            final_results
-                .iter()
-                .take(5)
-                .map(|b| b.title.clone())
-                .collect::<Vec<_>>()
+            "FINAL RANKING: Top {} results ready for response. First book: {:?}",
+            final_results.len(),
+            final_results.first().map(|b| b.title.clone())
         );
 
         // Return limited results
