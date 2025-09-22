@@ -3,7 +3,7 @@ import { motion } from 'framer-motion';
 import React, { useEffect, useState } from 'react';
 import type { Book } from '@/api/types';
 import RecommendationCard from '@/components/RecommendationCard';
-import { listVariants, listItemVariants } from '@/utils/animations';
+import { listVariants, listItemVariants } from '@/utils';
 
 type RecommendationListProps = {
   recommendations: Book[];

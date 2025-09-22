@@ -4,7 +4,7 @@ import { Button, Flex, TextField } from '@radix-ui/themes';
 import { Search } from 'lucide-react';
 import type { Book } from '@/api/types';
 import { fetchRecommendations } from '@/api';
-import { containerVariants } from '@/utils/animations';
+import { containerVariants } from '@/utils';
 
 type SearchFormProps = {
   loading: boolean;

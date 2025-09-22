@@ -1,7 +1,7 @@
 import { Flex, Heading } from '@radix-ui/themes';
 import React from 'react';
 import { motion } from 'framer-motion';
-import { imageVariants, headerVariants } from '@/utils/animations';
+import { imageVariants, headerVariants } from '@/utils';
 
 const Header: React.FC = () => {
   return (

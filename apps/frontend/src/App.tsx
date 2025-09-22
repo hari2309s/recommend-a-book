@@ -6,7 +6,7 @@ import '@/App.css';
 import SearchForm from '@/components/SearchForm';
 import Header from '@/components/Header';
 import { useInfiniteScroll } from '@/hooks';
-import { pageVariants } from '@/utils/animations';
+import { pageVariants } from '@/utils';
 import RecommendationsContainer from '@/components/RecommendationsContainer';
 
 const App: React.FC = () => {

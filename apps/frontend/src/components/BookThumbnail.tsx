@@ -2,7 +2,7 @@ import { motion } from 'framer-motion';
 import React from 'react';
 import { useState } from 'react';
 import imageNotAvailable from '@/assets/image-not-available.png';
-import { thumbnailVariants } from '@/utils/animations';
+import { thumbnailVariants } from '@/utils';
 
 type BookThumbnailProps = {
   src?: string;

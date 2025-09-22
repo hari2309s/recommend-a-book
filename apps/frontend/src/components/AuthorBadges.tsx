@@ -1,7 +1,7 @@
 import { motion } from 'framer-motion';
 import React from 'react';
 import { Badge, Flex } from '@radix-ui/themes';
-import { badgeContainerVariants, badgeVariants } from '@/utils/animations';
+import { badgeContainerVariants, badgeVariants } from '@/utils';
 
 type AuthorBadgesProps = {
   authors: string[];
