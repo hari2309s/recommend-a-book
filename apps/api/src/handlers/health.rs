@@ -1,5 +1,7 @@
 use crate::models::HealthResponse;
-use actix_web::{get, HttpResponse};
+use crate::services::RecommendationService;
+use actix_web::{get, web, HttpResponse};
+use log::debug;
 
 /// Health check endpoint
 #[utoipa::path(
@@ -13,9 +15,25 @@ use actix_web::{get, HttpResponse};
     description = "Returns the current status and timestamp of the service"
 )]
 #[get("/health")]
-pub async fn health_check() -> HttpResponse {
+pub async fn health_check(
+    recommendation_service: web::Data<RecommendationService>,
+) -> HttpResponse {
+    // Trigger background prewarming without waiting for it to complete
+    // This helps mitigate cold starts by initializing services when the health check is called
+    tokio::spawn(async move {
+        if let Err(e) = recommendation_service.prewarm().await {
+            debug!(
+                "Background prewarming during health check encountered an issue: {}",
+                e
+            );
+        } else {
+            debug!("Background prewarming during health check completed successfully");
+        }
+    });
+
     HttpResponse::Ok().json(serde_json::json!({
         "status": "ok",
-        "timestamp": chrono::Utc::now().to_rfc3339()
+        "timestamp": chrono::Utc::now().to_rfc3339(),
+        "prewarm": "background"
     }))
 }
