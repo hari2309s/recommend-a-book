@@ -73,6 +73,8 @@ export function useInfiniteScroll<T>({
   }, [handleScroll]);
 
   const resetScroll = useCallback(() => {
+    window.scrollTo({ top: 0, behavior: 'instant' });
+
     setVisibleCount(initialItemsToShow);
     setAllItems([]);
     setVisibleItems([]);
