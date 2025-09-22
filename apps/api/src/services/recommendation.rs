@@ -284,7 +284,7 @@ impl RecommendationService {
         if let Some(pos) = raw_results.iter().position(|book| {
             book.title
                 .as_ref()
-                .map_or(false, |t| t.contains("Homicidal Psycho Jungle Cat"))
+                .is_some_and(|t| t.contains("Homicidal Psycho Jungle Cat"))
         }) {
             let book = &raw_results[pos];
             debug!("DEBUGGING: 'Homicidal Psycho Jungle Cat' found at position {} with rating {} before ranking",
@@ -555,7 +555,7 @@ impl RecommendationService {
                     // Apply semantic weight as a scaling factor for ratings
                     // Higher semantic_weight means more trust in semantic search results
                     let original_rating = result.rating;
-                    result.rating = result.rating * strategy.semantic_weight;
+                    result.rating *= strategy.semantic_weight;
                     debug!(
                         "Adjusted rating for '{:?}': {} -> {}",
                         result.title, original_rating, result.rating

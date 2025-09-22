@@ -9,10 +9,10 @@ use log::debug;
     path = "/api/health",
     tag = "Health",
     responses(
-        (status = 200, description = "Service is healthy", body = HealthResponse),
+        (status = 200, description = "Service is healthy and background prewarming has been triggered", body = HealthResponse),
     ),
-    summary = "Check service health",
-    description = "Returns the current status and timestamp of the service"
+    summary = "Check service health and trigger background prewarming",
+    description = "Returns the current status and timestamp of the service. This endpoint also initiates a background prewarming process to reduce cold start latency for subsequent requests."
 )]
 #[get("/health")]
 pub async fn health_check(
