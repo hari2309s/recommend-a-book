@@ -1,9 +1,10 @@
 use crate::error::{ApiError, Result};
-use log::{debug, error, warn};
+use log::{debug, error, info, warn};
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 use std::collections::HashMap;
+use std::env;
 use std::sync::{Arc, RwLock};
 use std::time::{Duration, Instant};
 
@@ -14,10 +15,14 @@ struct PineconeCacheEntry {
     timestamp: Instant,
 }
 
-// Cache configuration
+// Cache and connection configuration
 // Cache TTL in seconds
 const CACHE_TTL_SECONDS: u64 = 3600; // 1 hour
 const CACHE_CAPACITY: usize = 100;
+const DEFAULT_REQUEST_TIMEOUT_SECS: u64 = 30;
+const DEFAULT_CONNECTION_TIMEOUT_SECS: u64 = 10;
+const DEFAULT_MAX_RETRIES: u32 = 3;
+const DEFAULT_RETRY_DELAY_MS: u64 = 500; // Base delay for exponential backoff
 
 #[derive(Clone)]
 pub struct Pinecone {
@@ -58,7 +63,7 @@ pub struct QueryRequest {
 
 impl Pinecone {
     pub async fn new(api_key: &str, environment: &str, index_name: &str) -> Result<Self> {
-        debug!(
+        info!(
             "Initializing Pinecone client with index: '{}', environment: '{}', API key: {}...{}",
             index_name,
             environment,
@@ -66,12 +71,35 @@ impl Pinecone {
             &api_key[api_key.len().saturating_sub(5)..]
         );
 
+        // Get configuration from environment variables with fallbacks
+        let request_timeout = env::var("APP_PINECONE_TIMEOUT_SECS")
+            .ok()
+            .and_then(|s| s.parse().ok())
+            .unwrap_or(DEFAULT_REQUEST_TIMEOUT_SECS);
+
+        let connection_timeout = env::var("APP_PINECONE_CONNECTION_TIMEOUT_SECS")
+            .ok()
+            .and_then(|s| s.parse().ok())
+            .unwrap_or(DEFAULT_CONNECTION_TIMEOUT_SECS);
+
+        // Log connection settings for debugging
+        info!(
+            "Pinecone connection settings: request_timeout={}s, connection_timeout={}s",
+            request_timeout, connection_timeout
+        );
+
         // Create HTTP client with optimized settings for cold starts
         let client = Client::builder()
-            .timeout(std::time::Duration::from_secs(30))
-            .connect_timeout(std::time::Duration::from_secs(10))
+            .timeout(std::time::Duration::from_secs(request_timeout))
+            .connect_timeout(std::time::Duration::from_secs(connection_timeout))
             // Increase connection pool for better concurrent request handling
             .pool_max_idle_per_host(10)
+            // Enable TCP keepalive for better connection reuse
+            .tcp_keepalive(Some(std::time::Duration::from_secs(60)))
+            // Set a reasonable timeout for TLS handshakes
+            .https_only(true)
+            // Enable automatic HTTP/2 support where available
+            .http2_adaptive_window(true)
             .build()
             .map_err(|e| ApiError::PineconeError(format!("Failed to create HTTP client: {}", e)))?;
 
@@ -139,9 +167,14 @@ impl Pinecone {
             // Clean up expired cache entries if we're at capacity
             if cache.len() >= CACHE_CAPACITY {
                 // Clean up expired entries
+                let before_cleanup = cache.len();
                 cache.retain(|_, entry| {
                     entry.timestamp.elapsed() < Duration::from_secs(CACHE_TTL_SECONDS)
                 });
+                let removed = before_cleanup - cache.len();
+                if removed > 0 {
+                    debug!("Cleaned up {} expired vector cache entries", removed);
+                }
             }
 
             cache.insert(
@@ -172,9 +205,14 @@ impl Pinecone {
             // Clean up expired cache entries if we're at capacity
             if cache.len() >= CACHE_CAPACITY {
                 // Clean up expired entries
+                let before_cleanup = cache.len();
                 cache.retain(|_, entry| {
                     entry.timestamp.elapsed() < Duration::from_secs(CACHE_TTL_SECONDS)
                 });
+                let removed = before_cleanup - cache.len();
+                if removed > 0 {
+                    debug!("Cleaned up {} expired metadata cache entries", removed);
+                }
             }
 
             cache.insert(
@@ -288,16 +326,29 @@ impl Pinecone {
             url, request.top_k
         );
 
-        // Retry logic with exponential backoff
+        // Enhanced retry logic with exponential backoff
         let mut attempts = 0;
-        const MAX_RETRIES: u32 = 3;
+        // Get max retries from environment with fallback
+        let max_retries = env::var("APP_PINECONE_MAX_RETRIES")
+            .ok()
+            .and_then(|s| s.parse().ok())
+            .unwrap_or(DEFAULT_MAX_RETRIES);
 
         loop {
             attempts += 1;
 
+            // Log detailed information on retry attempts
+            if attempts > 1 {
+                info!(
+                    "Retrying Pinecone query (attempt {}/{})",
+                    attempts, max_retries
+                );
+            }
+
             let response = self
                 .client
                 .post(&url)
+                .timeout(std::time::Duration::from_secs(60)) // Extended timeout for cold starts
                 .header("Api-Key", &self.api_key)
                 .header("Content-Type", "application/json")
                 .header("X-Pinecone-API-Version", "2025-01")
@@ -308,13 +359,33 @@ impl Pinecone {
 
             match response {
                 Ok(resp) if resp.status().is_success() => {
-                    let query_result: QueryResponse = resp.json().await.map_err(|e| {
-                        error!("Failed to parse Pinecone response: {}", e);
-                        ApiError::PineconeError(format!("Response parsing failed: {}", e))
-                    })?;
+                    let query_result: QueryResponse = match resp.json().await {
+                        Ok(result) => result,
+                        Err(e) => {
+                            error!("Failed to parse Pinecone response: {}", e);
 
-                    debug!(
-                        "Pinecone query returned {} matches",
+                            // Retry parsing errors as they might be due to partial responses
+                            if attempts < max_retries {
+                                let delay = std::time::Duration::from_millis(
+                                    DEFAULT_RETRY_DELAY_MS * 2u64.pow(attempts - 1),
+                                );
+                                warn!(
+                                    "Response parsing error, retrying in {:?} (attempt {}/{})",
+                                    delay, attempts, max_retries
+                                );
+                                tokio::time::sleep(delay).await;
+                                continue;
+                            }
+
+                            return Err(ApiError::PineconeError(format!(
+                                "Response parsing failed after {} attempts: {}",
+                                max_retries, e
+                            )));
+                        }
+                    };
+
+                    info!(
+                        "Pinecone query successful: {} matches returned",
                         query_result.matches.as_ref().map_or(0, |m| m.len())
                     );
 
@@ -324,12 +395,30 @@ impl Pinecone {
                     let status = resp.status();
                     let text = resp.text().await.unwrap_or_default();
 
-                    if status.as_u16() >= 500 && attempts < MAX_RETRIES {
-                        // Retry on server errors
-                        let delay = std::time::Duration::from_millis(100 * 2u64.pow(attempts - 1));
-                        debug!(
-                            "Retrying Pinecone request in {:?} (attempt {}/{})",
-                            delay, attempts, MAX_RETRIES
+                    // Enhanced retry logic with better status code handling
+                    let should_retry = (status.as_u16() >= 500 || // Server errors
+                                      status.as_u16() == 429 ||   // Rate limiting
+                                      status.as_u16() == 408) &&  // Request timeout
+                                      attempts < max_retries;
+
+                    if should_retry {
+                        // Exponential backoff with jitter for better retry behavior
+                        let base_delay = DEFAULT_RETRY_DELAY_MS * 2u64.pow(attempts - 1);
+                        // Add jitter (±20% of base delay)
+                        let jitter = base_delay / 5;
+                        let jitter_factor = (std::time::SystemTime::now()
+                            .duration_since(std::time::UNIX_EPOCH)
+                            .unwrap_or_default()
+                            .subsec_nanos()
+                            % 100) as u64;
+
+                        let delay = std::time::Duration::from_millis(
+                            base_delay.saturating_add(jitter_factor * jitter / 100),
+                        );
+
+                        warn!(
+                            "Pinecone API returned status {}, retrying in {:?} (attempt {}/{})",
+                            status, delay, attempts, max_retries
                         );
                         tokio::time::sleep(delay).await;
                         continue;
@@ -337,28 +426,55 @@ impl Pinecone {
 
                     error!("Pinecone API error: {} - {}", status, text);
 
-                    // Check for specific errors that might indicate configuration issues
-                    if text.contains("unauthorized")
-                        || text.contains("forbidden")
-                        || text.contains("not found")
-                    {
-                        return Err(ApiError::PineconeError(format!(
-                            "Pinecone authentication failed ({}). Please verify your API key, index name, and environment are correct.",
-                            status
-                        )));
+                    // Improved error handling with more specific error messages
+                    if text.contains("unauthorized") || text.contains("forbidden") {
+                        return Err(ApiError::PineconeError(
+                            format!("Pinecone authentication failed ({}). Please verify your API key is correct.", status)
+                        ));
+                    } else if text.contains("not found") || status.as_u16() == 404 {
+                        return Err(ApiError::PineconeError(
+                            format!("Pinecone index or endpoint not found ({}). Please verify your index name '{}' and environment '{}' are correct.",
+                                status, self.host.split('/').nth(2).unwrap_or("unknown"),
+                                self.host.split('.').nth(2).unwrap_or("unknown"))
+                        ));
+                    } else if status.as_u16() == 429 {
+                        return Err(ApiError::PineconeError(
+                            format!("Pinecone rate limit exceeded ({}). Consider reducing query frequency or upgrading your Pinecone plan.", status)
+                        ));
                     }
 
                     return Err(ApiError::PineconeError(format!(
-                        "API returned {}: {}",
+                        "Pinecone API returned unexpected status {}: {}",
                         status, text
                     )));
                 }
-                Err(e) if attempts < MAX_RETRIES => {
-                    // Retry on network errors
-                    let delay = std::time::Duration::from_millis(100 * 2u64.pow(attempts - 1));
-                    debug!(
-                        "Retrying Pinecone request after network error in {:?} (attempt {}/{}): {}",
-                        delay, attempts, MAX_RETRIES, e
+                Err(e) if attempts < max_retries => {
+                    // Enhanced error categorization and retry for network errors
+                    let is_timeout = e.is_timeout() || e.is_connect();
+                    let is_dns_error =
+                        e.to_string().contains("dns") || e.to_string().contains("lookup");
+
+                    // More informative error logging based on error type
+                    if is_timeout {
+                        warn!(
+                            "Pinecone connection timed out, retrying (attempt {}/{}): {}",
+                            attempts, max_retries, e
+                        );
+                    } else if is_dns_error {
+                        warn!(
+                            "Pinecone DNS resolution error, retrying (attempt {}/{}): {}",
+                            attempts, max_retries, e
+                        );
+                    } else {
+                        warn!(
+                            "Pinecone network error, retrying (attempt {}/{}): {}",
+                            attempts, max_retries, e
+                        );
+                    }
+
+                    // Exponential backoff with longer delays for connection issues
+                    let delay = std::time::Duration::from_millis(
+                        DEFAULT_RETRY_DELAY_MS * 4u64.pow(attempts - 1),
                     );
                     tokio::time::sleep(delay).await;
                     continue;
@@ -366,19 +482,36 @@ impl Pinecone {
                 Err(e) => {
                     error!(
                         "Failed to send request to Pinecone after {} attempts: {}",
-                        MAX_RETRIES, e
+                        max_retries, e
                     );
-                    // Provide more helpful error for DNS issues
-                    if e.to_string().contains("dns error")
-                        || e.to_string().contains("lookup address")
+
+                    // More comprehensive error diagnosis
+                    if e.is_timeout() {
+                        return Err(ApiError::PineconeError(format!(
+                            "Connection to Pinecone timed out after {} attempts. This may indicate network issues or Pinecone service disruption. Error details: {}",
+                            max_retries, e
+                        )));
+                    } else if e.is_connect() {
+                        return Err(ApiError::PineconeError(format!(
+                            "Cannot connect to Pinecone after {} attempts. Please check your network configuration and Pinecone service status. Error details: {}",
+                            max_retries, e
+                        )));
+                    } else if e.to_string().contains("dns error")
+                        || e.to_string().contains("lookup")
                     {
                         return Err(ApiError::PineconeError(format!(
-                            "Connection to Pinecone failed: DNS error. Please verify your APP_PINECONE_ENVIRONMENT and APP_PINECONE_INDEX environment variables. Error details: {}",
+                            "DNS resolution failed for Pinecone host: '{}'. Please verify your APP_PINECONE_ENVIRONMENT ('{}') and APP_PINECONE_INDEX ('{}') environment variables are correct. Error details: {}",
+                            self.host,
+                            self.host.split('.').nth(2).unwrap_or("unknown"),
+                            self.host.split('/').nth(2).unwrap_or("unknown").split('.').next().unwrap_or("unknown"),
                             e
                         )));
                     }
 
-                    return Err(ApiError::PineconeError(format!("Request failed: {}", e)));
+                    return Err(ApiError::PineconeError(format!(
+                        "Failed to communicate with Pinecone after {} attempts: {}",
+                        max_retries, e
+                    )));
                 }
             }
         }

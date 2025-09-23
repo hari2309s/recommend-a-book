@@ -1,0 +1,121 @@
+name: Keep API Warm
+
+on:
+  # Run hourly
+  schedule:
+    - cron: '30 * * * *'  # Run at 30 minutes past every hour
+
+  # Allow manual triggering for testing
+  workflow_dispatch:
+    inputs:
+      test_mode:
+        description: 'Run in test mode with additional logging'
+        required: false
+        default: 'false'
+        type: choice
+        options:
+          - 'true'
+          - 'false'
+
+jobs:
+  ping-api:
+    name: Ping API Endpoints
+    runs-on: ubuntu-latest
+    timeout-minutes: 5  # Set a timeout to prevent hung jobs
+
+    env:
+      API_URL: https://recommend-a-book-api.onrender.com
+
+    steps:
+      - name: Ping prewarm endpoint
+        id: ping-prewarm
+        continue-on-error: true  # Continue to health check even if this fails
+        run: |
+          echo "::group::Pinging prewarm endpoint"
+          echo "Time: $(date -u)"
+          echo "Endpoint: $API_URL/api/prewarm"
+
+          # Make the request and capture response details
+          HTTP_RESPONSE=$(curl -s -o response.txt -w "%{http_code}" \
+            --connect-timeout 30 \
+            --max-time 60 \
+            --retry 3 \
+            --retry-delay 5 \
+            --retry-max-time 120 \
+            "$API_URL/api/prewarm")
+
+          # Store response body
+          RESPONSE_BODY=$(cat response.txt)
+
+          # Log detailed info in test mode
+          if [[ "${{ github.event.inputs.test_mode }}" == "true" ]]; then
+            echo "Response code: $HTTP_RESPONSE"
+            echo "Response body: $RESPONSE_BODY"
+          fi
+
+          # Check if request was successful
+          if [[ $HTTP_RESPONSE -ge 200 && $HTTP_RESPONSE -lt 300 ]]; then
+            echo "✅ Prewarm endpoint successfully pinged"
+            echo "prewarm_success=true" >> $GITHUB_OUTPUT
+          else
+            echo "❌ Failed to ping prewarm endpoint (HTTP $HTTP_RESPONSE)"
+            echo "Response: $RESPONSE_BODY"
+            echo "prewarm_success=false" >> $GITHUB_OUTPUT
+          fi
+          echo "::endgroup::"
+
+      - name: Ping health endpoint
+        id: ping-health
+        if: steps.ping-prewarm.outputs.prewarm_success != 'true'
+        run: |
+          echo "::group::Pinging health endpoint (fallback)"
+          echo "Time: $(date -u)"
+          echo "Endpoint: $API_URL/api/health"
+
+          # Make the request and capture response details
+          HTTP_RESPONSE=$(curl -s -o health-response.txt -w "%{http_code}" \
+            --connect-timeout 30 \
+            --max-time 60 \
+            --retry 3 \
+            --retry-delay 5 \
+            --retry-max-time 120 \
+            "$API_URL/api/health")
+
+          # Store response body
+          RESPONSE_BODY=$(cat health-response.txt)
+
+          # Log detailed info in test mode
+          if [[ "${{ github.event.inputs.test_mode }}" == "true" ]]; then
+            echo "Response code: $HTTP_RESPONSE"
+            echo "Response body: $RESPONSE_BODY"
+          fi
+
+          # Check if request was successful
+          if [[ $HTTP_RESPONSE -ge 200 && $HTTP_RESPONSE -lt 300 ]]; then
+            echo "✅ Health endpoint successfully pinged"
+            echo "health_success=true" >> $GITHUB_OUTPUT
+          else
+            echo "❌ Failed to ping health endpoint (HTTP $HTTP_RESPONSE)"
+            echo "Response: $RESPONSE_BODY"
+            echo "health_success=false" >> $GITHUB_OUTPUT
+          fi
+          echo "::endgroup::"
+
+      - name: Report status
+        run: |
+          echo "::group::API Keep-Warm Status Report"
+          echo "Time: $(date -u)"
+
+          if [[ "${{ steps.ping-prewarm.outputs.prewarm_success }}" == "true" ]]; then
+            echo "✅ API successfully kept warm via prewarm endpoint"
+            exit 0
+          elif [[ "${{ steps.ping-health.outputs.health_success }}" == "true" ]]; then
+            echo "✅ API successfully kept warm via health endpoint"
+            exit 0
+          else
+            echo "❌ Failed to keep API warm - both endpoints failed"
+            # Don't fail the workflow, as that would generate noise
+            # Instead, just log the failure
+            exit 0
+          fi
+          echo "::endgroup::"

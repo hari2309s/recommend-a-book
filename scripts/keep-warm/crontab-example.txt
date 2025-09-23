@@ -1,0 +1,26 @@
+# Example crontab for the keep-warm script
+# To install: crontab crontab-example.txt
+# To edit existing crontab: crontab -e
+# To view current crontab: crontab -l
+
+# Environment variables
+SHELL=/bin/bash
+PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+# Change this to your actual API URL
+API_URL=https://recommend-a-book-api.onrender.com
+LOG_DIR=/path/to/your/logs
+
+# Run the keep-warm script every 10 minutes (recommended for production)
+*/10 * * * * cd /path/to/recommend-a-book && ./scripts/keep-warm/keep-warm.sh $API_URL >> $LOG_DIR/keep-warm-cron.log 2>&1
+
+# ALTERNATIVE OPTIONS (comment out the above line and uncomment one of these if preferred)
+
+# Run every hour (less traffic to your API)
+# 0 * * * * cd /path/to/recommend-a-book && ./scripts/keep-warm/keep-warm.sh $API_URL >> $LOG_DIR/keep-warm-cron.log 2>&1
+
+# Run at system startup and then every 10 minutes (good for ensuring warmup after reboots)
+# @reboot cd /path/to/recommend-a-book && ./scripts/keep-warm/keep-warm.sh $API_URL >> $LOG_DIR/keep-warm-cron.log 2>&1
+# */10 * * * * cd /path/to/recommend-a-book && ./scripts/keep-warm/keep-warm.sh $API_URL >> $LOG_DIR/keep-warm-cron.log 2>&1
+
+# Run during business hours only (9am-5pm Monday-Friday, every 10 minutes)
+# */10 9-17 * * 1-5 cd /path/to/recommend-a-book && ./scripts/keep-warm/keep-warm.sh $API_URL >> $LOG_DIR/keep-warm-cron.log 2>&1

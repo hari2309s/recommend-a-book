@@ -25,9 +25,13 @@ pub enum ApiError {
     #[error("Model inference failed: {0}")]
     ModelInferenceError(String),
 
+    #[error("Model error: {0}")]
+    ModelError(String),
+
     #[error("Serialization error: {0}")]
     SerializationError(String),
 
+    #[allow(dead_code)]
     #[error("Authentication error: {0}")]
     AuthenticationError(String),
 

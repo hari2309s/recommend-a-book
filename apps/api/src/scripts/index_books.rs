@@ -319,11 +319,8 @@ async fn index_books_from_csv(csv_path: PathBuf) -> Result<()> {
         .await
         .context("Failed to initialize HuggingFace embedder")?;
 
-    let (model_name, embedding_size) = embedder.model_info();
-    info!(
-        "Using model: {} ({}D embeddings)",
-        model_name, embedding_size
-    );
+    let model_info = embedder.model_info();
+    info!("Using model: {} (512D embeddings)", model_info);
 
     info!("Initializing Pinecone client...");
     let config = Config::load().context("Failed to load configuration")?;
@@ -420,15 +417,52 @@ async fn index_books_from_csv(csv_path: PathBuf) -> Result<()> {
         // Create searchable texts
         let texts: Vec<String> = batch.iter().map(create_searchable_text).collect();
 
-        // Generate embeddings
-        let embeddings = match embedder.encode_batch(&texts).await {
+        // Generate embeddings one by one (no batch API in new implementation)
+        info!(
+            "Generating embeddings for batch {} ({} texts)",
+            batch_index + 1,
+            texts.len()
+        );
+
+        let mut all_embeddings = Vec::with_capacity(texts.len() * 512);
+        let mut failed = false;
+
+        for (i, text) in texts.iter().enumerate() {
+            match embedder.encode(text).await {
+                Ok(embedding) => {
+                    all_embeddings.extend_from_slice(&embedding);
+                }
+                Err(e) => {
+                    error!(
+                        "Failed to generate embedding for text {} in batch {}: {}",
+                        i,
+                        batch_index + 1,
+                        e
+                    );
+                    failed = true;
+                    break;
+                }
+            }
+        }
+
+        if failed {
+            continue;
+        }
+
+        // Convert to ndarray format
+        let embedding_dim = 512; // Fixed embedding dimension
+        let num_embeddings = texts.len();
+        let embeddings = match ndarray::Array2::from_shape_vec(
+            (num_embeddings, embedding_dim),
+            all_embeddings,
+        ) {
             Ok(embeddings) => {
                 debug!("Generated embeddings shape: {:?}", embeddings.dim());
                 embeddings
             }
             Err(e) => {
                 error!(
-                    "Failed to generate embeddings for batch {}: {}",
+                    "Failed to reshape embeddings for batch {}: {}",
                     batch_index + 1,
                     e
                 );
