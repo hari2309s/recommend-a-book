@@ -6,8 +6,8 @@ pub type Result<T> = std::result::Result<T, ApiError>;
 
 #[derive(Error, Debug)]
 pub enum ApiError {
-    #[error("Not found: {0}")]
     #[allow(dead_code)]
+    #[error("Not found: {0}")]
     NotFound(String),
 
     #[error("Invalid input: {0}")]
@@ -25,13 +25,9 @@ pub enum ApiError {
     #[error("Model inference failed: {0}")]
     ModelInferenceError(String),
 
-    #[error("Model error: {0}")]
-    ModelError(String),
-
     #[error("Serialization error: {0}")]
     SerializationError(String),
 
-    #[allow(dead_code)]
     #[error("Authentication error: {0}")]
     AuthenticationError(String),
 
