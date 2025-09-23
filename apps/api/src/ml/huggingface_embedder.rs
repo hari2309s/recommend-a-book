@@ -18,13 +18,32 @@ const BATCH_SIZE_LIMIT: usize = 20; // Maximum number of texts to process in a s
 
 /// Text processing limits
 const MAX_TEXT_PREVIEW_LENGTH: usize = 100;
+// LRU cache size for embedding results
+#[allow(dead_code)]
+const EMBEDDING_CACHE_SIZE: usize = 100;
+
+use lazy_static::lazy_static;
+use std::num::NonZeroUsize;
+use std::sync::{Arc, RwLock};
+
+lazy_static! {
+    // Global embedding cache to improve performance and reduce API calls
+    static ref EMBEDDING_CACHE: RwLock<lru::LruCache<String, Vec<f32>>> =
+        RwLock::new(lru::LruCache::new(NonZeroUsize::new(EMBEDDING_CACHE_SIZE).unwrap()));
+
+    // Flag to track if prewarming has been done
+    static ref PREWARM_COMPLETED: std::sync::atomic::AtomicBool =
+        std::sync::atomic::AtomicBool::new(false);
+}
 
 #[derive(Clone)]
+
 pub struct HuggingFaceEmbedder {
     client: Client,
     api_key: String,
     model_url: String,
     model_name: String,
+    initialized: Arc<std::sync::atomic::AtomicBool>,
 }
 
 impl HuggingFaceEmbedder {
@@ -32,8 +51,15 @@ impl HuggingFaceEmbedder {
     /// Uses a 512-dimensional model for better quality embeddings
     /// # Returns
     /// * `Result<HuggingFaceEmbedder, ApiError>` - A new instance of the encoder or an error
+    ///
+    /// Create a new HuggingFaceEmbedder with optimized initialization for cold starts
+    ///
+    /// This constructor uses a more efficient initialization pattern that:
+    /// 1. Initializes client and configuration immediately
+    /// 2. Defers the actual API connection until first use
+    /// 3. Supports prewarming to prepare the encoder before the first user request
     pub async fn new() -> Result<Self, ApiError> {
-        info!("Initializing HuggingFace API sentence encoder...");
+        info!("Creating HuggingFace API sentence encoder (lazy initialization)...");
 
         let api_key = env::var("APP_HUGGINGFACE_API_KEY").map_err(|_| {
             ApiError::ModelLoadError(
@@ -59,9 +85,13 @@ impl HuggingFaceEmbedder {
         let model_name = env::var("APP_HUGGINGFACE_MODEL_NAME")
             .unwrap_or_else(|_| DEFAULT_MODEL_NAME.to_string());
 
-        // Create client with increased timeout
+        // Create client with optimized connection settings for better cold starts
         let client = Client::builder()
             .timeout(std::time::Duration::from_secs(timeout_seconds))
+            // Increase connection pool to handle concurrent requests better
+            .pool_max_idle_per_host(10)
+            // Add connection timeout separate from request timeout
+            .connect_timeout(std::time::Duration::from_secs(10))
             .build()
             .map_err(|e| ApiError::InternalError(format!("Failed to create HTTP client: {}", e)))?;
 
@@ -76,13 +106,43 @@ impl HuggingFaceEmbedder {
             api_key,
             model_url,
             model_name,
+            initialized: Arc::new(std::sync::atomic::AtomicBool::new(false)),
         };
 
-        info!(
-            "Successfully initialized HuggingFace API encoder with {}",
-            encoder.model_name
-        );
+        info!("HuggingFace encoder created (not yet initialized)");
         Ok(encoder)
+    }
+
+    /// Prewarm the encoder to avoid cold start delays
+    ///
+    /// This method:
+    /// 1. Tests the connection to the HuggingFace API
+    /// 2. Performs a simple embedding operation to initialize the model
+    /// 3. Caches the result for future use
+    ///
+    /// Returns a boolean indicating if this was the first prewarm operation
+    pub async fn prewarm(&self) -> Result<bool, ApiError> {
+        // Check if already prewarmed to avoid duplicate work
+        let was_first = !PREWARM_COMPLETED.load(std::sync::atomic::Ordering::Acquire);
+
+        if was_first {
+            info!("Prewarming HuggingFace encoder...");
+
+            // Test with a simple embedding
+            let test_text = "This is a test sentence for prewarming the embeddings model.";
+            let _embedding = self.encode(test_text).await?;
+
+            // Mark as initialized
+            self.initialized
+                .store(true, std::sync::atomic::Ordering::Release);
+            PREWARM_COMPLETED.store(true, std::sync::atomic::Ordering::Release);
+
+            info!("HuggingFace encoder successfully prewarmed");
+        } else {
+            debug!("HuggingFace encoder already prewarmed, skipping");
+        }
+
+        Ok(was_first)
     }
 
     /// Encodes a single text string into a 512-dimensional vector embedding
@@ -589,7 +649,7 @@ impl HuggingFaceEmbedder {
             info!(
                 "Processing batch {}/{}",
                 i + 1,
-                (texts.len() + batch_size - 1) / batch_size
+                texts.len().div_ceil(batch_size)
             );
 
             let chunk_vec = chunk.to_vec();

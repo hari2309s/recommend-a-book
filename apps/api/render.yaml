@@ -5,11 +5,16 @@ services:
     region: frankfurt
     plan: starter
     buildCommand: cargo build --release
-    startCommand: ./target/release/recommend-a-book-api
-    healthCheckPath: /api/health
+    startCommand: |
+      curl -s http://localhost:10000/api/prewarm &
+      ./target/release/recommend-a-book-api
+    healthCheckPath: /api/prewarm
     envVars:
       - key: RUST_LOG
         value: info
+      # Optimize for faster cold starts
+      - key: ROCKET_WORKERS
+        value: "2"
       - key: RUN_MODE
         value: production
       - key: APP_HOST
@@ -19,6 +24,11 @@ services:
       # IMPORTANT: Make sure to set RUST_LOG to at least "info" to see important configuration messages
       - key: APP_ENVIRONMENT
         value: production
+      # Prewarming configuration to mitigate cold starts
+      - key: APP_ENABLE_PREWARM
+        value: "true"
+      - key: APP_PREWARM_TIMEOUT_SECS
+        value: "30"
       - key: APP_FRONTEND_URL
         value: https://recommend-a-book-frontend.vercel.app
       # Database configuration
