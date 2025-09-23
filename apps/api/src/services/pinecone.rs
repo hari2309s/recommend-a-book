@@ -4,7 +4,6 @@ use reqwest::Client;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 use std::collections::HashMap;
-
 use std::sync::{Arc, RwLock};
 use std::time::{Duration, Instant};
 
@@ -140,7 +139,6 @@ impl Pinecone {
             // Clean up expired cache entries if we're at capacity
             if cache.len() >= CACHE_CAPACITY {
                 // Clean up expired entries
-
                 cache.retain(|_, entry| {
                     entry.timestamp.elapsed() < Duration::from_secs(CACHE_TTL_SECONDS)
                 });
@@ -174,7 +172,6 @@ impl Pinecone {
             // Clean up expired cache entries if we're at capacity
             if cache.len() >= CACHE_CAPACITY {
                 // Clean up expired entries
-
                 cache.retain(|_, entry| {
                     entry.timestamp.elapsed() < Duration::from_secs(CACHE_TTL_SECONDS)
                 });
@@ -377,9 +374,6 @@ impl Pinecone {
                     {
                         return Err(ApiError::PineconeError(format!(
                             "Connection to Pinecone failed: DNS error. Please verify your APP_PINECONE_ENVIRONMENT and APP_PINECONE_INDEX environment variables. Error details: {}",
-
-
-
                             e
                         )));
                     }

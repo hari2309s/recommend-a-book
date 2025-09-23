@@ -6,18 +6,9 @@ services:
     plan: starter
     buildCommand: cargo build --release
     startCommand: |
-      # Start the API service first
-      ./target/release/recommend-a-book-api &
-      # Wait for the service to initialize properly
-      sleep 10
-      # Then prewarm it (retry up to 3 times)
-      for i in {1..3}; do
-        curl -s http://localhost:10000/api/prewarm && break
-        sleep 5
-      done
-      # Keep the service running
-      wait
-    healthCheckPath: /api/health
+      curl -s http://localhost:10000/api/prewarm &
+      ./target/release/recommend-a-book-api
+    healthCheckPath: /api/prewarm
     envVars:
       - key: RUST_LOG
         value: info
@@ -37,12 +28,7 @@ services:
       - key: APP_ENABLE_PREWARM
         value: "true"
       - key: APP_PREWARM_TIMEOUT_SECS
-        value: "60"
-      # Increase timeouts for external services
-      - key: APP_EXTERNAL_SERVICE_TIMEOUT_SECS
-        value: "60"
-      - key: APP_EXTERNAL_SERVICE_RETRIES
-        value: "3"
+        value: "30"
       - key: APP_FRONTEND_URL
         value: https://recommend-a-book-frontend.vercel.app
       # Database configuration
@@ -61,13 +47,6 @@ services:
         sync: false
       - key: APP_PINECONE_INDEX_NAME  # Name of your Pinecone index (without -project suffix)
         sync: false
-      # Pinecone connection settings to handle cold starts better
-      - key: APP_PINECONE_TIMEOUT_SECS
-        value: "60"
-      - key: APP_PINECONE_CONNECTION_TIMEOUT_SECS
-        value: "30"
-      - key: APP_PINECONE_MAX_RETRIES
-        value: "5"
       # HuggingFace API key for ML models (optional, only needed if using HuggingFace embeddings)
       - key: APP_HUGGINGFACE_API_KEY
         sync: false

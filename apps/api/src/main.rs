@@ -1,6 +1,5 @@
 use crate::error::{ApiError, Result};
 use log::info;
-
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
 mod app;
@@ -33,7 +32,6 @@ async fn main() -> Result<()> {
         config::Config::load().map_err(|e| ApiError::ExternalServiceError(e.to_string()))?;
 
     // Create and run application
-
     let application = app::Application::new(&config);
     application.run().await
 }
