@@ -23,13 +23,7 @@
     "format": "prettier --write \"**/*.{ts,tsx,js,json}\" --ignore-path .prettierignore",
     "format:check": "prettier --check \"**/*.{ts,tsx,js,json}\" --ignore-path .prettierignore",
     "setup": "pnpm install && cd apps/api && cargo fetch",
-    "index:books": "cd apps/api && cargo run --bin index_books -- data/books.csv",
-    "keepwarm:start": "chmod +x scripts/keep-warm/start-background.sh && ./scripts/keep-warm/start-background.sh",
-    "keepwarm:status": "./scripts/keep-warm/start-background.sh --status",
-    "keepwarm:stop": "./scripts/keep-warm/start-background.sh --stop",
-    "keepwarm:logs": "tail -f scripts/keep-warm/logs/keep-warm.log",
-    "keepwarm:once": "chmod +x scripts/keep-warm/keep-warm.sh && ./scripts/keep-warm/keep-warm.sh",
-    "test:api": "chmod +x scripts/keep-warm/test-api.sh && ./scripts/keep-warm/test-api.sh"
+    "index:books": "cd apps/api && cargo run --bin index_books -- data/books.csv"
   },
   "engines": {
     "node": ">=18.0.0"

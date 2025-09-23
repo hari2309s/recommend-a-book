@@ -7,7 +7,7 @@ use regex::Regex;
 use serde::Serialize;
 use std::{
     collections::{HashMap, HashSet},
-    sync::{Arc, LazyLock, Mutex, RwLock},
+    sync::{LazyLock, Mutex, RwLock},
     time::{Duration, Instant},
 };
 use tracing::{debug, error, info, warn};
@@ -108,94 +108,21 @@ const CACHE_TTL_SECONDS: u64 = 300; // 5 minutes
 
 #[derive(Clone)]
 pub struct RecommendationService {
-    sentence_encoder: Arc<HuggingFaceEmbedder>,
+    sentence_encoder: HuggingFaceEmbedder,
     pinecone: Pinecone,
     // Use thread-safe cache with read-write lock for better performance
     result_cache: std::sync::Arc<RwLock<HashMap<String, CacheEntry>>>,
     query_intent_cache: std::sync::Arc<Mutex<HashMap<String, (QueryIntent, Instant)>>>,
-    prewarmed: Arc<std::sync::atomic::AtomicBool>,
 }
 
 impl RecommendationService {
     pub fn new(sentence_encoder: HuggingFaceEmbedder, pinecone: Pinecone) -> Self {
         Self {
-            sentence_encoder: Arc::new(sentence_encoder),
+            sentence_encoder,
             pinecone,
             result_cache: std::sync::Arc::new(RwLock::new(HashMap::new())),
             query_intent_cache: std::sync::Arc::new(Mutex::new(HashMap::new())),
-            prewarmed: Arc::new(std::sync::atomic::AtomicBool::new(false)),
         }
-    }
-
-    /// Warms up the recommendation service to mitigate cold start issues
-    ///
-    /// This method:
-    /// 1. Initializes the ML embedder
-    /// 2. Establishes connection to Pinecone with a test query
-    /// 3. Executes a sample query to prepare the entire pipeline
-    ///
-    /// Returns true if this was the first warm-up operation
-    pub async fn prewarm(&self) -> Result<bool> {
-        // Check if already prewarmed to avoid duplicate work
-        if self.prewarmed.load(std::sync::atomic::Ordering::Relaxed) {
-            debug!("RecommendationService already prewarmed, skipping");
-            return Ok(false);
-        }
-
-        info!("Warming up RecommendationService...");
-
-        // Step 1: Initialize the sentence encoder
-        let _encoder_prewarmed = self.sentence_encoder.prewarm().await?;
-
-        // Step 2: Initialize Pinecone connection with a simple metadata query
-        let pinecone_test = self
-            .pinecone
-            .query_metadata("title", "test", false, 1)
-            .await;
-        if let Err(e) = &pinecone_test {
-            warn!(
-                "Pinecone initialization returned an error during warm-up: {}",
-                e
-            );
-            // Continue anyway - this might be a temporary issue
-        }
-
-        // Step 3: Prime the recommendation pipeline with a common query
-        // This helps initialize internal caches and prepares everything
-        let test_queries = ["fantasy books", "science fiction", "mystery novels"];
-
-        // Simple selection without fastrand dependency
-        let now = std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .unwrap_or_default()
-            .as_secs();
-        let test_query = test_queries[now as usize % test_queries.len()];
-        debug!("Running test query for prewarm: '{}'", test_query);
-
-        // Use internal implementation to avoid query intent caching
-        let _embedding = self.sentence_encoder.encode(test_query).await?;
-
-        // Create a dummy query intent
-        let intent = QueryIntent::General {
-            query: test_query.to_string(),
-        };
-
-        // Create a dummy search strategy for prewarming
-        let strategy = SearchStrategy {
-            metadata_filter: None,
-            semantic_weight: 1.0,
-            hybrid_search: true,
-        };
-
-        // Use a small limit for the test query
-        let _ = self.perform_hybrid_search(&intent, &strategy, 3).await;
-
-        // Mark as initialized
-        self.prewarmed
-            .store(true, std::sync::atomic::Ordering::Release);
-        info!("RecommendationService successfully warmed up");
-
-        Ok(true)
     }
 
     pub async fn get_recommendations(&self, query: &str, top_k: usize) -> Result<Vec<Book>> {

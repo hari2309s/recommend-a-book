@@ -34,8 +34,7 @@ use utoipa_swagger_ui::{Config as SwaggerConfig, SwaggerUi};
     ),
     tags(
         (name = "Health", description = "Health check endpoints"),
-        (name = "Recommendations", description = "Book recommendation endpoints"),
-        (name = "System", description = "System management endpoints for performance optimization")
+        (name = "Recommendations", description = "Book recommendation endpoints")
     ),
     info(
         title = "Book Recommendation API",

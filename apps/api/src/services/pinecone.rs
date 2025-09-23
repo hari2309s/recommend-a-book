@@ -1,23 +1,8 @@
 use crate::error::{ApiError, Result};
-use log::{debug, error, warn};
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
-use std::collections::HashMap;
-use std::sync::{Arc, RwLock};
-use std::time::{Duration, Instant};
-
-// Cache entry for Pinecone results to improve performance
-#[derive(Debug, Clone)]
-struct PineconeCacheEntry {
-    results: Vec<crate::models::Book>,
-    timestamp: Instant,
-}
-
-// Cache configuration
-// Cache TTL in seconds
-const CACHE_TTL_SECONDS: u64 = 3600; // 1 hour
-const CACHE_CAPACITY: usize = 100;
+use tracing::{debug, error, warn};
 
 #[derive(Clone)]
 pub struct Pinecone {
@@ -25,9 +10,6 @@ pub struct Pinecone {
     api_key: String,
     host: String,
     dimension: usize,
-    // Cache for query results to improve performance
-    vector_cache: Arc<RwLock<HashMap<String, PineconeCacheEntry>>>,
-    metadata_cache: Arc<RwLock<HashMap<String, PineconeCacheEntry>>>,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -62,16 +44,14 @@ impl Pinecone {
             "Initializing Pinecone client with index: '{}', environment: '{}', API key: {}...{}",
             index_name,
             environment,
-            &api_key[..std::cmp::min(5, api_key.len())],
+            &api_key[..5],
             &api_key[api_key.len().saturating_sub(5)..]
         );
 
-        // Create HTTP client with optimized settings for cold starts
+        // Create HTTP client with better configuration
         let client = Client::builder()
             .timeout(std::time::Duration::from_secs(30))
             .connect_timeout(std::time::Duration::from_secs(10))
-            // Increase connection pool for better concurrent request handling
-            .pool_max_idle_per_host(10)
             .build()
             .map_err(|e| ApiError::PineconeError(format!("Failed to create HTTP client: {}", e)))?;
 
@@ -116,75 +96,7 @@ impl Pinecone {
             api_key: api_key.to_string(),
             host,
             dimension,
-            vector_cache: Arc::new(RwLock::new(HashMap::with_capacity(CACHE_CAPACITY))),
-            metadata_cache: Arc::new(RwLock::new(HashMap::with_capacity(CACHE_CAPACITY))),
         })
-    }
-
-    // Check if a result is in the metadata cache
-    fn check_metadata_cache(&self, key: &str) -> Option<Vec<crate::models::Book>> {
-        if let Ok(cache) = self.metadata_cache.read() {
-            if let Some(entry) = cache.get(key) {
-                if entry.timestamp.elapsed() < Duration::from_secs(CACHE_TTL_SECONDS) {
-                    return Some(entry.results.clone());
-                }
-            }
-        }
-        None
-    }
-
-    // Update the metadata cache with new results
-    fn update_metadata_cache(&self, key: String, results: Vec<crate::models::Book>) {
-        if let Ok(mut cache) = self.metadata_cache.write() {
-            // Clean up expired cache entries if we're at capacity
-            if cache.len() >= CACHE_CAPACITY {
-                // Clean up expired entries
-                cache.retain(|_, entry| {
-                    entry.timestamp.elapsed() < Duration::from_secs(CACHE_TTL_SECONDS)
-                });
-            }
-
-            cache.insert(
-                key,
-                PineconeCacheEntry {
-                    results,
-                    timestamp: Instant::now(),
-                },
-            );
-        }
-    }
-
-    // Check if a result is in the vector cache
-    fn check_vector_cache(&self, key: &str) -> Option<Vec<crate::models::Book>> {
-        if let Ok(cache) = self.vector_cache.read() {
-            if let Some(entry) = cache.get(key) {
-                if entry.timestamp.elapsed() < Duration::from_secs(CACHE_TTL_SECONDS) {
-                    return Some(entry.results.clone());
-                }
-            }
-        }
-        None
-    }
-
-    // Update the vector cache with new results
-    fn update_vector_cache(&self, key: String, results: Vec<crate::models::Book>) {
-        if let Ok(mut cache) = self.vector_cache.write() {
-            // Clean up expired cache entries if we're at capacity
-            if cache.len() >= CACHE_CAPACITY {
-                // Clean up expired entries
-                cache.retain(|_, entry| {
-                    entry.timestamp.elapsed() < Duration::from_secs(CACHE_TTL_SECONDS)
-                });
-            }
-
-            cache.insert(
-                key,
-                PineconeCacheEntry {
-                    results,
-                    timestamp: Instant::now(),
-                },
-            );
-        }
     }
 
     pub async fn query_metadata(
@@ -194,16 +106,6 @@ impl Pinecone {
         exact_match: bool,
         top_k: usize,
     ) -> Result<Vec<crate::models::Book>> {
-        // Generate a cache key
-        let cache_key = format!("md_{}_{}_{}_{}", field, value, exact_match, top_k);
-
-        // Check cache first
-        if let Some(results) = self.check_metadata_cache(&cache_key) {
-            debug!("Metadata query cache hit for: {} = {}", field, value);
-            return Ok(results);
-        }
-
-        // Build filter based on match type
         let filter = if exact_match {
             json!({
                 field: {"$eq": value}
@@ -230,12 +132,7 @@ impl Pinecone {
             namespace: None,
         };
 
-        let results = self.execute_query(query_request).await?;
-
-        // Cache the results
-        self.update_metadata_cache(cache_key, results.clone());
-
-        Ok(results)
+        self.execute_query(query_request).await
     }
 
     pub async fn query_vector(
@@ -243,25 +140,6 @@ impl Pinecone {
         embedding: &[f32],
         top_k: usize,
     ) -> Result<Vec<crate::models::Book>> {
-        // Generate a cache key based on a few dimensions to allow some fuzzy matching
-        // Using first, middle, and last dimensions to create a reasonable fingerprint
-        let cache_key = format!(
-            "vec_{:.3}_{:.3}_{:.3}_{:.3}_{:.3}_{:.3}_{}",
-            embedding[0],
-            embedding[1],
-            embedding[embedding.len() / 2 - 1],
-            embedding[embedding.len() / 2],
-            embedding[embedding.len() - 2],
-            embedding[embedding.len() - 1],
-            top_k
-        );
-
-        // Check cache first
-        if let Some(results) = self.check_vector_cache(&cache_key) {
-            debug!("Vector query cache hit");
-            return Ok(results);
-        }
-
         // Create query request
         let query_request = QueryRequest {
             vector: embedding.to_vec(),
@@ -272,12 +150,7 @@ impl Pinecone {
             namespace: None,
         };
 
-        let results = self.execute_query(query_request).await?;
-
-        // Cache the results
-        self.update_vector_cache(cache_key, results.clone());
-
-        Ok(results)
+        self.execute_query(query_request).await
     }
 
     async fn execute_query(&self, request: QueryRequest) -> Result<Vec<crate::models::Book>> {

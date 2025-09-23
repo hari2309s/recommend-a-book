@@ -11,7 +11,6 @@ A full-stack application that provides personalized book recommendations based o
 - **Modern UI**: Clean and responsive interface built with React 19, Radix UI, and Tailwind CSS
 - **Infinite Scrolling**: Smooth user experience with progressive loading and dynamic content
 - **Fast Development**: Optimized development scripts with instant startup and hot reloading
-- **Cold Start Optimization**: Automated keep-warm system to eliminate cold starts on serverless deployments
 
 ## Tech Stack
 
@@ -60,7 +59,6 @@ The application follows a modern client-server architecture with a monorepo stru
 - **Deployment**:
   - Render for hosting the Rust API
   - Vercel for hosting the React frontend
-  - GitHub Actions for automated API keep-warm process
 - **Monorepo**: Managed with pnpm workspaces and Turbo for build orchestration
 
 ## Getting Started
@@ -125,7 +123,7 @@ cd apps/api
 cargo run --bin index_books -- data/books.csv
 ```
 
-### API Endpoints
+## API Endpoints
 
 **Base URL**: `http://localhost:10000` (development) / `https://recommend-a-book-api.onrender.com` (production)
 
@@ -133,10 +131,7 @@ cargo run --bin index_books -- data/books.csv
 - `POST /api/recommendations/` - Get book recommendations based on query
 
 ### Health Check
-- `GET /api/health` - API health status and triggers background prewarming
-
-### System
-- `GET /api/prewarm` - Prewarm API services to mitigate cold starts
+- `GET /api/health` - API health status
 
 ### API Documentation
 - `/swagger-ui/` - Interactive Swagger UI documentation
@@ -190,11 +185,6 @@ This makes it easy to explore and test the API without writing any code.
 - `pnpm format` - Format code with Prettier
 - `pnpm clean` - Clean build artifacts and dependencies
 - `pnpm index:books` - Index books from CSV file
-- `pnpm keepwarm:start` - Start the keep-warm process in the background
-- `pnpm keepwarm:status` - Check status of the keep-warm background process
-- `pnpm keepwarm:stop` - Stop the keep-warm background process
-- `pnpm keepwarm:logs` - View logs of the keep-warm process
-- `pnpm keepwarm:once` - Run keep-warm process once (manual warming)
 
 ### Database Setup
 
@@ -220,7 +210,6 @@ The backend is deployed on Render with the following setup:
 - **Start Command**: `./target/release/recommend-a-book-api`
 - **Health Check**: `/api/health`
 - **Documentation**: `/swagger-ui/`
-- **Cold Start Optimization**: GitHub Actions workflow pings API hourly
 
 ### Frontend (Vercel)
 
@@ -230,20 +219,3 @@ The frontend is deployed on Vercel with:
 - **Build Command**: `pnpm run build`
 - **Output Directory**: `dist`
 - **Environment Variables**: Configured for production API URL
-
-## API Cold Start Optimization
-
-This project includes a comprehensive keep-warm system to eliminate cold starts on the serverless API:
-
-### Features
-- **GitHub Actions Workflow**: Automated hourly pinging of the API (`.github/workflows/keep-warm.yml`)
-- **Multiple Backup Options**: Several methods to keep the API warm
-- **Custom Scripts**: Located in `scripts/keep-warm` directory
-- **Error Handling**: Automatic retries and fallbacks to different endpoints
-
-### Usage
-- The GitHub Actions workflow runs automatically when the code is pushed to the repository
-- For manual warming: `pnpm keepwarm:start` or `pnpm keepwarm:once`
-- For detailed instructions, see `scripts/keep-warm/README.md`
-
-This system ensures that your API remains responsive without the typical cold start delays experienced on serverless platforms.
