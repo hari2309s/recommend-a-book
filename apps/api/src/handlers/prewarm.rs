@@ -15,17 +15,6 @@ use serde_json::json;
 /// # Returns
 ///
 /// A JSON response indicating the prewarm operation was successful
-#[utoipa::path(
-    get,
-    path = "/api/prewarm",
-    tag = "System",
-    responses(
-        (status = 200, description = "API services successfully prewarmed", body = serde_json::Value),
-        (status = 500, description = "Error during prewarming", body = serde_json::Value)
-    ),
-    summary = "Prewarm API services to mitigate cold starts",
-    description = "Initializes all services (ML model, Pinecone, caches) to reduce latency for subsequent requests. Useful after deployment or during periods of inactivity."
-)]
 #[actix_web::get("/prewarm")]
 pub async fn prewarm(
     recommendation_service: web::Data<RecommendationService>,

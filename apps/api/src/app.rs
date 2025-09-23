@@ -10,6 +10,7 @@ use actix_cors::Cors;
 use actix_web::{middleware::Logger, web, App, HttpResponse, HttpServer};
 use anyhow::Context;
 use log::info;
+use num_cpus;
 use std::net::TcpListener;
 
 use utoipa::OpenApi;
@@ -21,7 +22,6 @@ use utoipa_swagger_ui::{Config as SwaggerConfig, SwaggerUi};
     paths(
         crate::handlers::health::health_check,
         crate::handlers::recommendations::get_recommendations,
-        crate::handlers::prewarm::prewarm,
     ),
     components(
         schemas(

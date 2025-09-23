@@ -51,7 +51,6 @@ impl HuggingFaceEmbedder {
     /// Uses a 512-dimensional model for better quality embeddings
     /// # Returns
     /// * `Result<HuggingFaceEmbedder, ApiError>` - A new instance of the encoder or an error
-    ///
     /// Create a new HuggingFaceEmbedder with optimized initialization for cold starts
     ///
     /// This constructor uses a more efficient initialization pattern that:
@@ -649,7 +648,7 @@ impl HuggingFaceEmbedder {
             info!(
                 "Processing batch {}/{}",
                 i + 1,
-                texts.len().div_ceil(batch_size)
+                (texts.len() + batch_size - 1) / batch_size
             );
 
             let chunk_vec = chunk.to_vec();
