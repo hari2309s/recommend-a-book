@@ -1,20 +1,22 @@
 services:
   - type: web
-    name: recommend-a-book-rust-api
+    name: recommend-a-book-api
     runtime: rust
     region: frankfurt
     plan: starter
     buildCommand: cargo build --release
     startCommand: |
-      curl -s http://localhost:10000/api/prewarm &
-      ./target/release/recommend-a-book-api
-    healthCheckPath: /api/prewarm
+      # Try to prewarm the API immediately at startup to reduce initial latency
+      (curl -s http://localhost:10000/api/prewarm || true) &
+      # Start with optimized settings for Render.com environment
+      RUST_MIN_STACK=4194304 ./target/release/recommend-a-book-api
+    healthCheckPath: /api/health
     envVars:
       - key: RUST_LOG
         value: info
       # Optimize for faster cold starts
-      - key: ROCKET_WORKERS
-        value: "2"
+      - key: RUST_MIN_STACK
+        value: "4194304"
       - key: RUN_MODE
         value: production
       - key: APP_HOST
@@ -28,7 +30,12 @@ services:
       - key: APP_ENABLE_PREWARM
         value: "true"
       - key: APP_PREWARM_TIMEOUT_SECS
-        value: "30"
+        value: "60"
+      # Increase timeouts to handle cold starts better
+      - key: APP_REQUEST_TIMEOUT_SECS
+        value: "120"
+      - key: APP_HUGGINGFACE_TIMEOUT_SECONDS
+        value: "60"
       - key: APP_FRONTEND_URL
         value: https://recommend-a-book-frontend.vercel.app
       # Database configuration
@@ -58,3 +65,48 @@ services:
         - apps/api/**/*
       ignoredPaths:
         - apps/api/target/**/*
+
+  # Keep-warm cron job to prevent cold starts
+  - type: cron
+    name: recommend-a-book-api-keepwarm
+    runtime: bash
+    schedule: "*/19 * * * *"  # Run every 19 minutes
+    buildCommand: echo "No build required for keepwarm cron"
+    startCommand: |
+      #!/bin/bash
+
+      # Log with timestamps
+      echo "[$(date -u +'%Y-%m-%d %H:%M:%S UTC')] Running keep-warm cron job"
+
+      # Configure retry settings
+      MAX_RETRIES=3
+      RETRY_DELAY=5
+      API_URL="${API_URL:-https://recommend-a-book-api.onrender.com}"
+
+      # Try the prewarm endpoint first (most effective for warmup)
+      echo "[$(date -u +'%Y-%m-%d %H:%M:%S UTC')] Pinging $API_URL/api/prewarm"
+      for i in $(seq 1 $MAX_RETRIES); do
+        HTTP_STATUS=$(curl -s -o /dev/null -w "%{http_code}" -m 30 "$API_URL/api/prewarm")
+        if [ "$HTTP_STATUS" -eq 200 ]; then
+          echo "[$(date -u +'%Y-%m-%d %H:%M:%S UTC')] Successfully prewarmed API (HTTP 200)"
+          exit 0
+        else
+          echo "[$(date -u +'%Y-%m-%d %H:%M:%S UTC')] Prewarm attempt $i failed (HTTP $HTTP_STATUS). Retrying in ${RETRY_DELAY}s..."
+          sleep $RETRY_DELAY
+        fi
+      done
+
+      # Fall back to the health endpoint if prewarm fails
+      echo "[$(date -u +'%Y-%m-%d %H:%M:%S UTC')] Prewarm failed, trying health endpoint"
+      HTTP_STATUS=$(curl -s -o /dev/null -w "%{http_code}" -m 30 "$API_URL/api/health")
+      if [ "$HTTP_STATUS" -eq 200 ]; then
+        echo "[$(date -u +'%Y-%m-%d %H:%M:%S UTC')] Health check successful (HTTP 200)"
+        exit 0
+      else
+        echo "[$(date -u +'%Y-%m-%d %H:%M:%S UTC')] Health check failed (HTTP $HTTP_STATUS)"
+        # Still exit with 0 so the cron job doesn't fail and stop running
+        exit 0
+      fi
+    envVars:
+      - key: API_URL
+        value: https://recommend-a-book-api.onrender.com

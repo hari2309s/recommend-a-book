@@ -1,9 +1,10 @@
 use crate::error::{ApiError, Result};
-use log::{debug, error, warn};
+use log::{debug, error, info, warn};
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 use std::collections::HashMap;
+use std::sync::atomic::AtomicBool;
 use std::sync::{Arc, RwLock};
 use std::time::{Duration, Instant};
 
@@ -23,11 +24,14 @@ const CACHE_CAPACITY: usize = 100;
 pub struct Pinecone {
     client: Client,
     api_key: String,
-    host: String,
+    host: Arc<RwLock<String>>,
     dimension: usize,
-    // Cache for query results to improve performance
+    // Caches to improve performance and reduce API calls
     vector_cache: Arc<RwLock<HashMap<String, PineconeCacheEntry>>>,
     metadata_cache: Arc<RwLock<HashMap<String, PineconeCacheEntry>>>,
+    // Initialization status and parameters
+    initialized: Arc<AtomicBool>,
+    init_params: Option<(String, String, String)>, // (api_key, environment, index_name)
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -72,6 +76,8 @@ impl Pinecone {
             .connect_timeout(std::time::Duration::from_secs(10))
             // Increase connection pool for better concurrent request handling
             .pool_max_idle_per_host(10)
+            // Add retry capability
+            .use_rustls_tls()
             .build()
             .map_err(|e| ApiError::PineconeError(format!("Failed to create HTTP client: {}", e)))?;
 
@@ -114,11 +120,119 @@ impl Pinecone {
         Ok(Self {
             client,
             api_key: api_key.to_string(),
-            host,
+            host: Arc::new(RwLock::new(host)),
             dimension,
             vector_cache: Arc::new(RwLock::new(HashMap::with_capacity(CACHE_CAPACITY))),
             metadata_cache: Arc::new(RwLock::new(HashMap::with_capacity(CACHE_CAPACITY))),
+            initialized: Arc::new(AtomicBool::new(true)),
+            init_params: None,
         })
+    }
+
+    /// Creates a new Pinecone client with lazy initialization.
+    ///
+    /// This constructor doesn't connect to Pinecone immediately, but rather
+    /// stores the connection parameters and will connect on the first query.
+    /// This is useful for serverless environments where cold starts need to be
+    /// as fast as possible, and the actual initialization can happen when needed.
+    pub fn new_with_lazy_init(api_key: &str, environment: &str, index_name: &str) -> Result<Self> {
+        debug!("Creating Pinecone client with lazy initialization");
+
+        // Create a client with default configuration - actual connection will happen later
+        let client = Client::builder()
+            .timeout(std::time::Duration::from_secs(30))
+            .connect_timeout(std::time::Duration::from_secs(10))
+            .pool_max_idle_per_host(10)
+            .use_rustls_tls()
+            .build()
+            .map_err(|e| ApiError::PineconeError(format!("Failed to create HTTP client: {}", e)))?;
+
+        Ok(Self {
+            client,
+            api_key: api_key.to_string(),
+            host: Arc::new(RwLock::new(String::new())), // Will be initialized later
+            dimension: 512,
+            vector_cache: Arc::new(RwLock::new(HashMap::with_capacity(CACHE_CAPACITY))),
+            metadata_cache: Arc::new(RwLock::new(HashMap::with_capacity(CACHE_CAPACITY))),
+            initialized: Arc::new(AtomicBool::new(false)),
+            init_params: Some((
+                api_key.to_string(),
+                environment.to_string(),
+                index_name.to_string(),
+            )),
+        })
+    }
+
+    /// Initializes the Pinecone client if it hasn't been initialized yet.
+    ///
+    /// This method is called automatically before any query if the client
+    /// was created with lazy initialization.
+    async fn ensure_initialized(&self) -> Result<()> {
+        // Check if already initialized
+        if self.initialized.load(std::sync::atomic::Ordering::Acquire) {
+            return Ok(());
+        }
+
+        // Double-checked locking pattern for thread safety
+        let init_params = match &self.init_params {
+            Some(params) => params,
+            None => {
+                return Err(ApiError::PineconeError(
+                    "Missing initialization parameters".to_string(),
+                ))
+            }
+        };
+
+        let (api_key, environment, index_name) = init_params;
+
+        info!("Lazily initializing Pinecone client now...");
+
+        // Validate parameters
+        if api_key.is_empty() || api_key.contains("your") || api_key.len() < 10 {
+            return Err(ApiError::PineconeError(
+                "Invalid Pinecone API key. Please set a valid APP_PINECONE_API_KEY environment variable.".to_string(),
+            ));
+        }
+
+        if environment.is_empty()
+            || environment.contains("your")
+            || environment == "your_environment_name"
+        {
+            return Err(ApiError::PineconeError(
+                "Invalid Pinecone environment. Please set a valid APP_PINECONE_ENVIRONMENT environment variable.".to_string(),
+            ));
+        }
+
+        if index_name.is_empty() || index_name.contains("your") || index_name == "your_index_name" {
+            return Err(ApiError::PineconeError(
+                "Invalid Pinecone index name. Please set a valid APP_PINECONE_INDEX environment variable.".to_string(),
+            ));
+        }
+
+        // Compute host using the same logic as in new()
+        let host = if environment.contains("-") {
+            format!("https://{}.svc.{}.pinecone.io", index_name, environment)
+        } else {
+            format!(
+                "https://{}-project.svc.{}.pinecone.io",
+                index_name, environment
+            )
+        };
+
+        // Update host using thread-safe RwLock
+        {
+            let mut host_guard = self.host.write().map_err(|_| {
+                ApiError::PineconeError("Failed to acquire write lock for host".to_string())
+            })?;
+            *host_guard = host;
+        }
+
+        // Mark as initialized
+        self.initialized
+            .store(true, std::sync::atomic::Ordering::Release);
+
+        info!("Pinecone client successfully initialized");
+        Ok(())
     }
 
     // Check if a result is in the metadata cache
@@ -194,6 +308,9 @@ impl Pinecone {
         exact_match: bool,
         top_k: usize,
     ) -> Result<Vec<crate::models::Book>> {
+        // Ensure the client is initialized
+        self.ensure_initialized().await?;
+
         // Generate a cache key
         let cache_key = format!("md_{}_{}_{}_{}", field, value, exact_match, top_k);
 
@@ -243,6 +360,9 @@ impl Pinecone {
         embedding: &[f32],
         top_k: usize,
     ) -> Result<Vec<crate::models::Book>> {
+        // Ensure the client is initialized
+        self.ensure_initialized().await?;
+
         // Generate a cache key based on a few dimensions to allow some fuzzy matching
         // Using first, middle, and last dimensions to create a reasonable fingerprint
         let cache_key = format!(
@@ -281,7 +401,17 @@ impl Pinecone {
     }
 
     async fn execute_query(&self, request: QueryRequest) -> Result<Vec<crate::models::Book>> {
-        let url = format!("{}/query", self.host);
+        // Double-check initialization before making the actual API call
+        self.ensure_initialized().await?;
+
+        // Clone the host string to avoid holding the lock across async boundaries
+        let host_string = {
+            let host = self.host.read().map_err(|_| {
+                ApiError::PineconeError("Failed to acquire read lock for host".to_string())
+            })?;
+            host.clone()
+        };
+        let url = format!("{}/query", host_string);
 
         debug!(
             "Making Pinecone query to: {} with top_k: {}",

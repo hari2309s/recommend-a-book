@@ -423,7 +423,11 @@ async fn index_books_from_csv(csv_path: PathBuf) -> Result<()> {
         // Generate embeddings
         let embeddings = match embedder.encode_batch(&texts).await {
             Ok(embeddings) => {
-                debug!("Generated embeddings shape: {:?}", embeddings.dim());
+                debug!(
+                    "Generated embeddings shape: {}x{}",
+                    embeddings.len(),
+                    embeddings.first().map(|v| v.len()).unwrap_or(0)
+                );
                 embeddings
             }
             Err(e) => {
@@ -439,8 +443,8 @@ async fn index_books_from_csv(csv_path: PathBuf) -> Result<()> {
         // Create Pinecone vectors
         let mut vectors = Vec::new();
         for (book_idx, book) in batch.iter().enumerate() {
-            let embedding_row = embeddings.row(book_idx);
-            let embedding_vec: Vec<f32> = embedding_row.to_vec();
+            // Access the embedding directly from the vector of vectors
+            let embedding_vec: Vec<f32> = embeddings[book_idx].clone();
 
             let metadata =
                 serde_json::to_value(book).context("Failed to serialize book metadata")?;

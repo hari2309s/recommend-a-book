@@ -3,6 +3,7 @@ use ndarray::{Array1, Array2};
 use reqwest::Client;
 use serde_json::json;
 use std::env;
+use std::sync::atomic::AtomicBool;
 use tracing::{debug, error, info, warn};
 
 /// Target dimension for Pinecone index
@@ -39,11 +40,13 @@ lazy_static! {
 #[derive(Clone)]
 
 pub struct HuggingFaceEmbedder {
-    client: Client,
-    api_key: String,
-    model_url: String,
-    model_name: String,
-    initialized: Arc<std::sync::atomic::AtomicBool>,
+    client: Arc<RwLock<Client>>,
+    api_key: Arc<RwLock<String>>,
+    model_url: Arc<RwLock<String>>,
+    model_name: Arc<RwLock<String>>,
+    // Initialization status and parameters
+    initialized: Arc<AtomicBool>,
+    deferred_init: bool,
 }
 
 impl HuggingFaceEmbedder {
@@ -102,14 +105,42 @@ impl HuggingFaceEmbedder {
         info!("Timeout: {}s", timeout_seconds);
 
         let encoder = Self {
-            client,
-            api_key,
-            model_url,
-            model_name,
+            client: Arc::new(RwLock::new(client)),
+            api_key: Arc::new(RwLock::new(api_key)),
+            model_url: Arc::new(RwLock::new(model_url)),
+            model_name: Arc::new(RwLock::new(model_name)),
             initialized: Arc::new(std::sync::atomic::AtomicBool::new(false)),
+            deferred_init: false,
         };
 
         info!("HuggingFace encoder created (not yet initialized)");
+        Ok(encoder)
+    }
+
+    /// Create a new encoder with deferred initialization
+    ///
+    /// This constructor doesn't perform any API calls and returns immediately,
+    /// allowing for faster cold starts in serverless environments.
+    /// The actual initialization happens on the first encode request.
+    pub fn new_with_deferred_init() -> Result<Self, ApiError> {
+        info!("Creating HuggingFace encoder with deferred initialization");
+
+        // Create a default client that will be replaced on first use
+        let client = Client::builder()
+            .timeout(std::time::Duration::from_secs(30))
+            .build()
+            .map_err(|e| ApiError::InternalError(format!("Failed to create HTTP client: {}", e)))?;
+
+        let encoder = Self {
+            client: Arc::new(RwLock::new(client)),
+            api_key: Arc::new(RwLock::new(String::new())), // Will be populated on first use
+            model_url: Arc::new(RwLock::new(String::new())), // Will be populated on first use
+            model_name: Arc::new(RwLock::new(String::from(DEFAULT_MODEL_NAME))),
+            initialized: Arc::new(std::sync::atomic::AtomicBool::new(false)),
+            deferred_init: true,
+        };
+
+        info!("HuggingFace encoder created with deferred initialization");
         Ok(encoder)
     }
 
@@ -150,10 +181,129 @@ impl HuggingFaceEmbedder {
     /// * `text` - The text to encode
     /// # Returns
     /// * `Result<Vec<f32>, ApiError>` - The encoded embedding or an error
+    ///   Ensures the embedder is initialized before use
+    ///
+    /// If the embedder was created with deferred initialization, this method
+    /// will perform the actual initialization when first called.
+    async fn ensure_initialized(&self) -> Result<(), ApiError> {
+        // Check if already initialized
+        if self.initialized.load(std::sync::atomic::Ordering::Acquire) {
+            return Ok(());
+        }
+
+        // If using deferred initialization, we need to set up the client and API key
+        if self.deferred_init {
+            // Lazy load environment variables
+            let api_key = std::env::var("APP_HUGGINGFACE_API_KEY").map_err(|_| {
+                ApiError::ModelLoadError(
+                    "Missing APP_HUGGINGFACE_API_KEY environment variable".to_string(),
+                )
+            })?;
+
+            if api_key.trim().is_empty() {
+                return Err(ApiError::ModelLoadError(
+                    "APP_HUGGINGFACE_API_KEY is empty".to_string(),
+                ));
+            }
+
+            let timeout_seconds = std::env::var("APP_HUGGINGFACE_TIMEOUT_SECONDS")
+                .ok()
+                .and_then(|s| s.parse().ok())
+                .unwrap_or(DEFAULT_TIMEOUT_SECONDS);
+
+            let base_url = std::env::var("APP_HUGGINGFACE_BASE_URL")
+                .unwrap_or_else(|_| DEFAULT_BASE_URL.to_string());
+
+            let model_name = std::env::var("APP_HUGGINGFACE_MODEL_NAME")
+                .unwrap_or_else(|_| DEFAULT_MODEL_NAME.to_string());
+
+            // Update fields properly using RwLock
+            {
+                let mut api_key_guard = self.api_key.write().map_err(|_| {
+                    ApiError::InternalError("Failed to acquire write lock for api_key".to_string())
+                })?;
+                *api_key_guard = api_key;
+            }
+
+            {
+                let mut model_url_guard = self.model_url.write().map_err(|_| {
+                    ApiError::InternalError(
+                        "Failed to acquire write lock for model_url".to_string(),
+                    )
+                })?;
+                *model_url_guard = format!("{}/models/{}", base_url, model_name);
+            }
+
+            {
+                let mut model_name_guard = self.model_name.write().map_err(|_| {
+                    ApiError::InternalError(
+                        "Failed to acquire write lock for model_name".to_string(),
+                    )
+                })?;
+                *model_name_guard = model_name;
+            }
+
+            // Create optimized client
+            {
+                let mut client_guard = self.client.write().map_err(|_| {
+                    ApiError::InternalError("Failed to acquire write lock for client".to_string())
+                })?;
+                *client_guard = Client::builder()
+                    .timeout(std::time::Duration::from_secs(timeout_seconds))
+                    .pool_max_idle_per_host(10)
+                    .connect_timeout(std::time::Duration::from_secs(10))
+                    .build()
+                    .map_err(|e| {
+                        ApiError::InternalError(format!("Failed to create HTTP client: {}", e))
+                    })?;
+            }
+
+            let model_name = self
+                .model_name
+                .read()
+                .map_err(|_| {
+                    ApiError::InternalError(
+                        "Failed to acquire read lock for model_name".to_string(),
+                    )
+                })?
+                .clone();
+            info!(
+                "Lazy-initialized HuggingFace encoder with model: {}",
+                model_name
+            );
+        }
+
+        // Test connection with a simple request
+        let test_text = "This is a test sentence for initializing the embeddings model.";
+        let payload = json!({
+            "inputs": test_text,
+        });
+
+        // Make a request to check if the API is working
+        let _response = self.make_api_request(&payload).await?;
+
+        // Mark as initialized
+        self.initialized
+            .store(true, std::sync::atomic::Ordering::Release);
+        info!("HuggingFace embedder successfully initialized");
+
+        Ok(())
+    }
+
     pub async fn encode(&self, text: &str) -> Result<Vec<f32>, ApiError> {
+        // Ensure the encoder is initialized
+        self.ensure_initialized().await?;
+        let model_name = self
+            .model_name
+            .read()
+            .map_err(|_| {
+                ApiError::InternalError("Failed to acquire read lock for model_name".to_string())
+            })?
+            .clone();
+
         info!(
             "Encoding text with {}: '{}' (text length: {})",
-            self.model_name,
+            model_name,
             if text.len() > MAX_TEXT_PREVIEW_LENGTH {
                 &text[..MAX_TEXT_PREVIEW_LENGTH]
             } else {
@@ -230,9 +380,32 @@ impl HuggingFaceEmbedder {
         &self,
         payload: &serde_json::Value,
     ) -> Result<reqwest::Response, ApiError> {
-        self.client
-            .post(&self.model_url)
-            .header("Authorization", format!("Bearer {}", self.api_key))
+        // Clone all needed values to avoid holding locks across await points
+        let client_clone = {
+            let client = self.client.read().map_err(|_| {
+                ApiError::InternalError("Failed to acquire read lock for client".to_string())
+            })?;
+            client.clone()
+        };
+
+        let model_url_clone = {
+            let model_url = self.model_url.read().map_err(|_| {
+                ApiError::InternalError("Failed to acquire read lock for model_url".to_string())
+            })?;
+            model_url.clone()
+        };
+
+        let api_key_clone = {
+            let api_key = self.api_key.read().map_err(|_| {
+                ApiError::InternalError("Failed to acquire read lock for api_key".to_string())
+            })?;
+            api_key.clone()
+        };
+
+        // Now we can safely use the cloned values across await points
+        client_clone
+            .post(model_url_clone.as_str())
+            .header("Authorization", format!("Bearer {}", api_key_clone))
             .header("Content-Type", "application/json")
             .json(payload)
             .send()
@@ -345,7 +518,10 @@ impl HuggingFaceEmbedder {
     /// # Returns
     /// * `Result<Array2<f32>, ApiError>` - A 2D array of embeddings or an error
     #[allow(dead_code)]
-    pub async fn encode_batch(&self, texts: &[String]) -> Result<Array2<f32>, ApiError> {
+    pub async fn encode_batch(&self, texts: &[String]) -> Result<Vec<Vec<f32>>, ApiError> {
+        // Ensure the encoder is initialized
+        self.ensure_initialized().await?;
+
         if texts.is_empty() {
             return Err(ApiError::InvalidInput("Empty batch provided".to_string()));
         }
@@ -361,10 +537,17 @@ impl HuggingFaceEmbedder {
             ));
         }
 
+        let model_name = self
+            .model_name
+            .read()
+            .map_err(|_| {
+                ApiError::InternalError("Failed to acquire read lock for model_name".to_string())
+            })?
+            .clone();
         debug!(
             "Encoding batch of {} texts with {}",
             texts.len(),
-            self.model_name
+            model_name
         );
 
         // Get retry attempts from env or use default
@@ -405,7 +588,8 @@ impl HuggingFaceEmbedder {
                     }
 
                     // Process successful response
-                    return self.process_batch_response(response, texts.len()).await;
+                    let result = self.process_batch_response(response, texts.len()).await?;
+                    return Ok(result.rows().into_iter().map(|r| r.to_vec()).collect());
                 }
                 Err(e) => {
                     error!("Batch attempt {}/{} failed: {}", attempt, retry_attempts, e);
@@ -606,7 +790,20 @@ impl HuggingFaceEmbedder {
     /// * `(String, usize)` - The model name and the target embedding size
     #[allow(dead_code)]
     pub fn model_info(&self) -> (String, usize) {
-        (self.model_name.clone(), TARGET_EMBEDDING_SIZE)
+        let model_name = self
+            .model_name
+            .read()
+            .map(|guard| guard.clone())
+            .unwrap_or_else(|_| {
+                error!("Failed to acquire read lock for model_name");
+                String::from(DEFAULT_MODEL_NAME)
+            });
+        (model_name, TARGET_EMBEDDING_SIZE)
+    }
+
+    /// Returns the target embedding size for this encoder
+    fn get_embedding_size(&self) -> usize {
+        TARGET_EMBEDDING_SIZE
     }
 
     /// Encodes a large batch by splitting into smaller batches to avoid timeouts
@@ -621,6 +818,9 @@ impl HuggingFaceEmbedder {
         texts: &[String],
         batch_size: Option<usize>,
     ) -> Result<Array2<f32>, ApiError> {
+        // Ensure the encoder is initialized
+        self.ensure_initialized().await?;
+
         if texts.is_empty() {
             return Err(ApiError::InvalidInput("Empty batch provided".to_string()));
         }
@@ -634,7 +834,16 @@ impl HuggingFaceEmbedder {
 
         // If batch is small enough, use regular batch encoding
         if texts.len() <= batch_size {
-            return self.encode_batch(texts).await;
+            let batch_result = self.encode_batch(texts).await?;
+            let mut all_embeddings = Vec::new();
+            for embedding in batch_result {
+                all_embeddings.extend(embedding);
+            }
+            let shape = (texts.len(), self.get_embedding_size());
+            return Array2::from_shape_vec(shape, all_embeddings).map_err(|e| {
+                error!("Failed to combine batch embeddings: {}", e);
+                ApiError::ModelInferenceError(format!("Failed to combine batch embeddings: {}", e))
+            });
         }
 
         // Process in smaller batches
@@ -661,7 +870,11 @@ impl HuggingFaceEmbedder {
 
         // Create final Array2 with all embeddings
         let shape = (texts.len(), TARGET_EMBEDDING_SIZE);
-        Array2::from_shape_vec(shape, all_embeddings).map_err(|e| {
+        // Flatten the vector of vectors into a single vector
+        let flattened_embeddings: Vec<f32> = all_embeddings.into_iter().flatten().collect();
+
+        // Create a 2D array from all embeddings
+        Array2::from_shape_vec(shape, flattened_embeddings).map_err(|e| {
             error!("Failed to combine batch embeddings: {}", e);
             ApiError::ModelInferenceError(format!("Failed to combine batch embeddings: {}", e))
         })
