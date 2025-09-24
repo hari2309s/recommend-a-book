@@ -3,7 +3,7 @@ import { createRoot } from 'react-dom/client';
 import '@/index.css';
 import App from '@/App.tsx';
 import { Theme } from '@radix-ui/themes';
-import { initializePrewarm } from '@/utils/prewarm';
+import { initializePrewarm } from '@/utils';
 
 // Initialize API prewarming to prevent cold starts
 initializePrewarm();
