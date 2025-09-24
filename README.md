@@ -1,4 +1,4 @@
-# Book Recommendation System
+# Semantic Book Recommendation System
 
 A full-stack application that provides personalized book recommendations based on user preferences. The system uses advanced natural language processing and vector similarity search to suggest books that match your reading interests.
 
