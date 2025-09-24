@@ -1,7 +1,8 @@
 pub mod pinecone;
-pub mod recommendation;
+pub mod recommendations;
 pub mod supabase;
+pub mod utils;
 
 // Re-export public types
 pub use pinecone::Pinecone;
-pub use recommendation::RecommendationService;
+pub use recommendations::RecommendationService;

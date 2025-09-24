@@ -99,6 +99,14 @@ impl Application {
         .await
         .context("Failed to initialize Pinecone client")?;
 
+        // Set HuggingFace API key from config
+        std::env::set_var("APP_HUGGINGFACE_API_KEY", &self.config.huggingface_api_key);
+
+        // Set retry-related environment variables for HuggingFace API
+        std::env::set_var("APP_HUGGINGFACE_RETRY_ATTEMPTS", "5");
+        std::env::set_var("APP_HUGGINGFACE_INITIAL_RETRY_DELAY_MS", "2000");
+        std::env::set_var("APP_HUGGINGFACE_MAX_RETRY_DELAY_MS", "30000");
+
         // Initialize ML model
         let sentence_encoder = HuggingFaceEmbedder::new()
             .await

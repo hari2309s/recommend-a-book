@@ -13,6 +13,7 @@ pub struct Config {
     pub pinecone_api_key: String,
     pub pinecone_environment: String,
     pub pinecone_index: String,
+    pub huggingface_api_key: String,
 }
 
 impl Config {
@@ -161,6 +162,34 @@ impl Config {
                 "Pinecone index appears to be invalid or empty: '{}'",
                 config.pinecone_index
             );
+        }
+
+        // Override HuggingFace API key with environment variable if it exists
+        if let Ok(value) = env::var("APP_HUGGINGFACE_API_KEY") {
+            let display_value = if value.len() > 10 {
+                format!(
+                    "{}...{} (length: {})",
+                    &value[0..4],
+                    &value[value.len() - 4..],
+                    value.len()
+                )
+            } else {
+                "[redacted]".to_string()
+            };
+            info!(
+                "Using HuggingFace API key from environment variable: {}",
+                display_value
+            );
+            config.huggingface_api_key = value;
+        } else {
+            debug!(
+                "APP_HUGGINGFACE_API_KEY not found in environment, using value from config file"
+            );
+        }
+
+        // Validate HuggingFace API key
+        if config.huggingface_api_key.is_empty() || config.huggingface_api_key.contains("your") {
+            warn!("HuggingFace API key appears to be invalid or empty");
         }
 
         // Log final Pinecone configuration

@@ -1,7 +1,7 @@
 use crate::{
     error::ApiError,
     models::{ErrorResponse, RecommendationRequest, RecommendationResponse},
-    services::RecommendationService,
+    services::recommendations::RecommendationService,
 };
 use actix_web::{
     web::{self, Json},
@@ -34,7 +34,9 @@ pub async fn get_recommendations(
     let top_k = request.top_k;
 
     if request.query.trim().is_empty() {
-        return Err(ApiError::InvalidInput("Query cannot be empty".to_string()));
+        return Err(ApiError::invalid_input("Query cannot be empty")
+            .with_context("recommendations_handler")
+            .with_operation("get_recommendations"));
     }
 
     let recommendations = recommendation_service

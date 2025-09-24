@@ -1,6 +1,6 @@
 //! Prewarm endpoint to address cold start issues on serverless platforms
 
-use crate::{error::Result, services::RecommendationService};
+use crate::{error::Result, services::recommendations::RecommendationService};
 use actix_web::{web, HttpResponse};
 use log::{debug, info};
 use serde_json::json;
@@ -34,21 +34,24 @@ pub async fn prewarm(
 
     // Use the dedicated prewarm method to warm up all services
     // This will initialize connections, caches, and perform test queries
+    // Check if service was already prewarmed
+    let was_prewarmed = recommendation_service.is_prewarmed();
+
     match recommendation_service.prewarm().await {
-        Ok(was_first) => {
+        Ok(()) => {
             info!("Successfully prewarmed API services");
             debug!("Prewarm operation completed all stages: ML model, Pinecone connection, and recommendation pipeline");
 
-            let message = if was_first {
-                "API services successfully prewarmed for the first time"
-            } else {
+            let message = if was_prewarmed {
                 "API services already prewarmed"
+            } else {
+                "API services successfully prewarmed for the first time"
             };
 
             Ok(HttpResponse::Ok().json(json!({
                 "status": "ok",
                 "message": message,
-                "first_prewarm": was_first,
+                "first_prewarm": !was_prewarmed,
                 "timestamp": chrono::Utc::now().to_rfc3339(),
             })))
         }

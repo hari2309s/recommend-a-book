@@ -7,7 +7,7 @@
   ],
   "scripts": {
     "dev": "turbo run dev",
-    "dev:frontend": "turbo run dev --filter=frontend",
+    "dev:frontend": "turbo run dev --filter=@recommend-a-book/frontend",
     "dev:api": "cd apps/api && cargo run --bin recommend-a-book-api",
     "build": "turbo run build && cd apps/api && cargo build --release",
     "build:frontend": "turbo run build --filter=frontend",

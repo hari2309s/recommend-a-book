@@ -28,8 +28,11 @@ async fn main() -> Result<()> {
         .init();
 
     info!("Loading configuration...");
-    let config =
-        config::Config::load().map_err(|e| ApiError::ExternalServiceError(e.to_string()))?;
+    let config = config::Config::load().map_err(|e| {
+        ApiError::external_service_error(e.to_string())
+            .with_context("application")
+            .with_operation("load_config")
+    })?;
 
     // Create and run application
     let application = app::Application::new(&config);

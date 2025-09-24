@@ -11,9 +11,11 @@ const TARGET_EMBEDDING_SIZE: usize = 512;
 /// Default model configuration
 const DEFAULT_MODEL_NAME: &str = "BAAI/bge-large-en-v1.5";
 const DEFAULT_BASE_URL: &str = "https://api-inference.huggingface.co";
-const DEFAULT_TIMEOUT_SECONDS: u64 = 120; // Increased timeout
-const DEFAULT_RETRY_ATTEMPTS: u32 = 3; // Number of retry attempts for API calls
-const DEFAULT_RETRY_DELAY_MS: u64 = 1000; // Delay between retries in milliseconds
+const DEFAULT_TIMEOUT_SECONDS: u64 = 60; // More reasonable timeout (60s) per attempt
+const DEFAULT_RETRY_ATTEMPTS: u32 = 5; // Increased number of retry attempts
+const DEFAULT_INITIAL_RETRY_DELAY_MS: u64 = 2000; // Initial delay between retries (2s)
+const DEFAULT_MAX_RETRY_DELAY_MS: u64 = 30000; // Maximum delay between retries (30s)
+const DEFAULT_CONNECT_TIMEOUT_SECONDS: u64 = 20; // Connection timeout in seconds
 const BATCH_SIZE_LIMIT: usize = 20; // Maximum number of texts to process in a single batch
 
 /// Text processing limits
@@ -62,15 +64,17 @@ impl HuggingFaceEmbedder {
         info!("Creating HuggingFace API sentence encoder (lazy initialization)...");
 
         let api_key = env::var("APP_HUGGINGFACE_API_KEY").map_err(|_| {
-            ApiError::ModelLoadError(
-                "Missing APP_HUGGINGFACE_API_KEY environment variable".to_string(),
-            )
+            ApiError::model_load_error("Missing APP_HUGGINGFACE_API_KEY environment variable")
+                .with_context("huggingface_embedder")
+                .with_operation("initialization")
         })?;
 
         if api_key.trim().is_empty() {
-            return Err(ApiError::ModelLoadError(
-                "APP_HUGGINGFACE_API_KEY is empty".to_string(),
-            ));
+            return Err(
+                ApiError::model_load_error("APP_HUGGINGFACE_API_KEY is empty")
+                    .with_context("huggingface_embedder")
+                    .with_operation("initialization"),
+            );
         }
 
         // Load configuration from environment with defaults
@@ -85,15 +89,27 @@ impl HuggingFaceEmbedder {
         let model_name = env::var("APP_HUGGINGFACE_MODEL_NAME")
             .unwrap_or_else(|_| DEFAULT_MODEL_NAME.to_string());
 
-        // Create client with optimized connection settings for better cold starts
+        // Create client with optimized connection settings for better cold starts and reliability
         let client = Client::builder()
             .timeout(std::time::Duration::from_secs(timeout_seconds))
             // Increase connection pool to handle concurrent requests better
             .pool_max_idle_per_host(10)
-            // Add connection timeout separate from request timeout
-            .connect_timeout(std::time::Duration::from_secs(10))
+            // Add connection timeout separate from request timeout - shorter than full timeout
+            .connect_timeout(std::time::Duration::from_secs(
+                DEFAULT_CONNECT_TIMEOUT_SECONDS,
+            ))
+            // Configure TCP keepalive to detect stale connections
+            .tcp_keepalive(Some(std::time::Duration::from_secs(60)))
+            // Add user agent to identify our application
+            .user_agent("recommend-a-book-api/0.1.0")
+            // We'll handle retries manually in our code
             .build()
-            .map_err(|e| ApiError::InternalError(format!("Failed to create HTTP client: {}", e)))?;
+            .map_err(|e| {
+                error!("Failed to create HTTP client: {}", e);
+                ApiError::internal_error(format!("Failed to create HTTP client: {}", e))
+                    .with_context("huggingface_embedder")
+                    .with_operation("initialization")
+            })?;
 
         let model_url = format!("{}/models/{}", base_url, model_name);
 
@@ -165,15 +181,25 @@ impl HuggingFaceEmbedder {
         let processed_text = self.preprocess_text(text);
         if processed_text.is_empty() {
             error!("Text preprocessing resulted in empty text");
-            return Err(ApiError::InvalidInput(
-                "Empty text after preprocessing".to_string(),
-            ));
+            return Err(ApiError::invalid_input("Empty text after preprocessing")
+                .with_context("huggingface_embedder")
+                .with_operation("encode"));
+        }
+
+        if processed_text.len() > 100 {
+            debug!(
+                "Preprocessed text: '{}... (truncated)'",
+                &processed_text[..100]
+            );
+        } else {
+            debug!("Preprocessed text: '{}'", processed_text);
         }
 
         // Load retry configuration
         let retry_config = self.get_retry_config();
         let retry_attempts = retry_config.0;
-        let retry_delay_ms = retry_config.1;
+        let initial_retry_delay_ms = retry_config.1;
+        let max_retry_delay_ms = retry_config.2;
 
         let request_json = json!({
             "inputs": processed_text,
@@ -183,45 +209,97 @@ impl HuggingFaceEmbedder {
             }
         });
 
+        debug!("Request payload: {}", request_json.to_string());
+
         // Use a retry mechanism for API calls with exponential backoff
         let mut last_error = None;
         for attempt in 1..=retry_attempts {
             info!(
-                "HuggingFace API request attempt {}/{}",
-                attempt, retry_attempts
+                "HuggingFace API request attempt {}/{} for text of length {}",
+                attempt,
+                retry_attempts,
+                text.len()
             );
 
-            match self.make_api_request(&request_json).await {
-                Ok(response) => {
-                    // If successful, process the response
-                    info!(
-                        "HuggingFace API request for '{}' succeeded after {} attempt(s) with status: {}",
-                        if text.len() > MAX_TEXT_PREVIEW_LENGTH {
-                            &text[..MAX_TEXT_PREVIEW_LENGTH]
-                        } else {
-                            text
-                        },
-                        attempt,
-                        response.status()
-                    );
-                    return self.process_api_response(response).await;
-                }
-                Err(e) => {
-                    // Store the error and retry if it's retryable
-                    error!("Attempt {}/{} failed: {}", attempt, retry_attempts, e);
+            debug!(
+                "Attempt {}: Using retry config - initial_delay: {}ms, max_delay: {}ms",
+                attempt, initial_retry_delay_ms, max_retry_delay_ms
+            );
 
-                    if attempt < retry_attempts {
-                        info!("Waiting {}ms before retry...", retry_delay_ms);
-                        tokio::time::sleep(std::time::Duration::from_millis(retry_delay_ms)).await;
-                    }
-                    last_error = Some(e);
+            // Use a timeout for the API request
+            let api_request_future = self.make_api_request(&request_json);
+            let attempt_timeout = tokio::time::timeout(
+                std::time::Duration::from_secs(DEFAULT_TIMEOUT_SECONDS + 5),
+                api_request_future,
+            );
+
+            match attempt_timeout.await {
+                // Timeout at the Tokio level
+                Err(_elapsed) => {
+                    error!(
+                        "Attempt {}/{} timed out at the task level after {}s",
+                        attempt,
+                        retry_attempts,
+                        DEFAULT_TIMEOUT_SECONDS + 5
+                    );
+                    last_error = Some(
+                        ApiError::external_service_error(
+                            "HuggingFace API request timed out at the task level".to_string(),
+                        )
+                        .with_context("huggingface_embedder")
+                        .with_operation("encode"),
+                    );
                 }
+                // Successful execution of the task (though it might be an error result)
+                Ok(request_result) => {
+                    match request_result {
+                        Ok(response) => {
+                            // If successful, process the response
+                            info!(
+                                "HuggingFace API request for '{}' succeeded after {} attempt(s) with status: {}",
+                                if text.len() > MAX_TEXT_PREVIEW_LENGTH {
+                                    &text[..MAX_TEXT_PREVIEW_LENGTH]
+                                } else {
+                                    text
+                                },
+                                attempt,
+                                response.status()
+                            );
+                            return self.process_api_response(response).await;
+                        }
+                        Err(e) => {
+                            // Store the error and retry if it's retryable
+                            error!("Attempt {}/{} failed: {}", attempt, retry_attempts, e);
+                            last_error = Some(e);
+                        }
+                    }
+                }
+            }
+
+            if attempt < retry_attempts {
+                // Calculate exponential backoff with jitter
+                let base_delay = std::cmp::min(
+                    max_retry_delay_ms,
+                    initial_retry_delay_ms * 2u64.pow(attempt - 1),
+                );
+                // Add up to 25% jitter to avoid thundering herd problem
+                let jitter = rand::random::<f64>() * 0.25;
+                let delay = (base_delay as f64 * (1.0 + jitter)) as u64;
+
+                info!(
+                    "Waiting {}ms before retry attempt {}...",
+                    delay,
+                    attempt + 1
+                );
+                tokio::time::sleep(std::time::Duration::from_millis(delay)).await;
             }
         }
 
         // If we've exhausted all retries, return the last error
         Err(last_error.unwrap_or_else(|| {
-            ApiError::ExternalServiceError("Maximum retry attempts reached".to_string())
+            ApiError::external_service_error("Maximum retry attempts reached")
+                .with_context("huggingface_embedder")
+                .with_operation("api_request_with_retry")
         }))
     }
 
@@ -230,33 +308,95 @@ impl HuggingFaceEmbedder {
         &self,
         payload: &serde_json::Value,
     ) -> Result<reqwest::Response, ApiError> {
-        self.client
+        debug!("Making request to HuggingFace API: {}", self.model_url);
+        debug!(
+            "API Key (first/last 4 chars): {}...{}",
+            &self.api_key[..4.min(self.api_key.len())],
+            if self.api_key.len() > 8 {
+                &self.api_key[self.api_key.len() - 4..]
+            } else {
+                ""
+            }
+        );
+
+        // Create a client request
+        let request = self
+            .client
             .post(&self.model_url)
             .header("Authorization", format!("Bearer {}", self.api_key))
             .header("Content-Type", "application/json")
-            .json(payload)
-            .send()
-            .await
-            .map_err(|e| {
-                error!("Failed to call HuggingFace API: {}", e);
-                ApiError::ExternalServiceError(format!("HuggingFace API request failed: {}", e))
-            })
+            .json(payload);
+
+        // Log request details
+        debug!("Sending request to HuggingFace API...");
+
+        // Send the request
+        let result = request.send().await;
+
+        match result {
+            Ok(response) => {
+                info!("Received response with status: {}", response.status());
+                debug!(
+                    "Response headers: {}",
+                    response
+                        .headers()
+                        .iter()
+                        .fold(String::new(), |acc, (k, v)| {
+                            format!("{}{}: {}; ", acc, k, v.to_str().unwrap_or("binary"))
+                        })
+                );
+                Ok(response)
+            }
+            Err(e) => {
+                let error_message = if e.is_timeout() {
+                    format!(
+                        "HuggingFace API request timed out after {}s: {}",
+                        DEFAULT_TIMEOUT_SECONDS, e
+                    )
+                } else if e.is_connect() {
+                    format!(
+                        "Connection error to HuggingFace API (possible network issue): {}",
+                        e
+                    )
+                } else if e.is_request() {
+                    format!("Error creating request to HuggingFace API: {}", e)
+                } else if e.is_body() {
+                    format!("Error in request body for HuggingFace API: {}", e)
+                } else if e.is_status() {
+                    format!("Unexpected status from HuggingFace API: {}", e)
+                } else if e.is_redirect() {
+                    format!("Too many redirects from HuggingFace API: {}", e)
+                } else {
+                    format!("Unknown error calling HuggingFace API: {}", e)
+                };
+
+                error!("{}", error_message);
+                Err(ApiError::external_service_error(error_message)
+                    .with_context("huggingface_embedder")
+                    .with_operation("make_api_request"))
+            }
+        }
     }
 
     /// Process the API response
     /// Get retry configuration from environment variables
-    fn get_retry_config(&self) -> (u32, u64) {
+    fn get_retry_config(&self) -> (u32, u64, u64) {
         let retry_attempts = env::var("APP_HUGGINGFACE_RETRY_ATTEMPTS")
             .ok()
             .and_then(|s| s.parse().ok())
             .unwrap_or(DEFAULT_RETRY_ATTEMPTS);
 
-        let retry_delay_ms = env::var("APP_HUGGINGFACE_RETRY_DELAY_MS")
+        let initial_retry_delay_ms = env::var("APP_HUGGINGFACE_INITIAL_RETRY_DELAY_MS")
             .ok()
             .and_then(|s| s.parse().ok())
-            .unwrap_or(DEFAULT_RETRY_DELAY_MS);
+            .unwrap_or(DEFAULT_INITIAL_RETRY_DELAY_MS);
 
-        (retry_attempts, retry_delay_ms)
+        let max_retry_delay_ms = env::var("APP_HUGGINGFACE_MAX_RETRY_DELAY_MS")
+            .ok()
+            .and_then(|s| s.parse().ok())
+            .unwrap_or(DEFAULT_MAX_RETRY_DELAY_MS);
+
+        (retry_attempts, initial_retry_delay_ms, max_retry_delay_ms)
     }
 
     async fn process_api_response(
@@ -264,39 +404,92 @@ impl HuggingFaceEmbedder {
         response: reqwest::Response,
     ) -> Result<Vec<f32>, ApiError> {
         let status = response.status();
+        let headers = response.headers().clone();
         info!(
             "Processing HuggingFace API response with status: {}",
             status
         );
+        debug!(
+            "Full response headers: {}",
+            headers.iter().fold(String::new(), |acc, (k, v)| {
+                format!("{}{}: {}; ", acc, k, v.to_str().unwrap_or("binary"))
+            })
+        );
+
+        // Log rate limit headers if present
+        if let Some(rate_limit) = headers.get("x-ratelimit-limit") {
+            info!(
+                "HuggingFace rate limit: {}",
+                rate_limit.to_str().unwrap_or("unknown")
+            );
+        }
+        if let Some(rate_limit_remaining) = headers.get("x-ratelimit-remaining") {
+            info!(
+                "HuggingFace rate limit remaining: {}",
+                rate_limit_remaining.to_str().unwrap_or("unknown")
+            );
+        }
+
+        // Log queue information if available
+        if let Some(queue_position) = headers.get("x-compute-queue-position") {
+            warn!(
+                "HuggingFace compute queue position: {}",
+                queue_position.to_str().unwrap_or("unknown")
+            );
+        }
+        if let Some(queue_eta) = headers.get("x-compute-queue-eta") {
+            warn!(
+                "HuggingFace compute queue ETA: {}",
+                queue_eta.to_str().unwrap_or("unknown")
+            );
+        }
 
         if !status.is_success() {
             let error_text = response.text().await.unwrap_or_default();
-            error!("HuggingFace API error {}: {}", status, error_text);
+            error!(
+                "HuggingFace API error {} (URL: {}): {}",
+                status, self.model_url, error_text
+            );
 
             return match status.as_u16() {
-                401 => Err(ApiError::AuthenticationError(
-                    "Invalid or expired HuggingFace API key".to_string(),
-                )),
-                403 => Err(ApiError::AuthenticationError(
-                    "HuggingFace API access forbidden".to_string(),
-                )),
-                429 => Err(ApiError::ExternalServiceError(
-                    "HuggingFace API rate limit exceeded".to_string(),
-                )),
-                503 => Err(ApiError::ExternalServiceError(
-                    "HuggingFace model is currently loading".to_string(),
-                )),
-                _ => Err(ApiError::ExternalServiceError(format!(
+                401 => Err(ApiError::authentication_error(
+                    "Invalid or expired HuggingFace API key",
+                )
+                .with_context("huggingface_embedder")
+                .with_operation("process_response")),
+                403 => Err(
+                    ApiError::authentication_error("HuggingFace API access forbidden")
+                        .with_context("huggingface_embedder")
+                        .with_operation("process_response"),
+                ),
+                429 => Err(ApiError::external_service_error(
+                    "HuggingFace API rate limit exceeded - consider upgrading your plan",
+                )
+                .with_context("huggingface_embedder")
+                .with_operation("process_response")),
+                503 => {
+                    warn!("HuggingFace model is currently loading - this may take several minutes on first request");
+                    Err(ApiError::external_service_error(
+                        "HuggingFace model is currently loading - please retry in a few minutes",
+                    )
+                    .with_context("huggingface_embedder")
+                    .with_operation("process_response"))
+                }
+                _ => Err(ApiError::external_service_error(format!(
                     "HuggingFace API error {}: {}",
                     status, error_text
-                ))),
+                ))
+                .with_context("huggingface_embedder")
+                .with_operation("process_response")),
             };
         }
 
         // Get the response body as bytes first for logging
         let response_body = response.text().await.map_err(|e| {
             error!("Failed to get HuggingFace response body: {}", e);
-            ApiError::SerializationError(format!("Failed to get response body: {}", e))
+            ApiError::serialization_error(format!("Failed to get response body: {}", e))
+                .with_context("huggingface_embedder")
+                .with_operation("process_api_response")
         })?;
 
         info!(
@@ -310,14 +503,18 @@ impl HuggingFaceEmbedder {
 
         let embeddings: Vec<f32> = serde_json::from_str(&response_body).map_err(|e| {
             error!("Failed to parse HuggingFace response: {}", e);
-            ApiError::SerializationError(format!("Failed to parse HuggingFace response: {}", e))
+            ApiError::serialization_error(format!("Failed to parse HuggingFace response: {}", e))
+                .with_context("huggingface_embedder")
+                .with_operation("process_api_response")
         })?;
 
         if embeddings.is_empty() {
             error!("HuggingFace API returned empty embeddings");
-            return Err(ApiError::ModelInferenceError(
-                "Empty embeddings returned from HuggingFace API".to_string(),
-            ));
+            return Err(ApiError::model_inference_error(
+                "Empty embeddings returned from HuggingFace API",
+            )
+            .with_context("huggingface_embedder")
+            .with_operation("process_response"));
         }
 
         // Calculate stats for logging
@@ -347,7 +544,9 @@ impl HuggingFaceEmbedder {
     #[allow(dead_code)]
     pub async fn encode_batch(&self, texts: &[String]) -> Result<Array2<f32>, ApiError> {
         if texts.is_empty() {
-            return Err(ApiError::InvalidInput("Empty batch provided".to_string()));
+            return Err(ApiError::invalid_input("Empty batch provided")
+                .with_context("huggingface_embedder")
+                .with_operation("encode_batch"));
         }
 
         let processed_texts: Vec<String> = texts
@@ -356,9 +555,11 @@ impl HuggingFaceEmbedder {
             .collect();
 
         if processed_texts.iter().any(|text| text.is_empty()) {
-            return Err(ApiError::InvalidInput(
-                "One or more texts were empty after preprocessing".to_string(),
-            ));
+            return Err(ApiError::invalid_input(
+                "One or more texts were empty after preprocessing",
+            )
+            .with_context("huggingface_embedder")
+            .with_operation("encode_batch"));
         }
 
         debug!(
@@ -373,10 +574,10 @@ impl HuggingFaceEmbedder {
             .and_then(|s| s.parse().ok())
             .unwrap_or(DEFAULT_RETRY_ATTEMPTS);
 
-        let retry_delay_ms = env::var("APP_HUGGINGFACE_RETRY_DELAY_MS")
+        let retry_delay_ms = env::var("APP_HUGGINGFACE_INITIAL_RETRY_DELAY_MS")
             .ok()
             .and_then(|s| s.parse().ok())
-            .unwrap_or(DEFAULT_RETRY_DELAY_MS);
+            .unwrap_or(DEFAULT_INITIAL_RETRY_DELAY_MS);
 
         // Prepare request payload
         let request_json = json!({
@@ -422,7 +623,9 @@ impl HuggingFaceEmbedder {
 
         // If we've exhausted all retries, return the last error
         Err(last_error.unwrap_or_else(|| {
-            ApiError::ExternalServiceError("Maximum batch retry attempts reached".to_string())
+            ApiError::external_service_error("Maximum batch retry attempts reached")
+                .with_context("huggingface_embedder")
+                .with_operation("encode_batch")
         }))
     }
 
@@ -438,38 +641,55 @@ impl HuggingFaceEmbedder {
             error!("HuggingFace API batch error {}: {}", status, error_text);
 
             return match status.as_u16() {
-                401 => Err(ApiError::AuthenticationError(
-                    "Invalid HuggingFace API key".to_string(),
-                )),
-                403 => Err(ApiError::AuthenticationError(
-                    "HuggingFace API access forbidden".to_string(),
-                )),
-                429 => Err(ApiError::ExternalServiceError(
-                    "HuggingFace API rate limit exceeded".to_string(),
-                )),
-                503 => Err(ApiError::ExternalServiceError(
-                    "HuggingFace model is currently loading".to_string(),
-                )),
-                _ => Err(ApiError::ExternalServiceError(format!(
+                401 => Err(
+                    ApiError::authentication_error("Invalid HuggingFace API key")
+                        .with_context("huggingface_embedder")
+                        .with_operation("process_batch_response"),
+                ),
+                403 => Err(
+                    ApiError::authentication_error("HuggingFace API access forbidden")
+                        .with_context("huggingface_embedder")
+                        .with_operation("process_batch_response"),
+                ),
+                429 => Err(
+                    ApiError::external_service_error("HuggingFace API rate limit exceeded")
+                        .with_context("huggingface_embedder")
+                        .with_operation("process_batch_response"),
+                ),
+                503 => {
+                    warn!("HuggingFace model is currently loading - this may take several minutes on first request");
+                    Err(ApiError::external_service_error(
+                        "HuggingFace model is currently loading - please retry in a few minutes",
+                    )
+                    .with_context("huggingface_embedder")
+                    .with_operation("process_response"))
+                }
+                _ => Err(ApiError::external_service_error(format!(
                     "HuggingFace API batch error {}: {}",
                     status, error_text
-                ))),
+                ))
+                .with_context("huggingface_embedder")
+                .with_operation("process_batch_response")),
             };
         }
 
         let embeddings: Vec<Vec<f32>> = response.json().await.map_err(|e| {
             error!("Failed to parse HuggingFace batch response: {}", e);
-            ApiError::SerializationError(format!(
+            ApiError::serialization_error(format!(
                 "Failed to parse HuggingFace batch response: {}",
                 e
             ))
+            .with_context("huggingface_embedder")
+            .with_operation("process_batch_response")
         })?;
 
         if embeddings.is_empty() {
             error!("HuggingFace API returned empty batch embeddings");
-            return Err(ApiError::ModelInferenceError(
-                "No embeddings generated for batch".to_string(),
-            ));
+            return Err(
+                ApiError::model_inference_error("No embeddings generated for batch")
+                    .with_context("huggingface_embedder")
+                    .with_operation("process_batch_response"),
+            );
         }
 
         // Verify we got the expected number of embeddings
@@ -502,7 +722,12 @@ impl HuggingFaceEmbedder {
         Array2::from_shape_vec((embeddings.len(), TARGET_EMBEDDING_SIZE), flat_embeddings).map_err(
             |e| {
                 error!("Failed to reshape batch embeddings: {}", e);
-                ApiError::ModelInferenceError(format!("Failed to reshape batch embeddings: {}", e))
+                ApiError::model_inference_error(format!(
+                    "Failed to reshape batch embeddings: {}",
+                    e
+                ))
+                .with_context("huggingface_embedder")
+                .with_operation("process_batch_response")
             },
         )
     }
@@ -622,14 +847,16 @@ impl HuggingFaceEmbedder {
         batch_size: Option<usize>,
     ) -> Result<Array2<f32>, ApiError> {
         if texts.is_empty() {
-            return Err(ApiError::InvalidInput("Empty batch provided".to_string()));
+            return Err(ApiError::invalid_input("Empty batch provided")
+                .with_context("huggingface_embedder")
+                .with_operation("encode_large_batch"));
         }
 
         let batch_size = batch_size.unwrap_or(BATCH_SIZE_LIMIT);
         if batch_size == 0 {
-            return Err(ApiError::InvalidInput(
-                "Batch size cannot be zero".to_string(),
-            ));
+            return Err(ApiError::invalid_input("Batch size cannot be zero")
+                .with_context("huggingface_embedder")
+                .with_operation("encode_large_batch"));
         }
 
         // If batch is small enough, use regular batch encoding
@@ -663,7 +890,9 @@ impl HuggingFaceEmbedder {
         let shape = (texts.len(), TARGET_EMBEDDING_SIZE);
         Array2::from_shape_vec(shape, all_embeddings).map_err(|e| {
             error!("Failed to combine batch embeddings: {}", e);
-            ApiError::ModelInferenceError(format!("Failed to combine batch embeddings: {}", e))
+            ApiError::model_inference_error(format!("Failed to combine batch embeddings: {}", e))
+                .with_context("huggingface_embedder")
+                .with_operation("encode_large_batch")
         })
     }
 }

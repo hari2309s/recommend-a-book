@@ -33,7 +33,40 @@ pub struct Pinecone {
 #[derive(Debug, Clone, Deserialize)]
 pub struct QueryMatch {
     pub id: String,
+    pub score: Option<f32>,
     pub metadata: Option<serde_json::Value>,
+}
+
+/// Search result containing ID, score, and metadata
+#[derive(Debug, Clone)]
+#[allow(dead_code)]
+pub struct SearchResult {
+    /// Unique identifier of the matched item
+    pub id: String,
+    /// Similarity score (0.0 to 1.0)
+    pub score: f32,
+    /// Optional metadata containing the book information
+    pub metadata: Option<serde_json::Value>,
+}
+
+impl From<QueryMatch> for SearchResult {
+    fn from(query_match: QueryMatch) -> Self {
+        Self {
+            id: query_match.id,
+            score: query_match.score.unwrap_or(0.0),
+            metadata: query_match.metadata,
+        }
+    }
+}
+
+#[allow(dead_code)]
+#[derive(Debug, Serialize)]
+struct TextSearchRequest {
+    text: String,
+    top_k: u32,
+    include_metadata: Option<bool>,
+    filter: Option<serde_json::Value>,
+    namespace: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -73,28 +106,38 @@ impl Pinecone {
             // Increase connection pool for better concurrent request handling
             .pool_max_idle_per_host(10)
             .build()
-            .map_err(|e| ApiError::PineconeError(format!("Failed to create HTTP client: {}", e)))?;
+            .map_err(|e| {
+                ApiError::pinecone_error(format!("Failed to create HTTP client: {}", e))
+                    .with_context("pinecone")
+                    .with_operation("initialization")
+            })?;
 
         // Validate that we have actual values and not placeholders
         if api_key.is_empty() || api_key.contains("your") || api_key.len() < 10 {
-            return Err(ApiError::PineconeError(
-                "Invalid Pinecone API key. Please set a valid APP_PINECONE_API_KEY environment variable.".to_string(),
-            ));
+            return Err(ApiError::pinecone_error(
+                "Invalid Pinecone API key. Please set a valid APP_PINECONE_API_KEY environment variable.",
+            )
+            .with_context("pinecone")
+            .with_operation("validation"));
         }
 
         if environment.is_empty()
             || environment.contains("your")
             || environment == "your_environment_name"
         {
-            return Err(ApiError::PineconeError(
-                "Invalid Pinecone environment. Please set a valid APP_PINECONE_ENVIRONMENT environment variable.".to_string(),
-            ));
+            return Err(ApiError::pinecone_error(
+                "Invalid Pinecone environment. Please set a valid APP_PINECONE_ENVIRONMENT environment variable.",
+            )
+            .with_context("pinecone")
+            .with_operation("validation"));
         }
 
         if index_name.is_empty() || index_name.contains("your") || index_name == "your_index_name" {
-            return Err(ApiError::PineconeError(
-                "Invalid Pinecone index name. Please set a valid APP_PINECONE_INDEX environment variable.".to_string(),
-            ));
+            return Err(ApiError::pinecone_error(
+                "Invalid Pinecone index name. Please set a valid APP_PINECONE_INDEX environment variable.",
+            )
+            .with_context("pinecone")
+            .with_operation("validation"));
         }
 
         let host = if environment.contains("-") {
@@ -238,6 +281,7 @@ impl Pinecone {
         Ok(results)
     }
 
+    #[allow(dead_code)]
     pub async fn query_vector(
         &self,
         embedding: &[f32],
@@ -310,7 +354,9 @@ impl Pinecone {
                 Ok(resp) if resp.status().is_success() => {
                     let query_result: QueryResponse = resp.json().await.map_err(|e| {
                         error!("Failed to parse Pinecone response: {}", e);
-                        ApiError::PineconeError(format!("Response parsing failed: {}", e))
+                        ApiError::pinecone_error(format!("Response parsing failed: {}", e))
+                            .with_context("pinecone")
+                            .with_operation("parse_response")
                     })?;
 
                     debug!(
@@ -342,16 +388,20 @@ impl Pinecone {
                         || text.contains("forbidden")
                         || text.contains("not found")
                     {
-                        return Err(ApiError::PineconeError(format!(
+                        return Err(ApiError::pinecone_error(format!(
                             "Pinecone authentication failed ({}). Please verify your API key, index name, and environment are correct.",
                             status
-                        )));
+                        ))
+                        .with_context("pinecone")
+                        .with_operation("process_response"));
                     }
 
-                    return Err(ApiError::PineconeError(format!(
+                    return Err(ApiError::pinecone_error(format!(
                         "API returned {}: {}",
                         status, text
-                    )));
+                    ))
+                    .with_context("pinecone")
+                    .with_operation("process_response"));
                 }
                 Err(e) if attempts < MAX_RETRIES => {
                     // Retry on network errors
@@ -372,18 +422,233 @@ impl Pinecone {
                     if e.to_string().contains("dns error")
                         || e.to_string().contains("lookup address")
                     {
-                        return Err(ApiError::PineconeError(format!(
+                        return Err(ApiError::pinecone_error(format!(
                             "Connection to Pinecone failed: DNS error. Please verify your APP_PINECONE_ENVIRONMENT and APP_PINECONE_INDEX environment variables. Error details: {}",
                             e
-                        )));
+                        ))
+                        .with_context("pinecone")
+                        .with_operation("request"));
                     }
 
-                    return Err(ApiError::PineconeError(format!("Request failed: {}", e)));
+                    return Err(ApiError::pinecone_error(format!("Request failed: {}", e))
+                        .with_context("pinecone")
+                        .with_operation("request"));
                 }
             }
         }
     }
 
+    /// Search for vectors in Pinecone by vector similarity
+    ///
+    /// This method performs a semantic search using vector embeddings
+    ///
+    /// # Arguments
+    /// * `vector` - The vector embedding to search with
+    /// * `filter` - Optional filter to apply (e.g., for author, category)
+    /// * `top_k` - Maximum number of results to return
+    ///
+    /// # Returns
+    /// A vector of search results with scores and metadata
+    pub async fn search(
+        &self,
+        vector: &[f32],
+        filter: Option<&serde_json::Value>,
+        top_k: usize,
+    ) -> std::result::Result<Vec<SearchResult>, ApiError> {
+        debug!(
+            "Searching Pinecone with vector of dimension {}",
+            vector.len()
+        );
+
+        // Make sure the vector has the right dimension
+        if vector.len() != self.dimension {
+            return Err(ApiError::pinecone_error(format!(
+                "Vector dimension mismatch: expected {}, got {}",
+                self.dimension,
+                vector.len()
+            ))
+            .with_context("pinecone")
+            .with_operation("search"));
+        }
+
+        // Create query request
+        let query_request = QueryRequest {
+            vector: vector.to_vec(),
+            top_k: top_k as u32,
+            include_values: Some(false),
+            include_metadata: Some(true),
+            filter: filter.cloned(),
+            namespace: None,
+        };
+
+        // Generate a cache key
+        let cache_key = format!(
+            "vec_{:x}_{}",
+            md5::compute(
+                serde_json::to_string(&query_request)
+                    .unwrap_or_default()
+                    .as_bytes()
+            ),
+            top_k
+        );
+
+        // Check cache first
+        if let Some(results) = self.check_vector_cache(&cache_key) {
+            debug!("Vector query cache hit for query");
+            return Ok(results
+                .iter()
+                .enumerate()
+                .map(|(i, book)| {
+                    let score = 1.0 - (i as f32 * 0.01).min(0.9);
+                    SearchResult {
+                        id: book.id.clone().unwrap_or_else(|| format!("id_{}", i)),
+                        score,
+                        metadata: Some(serde_json::to_value(book).unwrap_or_default()),
+                    }
+                })
+                .collect());
+        }
+
+        // Make API call to Pinecone
+        let books = self.execute_query(query_request).await?;
+
+        // Convert books to search results
+        let results: Vec<SearchResult> = books
+            .iter()
+            .enumerate()
+            .map(|(i, book)| {
+                // Create a synthetic score based on position
+                let score = 1.0 - (i as f32 * 0.01).min(0.9);
+                SearchResult {
+                    id: book.id.clone().unwrap_or_else(|| format!("id_{}", i)),
+                    score,
+                    metadata: Some(serde_json::to_value(book).unwrap_or_default()),
+                }
+            })
+            .collect();
+
+        // Cache the book results
+        let books: Vec<crate::models::Book> = results
+            .iter()
+            .filter_map(|result| {
+                result
+                    .metadata
+                    .as_ref()
+                    .and_then(|m| serde_json::from_value::<crate::models::Book>(m.clone()).ok())
+            })
+            .collect();
+
+        if !books.is_empty() {
+            self.update_vector_cache(cache_key, books);
+        }
+
+        Ok(results)
+    }
+
+    /// Search for vectors in Pinecone using text
+    ///
+    /// This method performs a text-based search (if supported by your Pinecone index)
+    /// or falls back to a metadata search
+    ///
+    /// # Arguments
+    /// * `query` - The text query to search for
+    /// * `top_k` - Maximum number of results to return
+    ///
+    /// # Returns
+    /// A vector of search results with scores and metadata
+    pub async fn text_search(
+        &self,
+        query: &str,
+        top_k: usize,
+    ) -> std::result::Result<Vec<SearchResult>, ApiError> {
+        debug!("Text searching Pinecone with query: '{}'", query);
+
+        // Generate a cache key
+        let cache_key = format!("text_{}", query);
+
+        // Check cache first
+        if let Some(results) = self.check_vector_cache(&cache_key) {
+            debug!("Text query cache hit for: {}", query);
+            return Ok(results
+                .iter()
+                .enumerate()
+                .map(|(i, book)| {
+                    let score = 1.0 - (i as f32 * 0.01).min(0.9);
+                    SearchResult {
+                        id: book.id.clone().unwrap_or_else(|| format!("id_{}", i)),
+                        score,
+                        metadata: Some(serde_json::to_value(book).unwrap_or_default()),
+                    }
+                })
+                .collect());
+        }
+
+        // Try to do a metadata search across title, author and description
+        let title_results = self
+            .query_metadata("title", query, false, top_k)
+            .await
+            .unwrap_or_default();
+        let author_results = self
+            .query_metadata("author", query, false, top_k)
+            .await
+            .unwrap_or_default();
+        let desc_results = self
+            .query_metadata("description", query, false, top_k)
+            .await
+            .unwrap_or_default();
+
+        // Combine results with deduplication
+        let mut combined_results = Vec::new();
+        let mut seen_ids = std::collections::HashSet::new();
+
+        for book in title_results
+            .iter()
+            .chain(author_results.iter())
+            .chain(desc_results.iter())
+        {
+            if let Some(id) = &book.id {
+                if !seen_ids.contains(id) {
+                    seen_ids.insert(id.clone());
+                    combined_results.push(book.clone());
+                }
+            }
+        }
+
+        // Sort by a relevance score (for now just use rating as a proxy)
+        combined_results.sort_by(|a, b| {
+            b.rating
+                .partial_cmp(&a.rating)
+                .unwrap_or(std::cmp::Ordering::Equal)
+        });
+
+        // Limit to top_k
+        combined_results.truncate(top_k);
+
+        // Convert to search results
+        let results: Vec<SearchResult> = combined_results
+            .iter()
+            .enumerate()
+            .map(|(i, book)| {
+                // Calculate a synthetic score based on position
+                let score = 1.0 - (i as f32 * 0.1).min(0.9);
+
+                SearchResult {
+                    id: book.id.clone().unwrap_or_else(|| format!("id_{}", i)),
+                    score,
+                    metadata: Some(serde_json::to_value(book).unwrap_or_default()),
+                }
+            })
+            .collect();
+
+        // Cache the book results
+        if !combined_results.is_empty() {
+            self.update_vector_cache(cache_key, combined_results);
+        }
+
+        Ok(results)
+    }
+
+    /// Process Pinecone query results into Book objects
     fn process_pinecone_results(
         &self,
         query_result: QueryResponse,
@@ -513,9 +778,11 @@ impl Pinecone {
         }
 
         if books.is_empty() && matches_len > 0 {
-            return Err(ApiError::PineconeError(
-                "No books could be processed from Pinecone results".to_string(),
-            ));
+            return Err(ApiError::pinecone_error(
+                "No books could be processed from Pinecone results",
+            )
+            .with_context("pinecone")
+            .with_operation("process_results"));
         }
 
         debug!(

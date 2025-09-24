@@ -28,23 +28,33 @@ impl SupabaseClient {
             .header("Authorization", format!("Bearer {}", self.api_key))
             .send()
             .await
-            .map_err(|e| ApiError::DatabaseError(e.to_string()))?;
+            .map_err(|e| {
+                ApiError::database_error(e.to_string())
+                    .with_context("supabase")
+                    .with_operation("get_book")
+            })?;
 
         match response.status() {
             StatusCode::OK => {
-                let mut items: Vec<T> = response
-                    .json()
-                    .await
-                    .map_err(|e| ApiError::SerializationError(e.to_string()))?;
-                items
-                    .pop()
-                    .ok_or_else(|| ApiError::NotFound("Book not found".to_string()))
+                let mut items: Vec<T> = response.json().await.map_err(|e| {
+                    ApiError::serialization_error(e.to_string())
+                        .with_context("supabase")
+                        .with_operation("deserialize_response")
+                })?;
+                items.pop().ok_or_else(|| {
+                    ApiError::not_found("Book not found")
+                        .with_context("supabase")
+                        .with_operation("get_book")
+                })
             }
-            StatusCode::NOT_FOUND => Err(ApiError::NotFound("Book not found".to_string())),
-            status => Err(ApiError::DatabaseError(format!(
-                "Unexpected status code: {}",
-                status
-            ))),
+            StatusCode::NOT_FOUND => Err(ApiError::not_found("Book not found")
+                .with_context("supabase")
+                .with_operation("get_book")),
+            status => Err(
+                ApiError::database_error(format!("Unexpected status code: {}", status))
+                    .with_context("supabase")
+                    .with_operation("get_book"),
+            ),
         }
     }
 
@@ -70,17 +80,23 @@ impl SupabaseClient {
             .header("Authorization", format!("Bearer {}", self.api_key))
             .send()
             .await
-            .map_err(|e| ApiError::DatabaseError(e.to_string()))?;
+            .map_err(|e| {
+                ApiError::database_error(e.to_string())
+                    .with_context("supabase")
+                    .with_operation("get_books")
+            })?;
 
         match response.status() {
-            StatusCode::OK => response
-                .json()
-                .await
-                .map_err(|e| ApiError::SerializationError(e.to_string())),
-            status => Err(ApiError::DatabaseError(format!(
-                "Unexpected status code: {}",
-                status
-            ))),
+            StatusCode::OK => response.json().await.map_err(|e| {
+                ApiError::serialization_error(e.to_string())
+                    .with_context("supabase")
+                    .with_operation("deserialize_books")
+            }),
+            status => Err(
+                ApiError::database_error(format!("Unexpected status code: {}", status))
+                    .with_context("supabase")
+                    .with_operation("get_books"),
+            ),
         }
     }
 
@@ -95,14 +111,19 @@ impl SupabaseClient {
             .json(data)
             .send()
             .await
-            .map_err(|e| ApiError::DatabaseError(e.to_string()))?;
+            .map_err(|e| {
+                ApiError::database_error(e.to_string())
+                    .with_context("supabase")
+                    .with_operation("insert_book")
+            })?;
 
         match response.status() {
             StatusCode::CREATED => Ok(()),
-            status => Err(ApiError::DatabaseError(format!(
-                "Failed to insert data: {}",
-                status
-            ))),
+            status => Err(
+                ApiError::database_error(format!("Failed to insert data: {}", status))
+                    .with_context("supabase")
+                    .with_operation("insert_book"),
+            ),
         }
     }
 }

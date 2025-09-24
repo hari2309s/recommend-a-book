@@ -2,7 +2,7 @@ use serde::{Deserialize, Serialize};
 use utoipa::ToSchema;
 
 // Re-export types from book.rs
-pub use book::Book;
+pub use book::{Book, BookRecommendation};
 
 mod book;
 
