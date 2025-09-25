@@ -3,7 +3,7 @@ use crate::{
     error::Result,
     ml::huggingface_embedder::HuggingFaceEmbedder,
     models::{Book, ErrorResponse, HealthResponse, RecommendationRequest, RecommendationResponse},
-    routes::api_routes,
+    routes::{api_routes, openapi_route, swagger_redirect_route, swagger_routes},
     services::{Pinecone, RecommendationService},
 };
 use actix_cors::Cors;
@@ -12,7 +12,6 @@ use log::{error, info, warn};
 use std::net::TcpListener;
 
 use utoipa::OpenApi;
-use utoipa_swagger_ui::{Config as SwaggerConfig, SwaggerUi};
 
 /// API Documentation
 #[derive(OpenApi)]
@@ -155,13 +154,15 @@ impl Application {
             let cors = Cors::default()
                 .allowed_origin("https://recommend-a-book-frontend.vercel.app")
                 .allowed_origin("http://localhost:3000")
-                .allowed_methods(vec!["GET", "POST", "OPTIONS"])
-                .allowed_headers(vec!["Content-Type", "Accept"])
+                .allowed_origin("http://127.0.0.1:3000")
+                .allowed_methods(vec!["GET", "POST", "OPTIONS", "HEAD", "PUT", "DELETE"])
+                .allowed_headers(vec!["Content-Type", "Accept", "Authorization", "X-Requested-With", "X-Prewarm-Source"])
+                .expose_headers(vec!["content-disposition", "Content-Length"])
+                .supports_credentials()
                 .max_age(3600);
 
-            // Configure Swagger UI
-            let swagger_ui = SwaggerUi::new("/swagger-ui/{_:.*}")
-                .config(SwaggerConfig::new(["/api-doc/openapi.json"]));
+            // Import Swagger UI from routes
+            let swagger_ui = swagger_routes();
 
             // Configure app with enhanced logging and performance settings
             App::new()
@@ -193,20 +194,22 @@ impl Application {
                 .wrap(actix_web::middleware::NormalizePath::new(
                     actix_web::middleware::TrailingSlash::Trim,
                 ))
-                // Add timeout middleware to prevent request hanging
+                // Add security and CORS headers
                 .wrap(
                     actix_web::middleware::DefaultHeaders::new()
                         .add(("X-Content-Type-Options", "nosniff"))
                         .add((
                             "Strict-Transport-Security",
                             "max-age=31536000; includeSubDomains",
-                        )),
+                        ))
+                        .add(("Access-Control-Allow-Origin", "*"))
+                        .add(("Access-Control-Allow-Methods", "GET, POST, OPTIONS, PUT, DELETE"))
+                        .add(("Access-Control-Allow-Headers", "Content-Type, Accept, Authorization, X-Requested-With, X-Prewarm-Source"))
+                        .add(("Access-Control-Max-Age", "3600")),
                 )
                 .service(api_routes())
-                .route(
-                    "/api-doc/openapi.json",
-                    web::get().to(|| async { HttpResponse::Ok().json(ApiDoc::openapi()) }),
-                )
+                .service(openapi_route())
+                .service(swagger_redirect_route())
                 .service(swagger_ui)
         })
         .listen(listener)?

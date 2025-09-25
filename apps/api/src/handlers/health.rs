@@ -1,6 +1,6 @@
 use crate::models::HealthResponse;
 use crate::services::RecommendationService;
-use actix_web::{get, web, HttpResponse};
+use actix_web::{get, options, web, HttpResponse};
 use log::debug;
 
 /// Health check endpoint
@@ -31,9 +31,31 @@ pub async fn health_check(
         }
     });
 
-    HttpResponse::Ok().json(serde_json::json!({
-        "status": "ok",
-        "timestamp": chrono::Utc::now().to_rfc3339(),
-        "prewarm": "background"
-    }))
+    // Add explicit CORS headers to ensure the endpoint can be accessed from different origins
+    HttpResponse::Ok()
+        .append_header(("Access-Control-Allow-Origin", "*"))
+        .append_header(("Access-Control-Allow-Methods", "GET, OPTIONS"))
+        .append_header((
+            "Access-Control-Allow-Headers",
+            "Content-Type, X-Prewarm-Source",
+        ))
+        .json(serde_json::json!({
+            "status": "ok",
+            "timestamp": chrono::Utc::now().to_rfc3339(),
+            "prewarm": "background"
+        }))
+}
+
+/// OPTIONS handler for the health endpoint to handle CORS preflight requests
+#[options("/health")]
+pub async fn health_options() -> HttpResponse {
+    HttpResponse::Ok()
+        .append_header(("Access-Control-Allow-Origin", "*"))
+        .append_header(("Access-Control-Allow-Methods", "GET, POST, OPTIONS"))
+        .append_header((
+            "Access-Control-Allow-Headers",
+            "Content-Type, X-Prewarm-Source, Authorization",
+        ))
+        .append_header(("Access-Control-Max-Age", "3600"))
+        .finish()
 }

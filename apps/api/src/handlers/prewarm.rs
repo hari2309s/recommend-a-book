@@ -1,7 +1,7 @@
 //! Prewarm endpoint to address cold start issues on serverless platforms
 
 use crate::{error::Result, services::RecommendationService};
-use actix_web::{web, HttpResponse};
+use actix_web::{options, web, HttpResponse};
 use log::{debug, info};
 use serde_json::json;
 
@@ -45,23 +45,51 @@ pub async fn prewarm(
                 "API services already prewarmed"
             };
 
-            Ok(HttpResponse::Ok().json(json!({
-                "status": "ok",
-                "message": message,
-                "first_prewarm": was_first,
-                "timestamp": chrono::Utc::now().to_rfc3339(),
-            })))
+            Ok(HttpResponse::Ok()
+                .append_header(("Access-Control-Allow-Origin", "*"))
+                .append_header(("Access-Control-Allow-Methods", "GET, OPTIONS"))
+                .append_header((
+                    "Access-Control-Allow-Headers",
+                    "Content-Type, X-Prewarm-Source",
+                ))
+                .json(json!({
+                    "status": "ok",
+                    "message": message,
+                    "first_prewarm": was_first,
+                    "timestamp": chrono::Utc::now().to_rfc3339(),
+                })))
         }
         Err(e) => {
             // Log but don't return an error - the service might still function for other requests
             info!("Prewarm partially completed with warning: {}", e);
 
-            Ok(HttpResponse::Ok().json(json!({
-                "status": "partial",
-                "message": "API services partially prewarmed",
-                "warning": e.to_string(),
-                "timestamp": chrono::Utc::now().to_rfc3339(),
-            })))
+            Ok(HttpResponse::Ok()
+                .append_header(("Access-Control-Allow-Origin", "*"))
+                .append_header(("Access-Control-Allow-Methods", "GET, OPTIONS"))
+                .append_header((
+                    "Access-Control-Allow-Headers",
+                    "Content-Type, X-Prewarm-Source",
+                ))
+                .json(json!({
+                    "status": "partial",
+                    "message": "API services partially prewarmed",
+                    "warning": e.to_string(),
+                    "timestamp": chrono::Utc::now().to_rfc3339(),
+                })))
         }
     }
+}
+
+/// OPTIONS handler for the prewarm endpoint to handle CORS preflight requests
+#[options("/prewarm")]
+pub async fn prewarm_options() -> HttpResponse {
+    HttpResponse::Ok()
+        .append_header(("Access-Control-Allow-Origin", "*"))
+        .append_header(("Access-Control-Allow-Methods", "GET, POST, OPTIONS"))
+        .append_header((
+            "Access-Control-Allow-Headers",
+            "Content-Type, X-Prewarm-Source, Authorization",
+        ))
+        .append_header(("Access-Control-Max-Age", "3600"))
+        .finish()
 }
