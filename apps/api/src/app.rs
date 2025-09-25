@@ -190,9 +190,9 @@ impl Application {
                 .app_data(recommendation_service.clone())
                 // Enable compression for responses
                 .wrap(actix_web::middleware::Compress::default())
-                // Add trailing slash handling
+                // Add path normalization without affecting trailing slashes (for Swagger UI compatibility)
                 .wrap(actix_web::middleware::NormalizePath::new(
-                    actix_web::middleware::TrailingSlash::Trim,
+                    actix_web::middleware::TrailingSlash::MergeOnly,
                 ))
                 // Add security and CORS headers
                 .wrap(
@@ -207,10 +207,10 @@ impl Application {
                         .add(("Access-Control-Allow-Headers", "Content-Type, Accept, Authorization, X-Requested-With, X-Prewarm-Source"))
                         .add(("Access-Control-Max-Age", "3600")),
                 )
-                .service(api_routes())
+                .service(swagger_ui)
                 .service(openapi_route())
                 .service(swagger_redirect_route())
-                .service(swagger_ui)
+                .service(api_routes())
         })
         .listen(listener)?
         // Configure server with worker settings for better performance

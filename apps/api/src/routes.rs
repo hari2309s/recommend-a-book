@@ -19,27 +19,34 @@ pub fn api_routes() -> Scope {
 
 /// Configure Swagger UI routes
 pub fn swagger_routes() -> SwaggerUi {
-    // Create a properly configured Swagger UI
-    let mut config = SwaggerConfig::new(["/api-doc/openapi.json"]);
-
-    // Configure the Swagger UI options
-    config = config
-        .try_it_out_enabled(true)
-        .display_request_duration(true);
-
-    // Return the configured Swagger UI
-    SwaggerUi::new("/swagger-ui/{_:.*}").config(config)
+    SwaggerUi::new("/swagger-ui/{_:.*}").config(SwaggerConfig::new(["/api-docs/openapi.json"]))
 }
 
 /// Configure OpenAPI documentation JSON endpoint
 pub fn openapi_route() -> actix_web::Resource {
-    web::resource("/api-doc/openapi.json").route(web::get().to(|| async {
-        // Return the OpenAPI document with proper CORS headers
-        HttpResponse::Ok()
-            .append_header(("Access-Control-Allow-Origin", "*"))
-            .append_header(("Access-Control-Allow-Methods", "GET, OPTIONS"))
-            .json(ApiDoc::openapi())
-    }))
+    web::resource("/api-docs/openapi.json")
+        .route(web::get().to(|| async {
+            // Return the OpenAPI document with proper CORS headers
+            HttpResponse::Ok()
+                .append_header(("Access-Control-Allow-Origin", "*"))
+                .append_header(("Access-Control-Allow-Methods", "GET, OPTIONS"))
+                .append_header(("Access-Control-Allow-Headers", "Content-Type"))
+                .append_header(("Content-Type", "application/json"))
+                .json(ApiDoc::openapi())
+        }))
+        .route(
+            web::route()
+                .method(actix_web::http::Method::OPTIONS)
+                .to(|| async {
+                    // Handle CORS preflight requests
+                    HttpResponse::Ok()
+                        .append_header(("Access-Control-Allow-Origin", "*"))
+                        .append_header(("Access-Control-Allow-Methods", "GET, OPTIONS"))
+                        .append_header(("Access-Control-Allow-Headers", "Content-Type"))
+                        .append_header(("Access-Control-Max-Age", "3600"))
+                        .finish()
+                }),
+        )
 }
 
 /// Redirect from /swagger-ui to /swagger-ui/ to handle missing trailing slash
