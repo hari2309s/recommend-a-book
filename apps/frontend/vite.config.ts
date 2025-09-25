@@ -23,6 +23,7 @@ export default defineConfig(({ mode }) => {
     // Server options
     server: {
       port: 3000,
+      host: 'localhost',
       // Configure proxy for local development
       proxy: {
         // Forward /api requests to the Rust backend

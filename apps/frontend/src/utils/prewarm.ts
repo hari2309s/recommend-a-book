@@ -84,7 +84,20 @@ export async function pingEndpoint(
   try {
     // Make sure endpoint starts with /
     const normalizedEndpoint = endpoint.startsWith('/') ? endpoint : `/${endpoint}`;
-    const url = `${apiConfig.baseURL}${normalizedEndpoint}`;
+
+    // Construct URL - use proxy in development, direct URLs in production
+    let url;
+    if (import.meta.env.DEV) {
+      // In development, use relative URLs to leverage Vite proxy
+      // The /api prefix should already be handled by the proxy config
+      url = normalizedEndpoint.startsWith('/api/')
+        ? normalizedEndpoint
+        : `/api${normalizedEndpoint}`;
+    } else {
+      // In production, use the relative path from apiConfig
+      // The base URL already includes /api
+      url = `${apiConfig.baseURL}${normalizedEndpoint}`;
+    }
 
     logPrewarm(`Pinging ${url}...`);
 
@@ -108,7 +121,10 @@ export async function pingEndpoint(
             'Cache-Control': 'no-cache',
             Pragma: 'no-cache',
             'X-Prewarm-Source': 'frontend-client',
+            'Content-Type': 'application/json',
           },
+          mode: 'cors',
+          credentials: 'omit',
           signal: combinedSignal,
         });
 
