@@ -69,7 +69,7 @@ services:
   # Keep-warm cron job to prevent cold starts
   - type: cron
     name: recommend-a-book-api-keepwarm
-    runtime: node
+    runtime: bash
     schedule: "*/19 * * * *"  # Run every 19 minutes
     buildCommand: echo "No build required for keepwarm cron"
     startCommand: |
