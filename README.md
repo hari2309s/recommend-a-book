@@ -28,14 +28,19 @@ A full-stack application that provides personalized book recommendations based o
   - Structured error handling with custom error types
   - Configuration management with TOML files
   - Comprehensive logging and tracing
+- **Build Optimization**:
+  - Release builds: Full LTO, opt-level 3, single codegen unit for maximum performance
+  - Development builds: Fast compilation with opt-level 2 for dependencies
+  - Binary stripping and panic=abort for minimal production binaries
+  - Split debug info for faster development builds
 
 ### Frontend (React)
 - **Core**:
-  - React 19 with TypeScript 5.8
-  - Vite 6 for build tooling and development server
+  - React 19.1.0 with TypeScript 5.8.3
+  - Vite 6.3.5 for build tooling and development server
 - **UI/UX**:
   - Radix UI Themes & Components for accessible design
-  - Tailwind CSS 4.x for styling
+  - Tailwind CSS 4.1.12 for styling
   - Framer Motion for smooth animations
   - Lucide React for consistent iconography
 - **State Management**: Custom hooks with infinite scroll
@@ -67,8 +72,13 @@ The application follows a modern client-server architecture with a monorepo stru
 
 - **Node.js**: >= 18.0.0
 - **pnpm**: 10.14.0 (package manager)
-- **Rust**: Latest stable version
-- **PostgreSQL**: For local development
+- **Rust**: >= 1.75.0 (specified in `apps/api/rust-toolchain.toml`)
+  - `rustc`: >= 1.75.0 
+  - `cargo`: >= 1.75.0
+  - **Rust Edition**: 2021 (required for async/await and modern language features)
+  - **Required components**: `rustfmt`, `clippy` for development
+  - The project uses a `rust-toolchain.toml` file to ensure consistent Rust versions
+- **PostgreSQL**: For local development (Supabase used in production)
 - **API Keys**: Pinecone, Hugging Face, and Supabase accounts
 
 ### Installation
@@ -81,11 +91,30 @@ The application follows a modern client-server architecture with a monorepo stru
 
 2. **Install dependencies**
    ```bash
-   pnpm install
-   cd apps/api && cargo fetch
+   # Install all dependencies
+   pnpm setup
    ```
 
-3. **Set up environment variables**
+3. **Install Rust toolchain**
+   ```bash
+   # The project uses rust-toolchain.toml to specify the exact Rust version
+   # Navigate to the API directory and let rustup install the specified version
+   cd apps/api
+   
+   # If you don't have rustup, install it first:
+   # curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
+   
+   # Install the specified Rust version and components
+   rustup show  # This will automatically install the version from rust-toolchain.toml
+   
+   # Fetch Rust dependencies
+   cargo fetch
+   
+   # Return to project root
+   cd ../..
+   ```
+
+4. **Set up environment variables**
    ```bash
    # Copy example configuration files
    cp apps/api/config/development.toml.example apps/api/config/development.toml
@@ -93,7 +122,7 @@ The application follows a modern client-server architecture with a monorepo stru
    # Set up environment variables (see Environment Variables section)
    ```
 
-4. **Start development servers**
+5. **Start development servers**
    ```bash
    # Start both frontend and backend in development mode
    pnpm dev
@@ -108,7 +137,7 @@ The application follows a modern client-server architecture with a monorepo stru
 
    After starting the backend, you can access the API documentation at:
    - Swagger UI: `http://localhost:10000/swagger-ui/`
-   - OpenAPI JSON: `http://localhost:10000/api-doc/openapi.json`
+   - OpenAPI JSON: `http://localhost:10000/api-docs/openapi.json`
 
 ### Book Indexing
 
@@ -135,7 +164,7 @@ cargo run --bin index_books -- data/books.csv
 
 ### API Documentation
 - `/swagger-ui/` - Interactive Swagger UI documentation
-- `/api-doc/openapi.json` - OpenAPI specification in JSON format
+- `/api-docs/openapi.json` - OpenAPI specification in JSON format
 
 #### Using Swagger UI
 Once the server is running, you can access the Swagger UI documentation:
@@ -184,7 +213,12 @@ This makes it easy to explore and test the API without writing any code.
 - `pnpm lint:frontend` - Run linting only on frontend
 - `pnpm format` - Format code with Prettier
 - `pnpm clean` - Clean build artifacts and dependencies
+- `pnpm clean:api` - Clean only API build artifacts
+- `pnpm clean:frontend` - Clean only frontend build artifacts
+- `pnpm setup` - Install dependencies for both frontend and API
 - `pnpm index:books` - Index books from CSV file
+- `pnpm format` - Format code with Prettier
+- `pnpm format:check` - Check code formatting
 
 ### Database Setup
 
