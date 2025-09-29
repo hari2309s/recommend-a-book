@@ -36,7 +36,13 @@ const Header: React.FC = () => {
           }}
         />
         <Heading size={{ initial: '3', sm: '4', md: '5', lg: '6' }}>
-          Book Recommendation System
+          <a
+            href="/"
+            onClick={() => window.location.reload()}
+            style={{ all: 'unset', cursor: 'pointer' }}
+          >
+            Book Recommendation System
+          </a>
         </Heading>
       </motion.div>
     </Flex>
