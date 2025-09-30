@@ -148,3 +148,18 @@ pub struct Book {
     #[schema(example = "Houghton Mifflin Harcourt")]
     pub publisher: Option<String>,
 }
+
+/// Book recommendation with similarity score
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+pub struct BookRecommendation {
+    /// Unique identifier for this recommendation
+    #[schema(example = "rec_12345")]
+    pub id: String,
+
+    /// The recommended book
+    pub book: Book,
+
+    /// Similarity score indicating how well this book matches the query (0.0 to 1.0)
+    #[schema(example = 0.85, minimum = 0.0, maximum = 1.0)]
+    pub similarity_score: f32,
+}
