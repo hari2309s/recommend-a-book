@@ -147,6 +147,12 @@ pub struct Book {
     /// Publisher of the book
     #[schema(example = "Houghton Mifflin Harcourt")]
     pub publisher: Option<String>,
+
+    /// Explanation for why this book was recommended (NEW FIELD)
+    /// Generated based on the user's query and book metadata
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[schema(example = "Highly rated (4.5/5.0) in the fantasy genre featuring dragons and magic")]
+    pub explanation: Option<String>,
 }
 
 /// Book recommendation with similarity score

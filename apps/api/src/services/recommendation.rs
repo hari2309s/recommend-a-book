@@ -1,69 +1,18 @@
 use crate::error::Result;
+use crate::services::templates::EnhancedQuery;
+use crate::services::ExplanationGenerator;
+use crate::services::QueryEnhancer;
 use crate::{
     error::ApiError, ml::huggingface_embedder::HuggingFaceEmbedder, models::Book,
     services::pinecone::Pinecone,
 };
-use regex::Regex;
 use serde::Serialize;
 use std::{
     collections::{HashMap, HashSet},
-    sync::{Arc, LazyLock, Mutex, RwLock},
+    sync::{Arc, RwLock},
     time::{Duration, Instant},
 };
 use tracing::{debug, error, info, warn};
-
-static AUTHOR_PATTERNS: LazyLock<Vec<Regex>> = LazyLock::new(|| {
-    vec![
-        Regex::new(r"(?i)(?:books?\s+)?(?:written\s+)?by\s+([a-zA-Z\s.'-]+)").unwrap(),
-        Regex::new(r"(?i)(?:works?\s+)?(?:of|from)\s+([a-zA-Z\s.'-]+)").unwrap(),
-        Regex::new(r"(?i)([a-zA-Z\s.'-]+)'s\s+books?").unwrap(),
-        Regex::new(r"(?i)author:?\s*([a-zA-Z\s.'-]+)").unwrap(),
-    ]
-});
-
-static GENRE_PATTERNS: LazyLock<Vec<Regex>> = LazyLock::new(|| {
-    vec![
-        Regex::new(
-            r"(?i)(?:genre:?\s*)?(?:books?\s+in\s+)?([a-zA-Z\s&-]+?)\s+(?:books?|novels?|genre)",
-        )
-        .unwrap(),
-        Regex::new(
-            r"(?i)(?:recommend\s+)?([a-zA-Z\s&-]+?)\s+(?:books?|novels?|fiction|non-fiction)",
-        )
-        .unwrap(),
-    ]
-});
-
-static SIMILAR_PATTERNS: LazyLock<Vec<Regex>> = LazyLock::new(|| {
-    vec![
-        Regex::new(r"(?i)(?:books?\s+)?(?:similar\s+to|like)\s+(.+)").unwrap(),
-        Regex::new(r"(?i)(?:more\s+books?\s+like)\s+(.+)").unwrap(),
-    ]
-});
-
-static COMMON_GENRES: LazyLock<HashSet<&'static str>> = LazyLock::new(|| {
-    [
-        "fiction",
-        "non-fiction",
-        "mystery",
-        "romance",
-        "fantasy",
-        "sci-fi",
-        "science fiction",
-        "biography",
-        "history",
-        "self-help",
-        "business",
-        "philosophy",
-        "poetry",
-        "drama",
-        "thriller",
-        "horror",
-        "young adult",
-        "children",
-    ]
-    .into()
-});
 
 #[derive(Debug, Clone)]
 enum QueryIntent {
@@ -112,8 +61,9 @@ pub struct RecommendationService {
     pinecone: Pinecone,
     // Use thread-safe cache with read-write lock for better performance
     result_cache: std::sync::Arc<RwLock<HashMap<String, CacheEntry>>>,
-    query_intent_cache: std::sync::Arc<Mutex<HashMap<String, (QueryIntent, Instant)>>>,
     prewarmed: Arc<std::sync::atomic::AtomicBool>,
+    query_enhancer: QueryEnhancer,
+    explanation_generator: ExplanationGenerator,
 }
 
 impl RecommendationService {
@@ -122,8 +72,9 @@ impl RecommendationService {
             sentence_encoder: Arc::new(sentence_encoder),
             pinecone,
             result_cache: std::sync::Arc::new(RwLock::new(HashMap::new())),
-            query_intent_cache: std::sync::Arc::new(Mutex::new(HashMap::new())),
             prewarmed: Arc::new(std::sync::atomic::AtomicBool::new(false)),
+            query_enhancer: QueryEnhancer::new(),
+            explanation_generator: ExplanationGenerator::new(),
         }
     }
 
@@ -208,11 +159,10 @@ impl RecommendationService {
         let cache_key = format!("{}:{}", trimmed_query, top_k);
         info!("Generated cache key: {}", cache_key);
 
-        // Try to read from cache first (read lock is faster than write lock)
+        // Try to read from cache first
         if let Ok(cache) = self.result_cache.read() {
             info!("Current cache keys: {:?}", cache.keys().collect::<Vec<_>>());
             if let Some(entry) = cache.get(&cache_key) {
-                // Return cached results if they're still valid
                 if entry.timestamp.elapsed() < Duration::from_secs(CACHE_TTL_SECONDS) {
                     info!("CACHE HIT for query: {}", trimmed_query);
                     return Ok(entry.results.clone());
@@ -222,20 +172,23 @@ impl RecommendationService {
 
         info!("CACHE MISS for query: {}", trimmed_query);
 
-        // Parse query intent with caching
-        let intent = self.get_cached_intent(trimmed_query);
-        info!(?intent, "Detected query intent");
+        // *** NEW: Use template-based query enhancement ***
+        let enhanced_query = self.query_enhancer.enhance(trimmed_query);
+        info!("Enhanced query pattern: {:?}", enhanced_query.pattern);
+        info!("Extracted terms: {:?}", enhanced_query.extracted_terms);
 
-        // Get search strategy
+        // Convert EnhancedQuery to your existing QueryIntent for backward compatibility
+        let intent = self.convert_enhanced_to_intent(&enhanced_query);
+        info!(?intent, "Converted to legacy intent format");
+
+        // Get search strategy (your existing code)
         let strategy = self.get_search_strategy(&intent);
         info!("Performing hybrid search with strategy: {:?}", strategy);
 
-        // Increase search scope to get more candidates for ranking
-        // This allows high-rated books to have a better chance of appearing
+        // Increase search scope
         let expanded_k = top_k * 3;
 
-        // Perform hybrid search with better error handling
-        info!("Attempting to encode query text: '{}'", trimmed_query);
+        // Perform hybrid search (your existing code)
         let raw_results = match self
             .perform_hybrid_search(&intent, &strategy, expanded_k)
             .await
@@ -250,63 +203,42 @@ impl RecommendationService {
             }
             Err(e) => {
                 error!("Search error: {}. Trying fallback strategy", e);
-                // Attempt fallback if the main search fails
                 self.perform_fallback_search(trimmed_query, expanded_k)
                     .await?
             }
         };
 
-        // Log top 5 results before ranking
-        if !raw_results.is_empty() {
-            debug!(
-                "PRE-RANKING: Top 5 raw results: {:?}",
-                raw_results
-                    .iter()
-                    .take(5)
-                    .map(|b| b.title.clone())
-                    .collect::<Vec<_>>()
-            );
-
-            // Only log details for top 5 books if debug logging is enabled
-            if tracing::enabled!(tracing::Level::DEBUG) {
-                for (i, book) in raw_results.iter().take(5).enumerate() {
-                    debug!(
-                        "PRE-RANKING #{}: Title: {:?}, Rating: {:.2}",
-                        i + 1,
-                        book.title,
-                        book.rating
-                    );
-                }
-            }
-        }
-
-        // Find and log a specific book's position (for debugging the ranking algorithm)
-        if let Some(pos) = raw_results.iter().position(|book| {
-            book.title
-                .as_ref()
-                .is_some_and(|t| t.contains("Homicidal Psycho Jungle Cat"))
-        }) {
-            let book = &raw_results[pos];
-            debug!("DEBUGGING: 'Homicidal Psycho Jungle Cat' found at position {} with rating {} before ranking",
-                  pos + 1, book.rating);
-        }
-
-        // Rank and process results
-        let ranked_results = self.rank_results(raw_results, &intent, top_k);
+        // Rank and process results (your existing code)
+        let mut ranked_results = self.rank_results(raw_results, &intent, top_k);
         info!(
-            "Returning {} ranked results for query '{}'. First book: {:?}",
+            "Returning {} ranked results for query '{}'",
             ranked_results.len(),
-            trimmed_query,
-            ranked_results.first().and_then(|b| b.title.clone())
+            trimmed_query
         );
 
-        // Update cache with new results
+        // *** NEW: Generate explanations for all results ***
+        let explanations = self.explanation_generator.generate_batch_explanations(
+            trimmed_query,
+            &ranked_results,
+            &enhanced_query,
+        );
+
+        // Attach explanations to books
+        for (book, explanation) in ranked_results.iter_mut().zip(explanations.iter()) {
+            book.explanation = Some(explanation.clone());
+        }
+
+        info!(
+            "Generated {} explanations for recommendations",
+            explanations.len()
+        );
+
+        // Update cache with new results (your existing code)
         if let Ok(mut cache) = self.result_cache.write() {
             info!(
-                "Updating cache for key '{}' with {} results. First book: {:?}",
+                "Updating cache for key '{}' with {} results",
                 cache_key,
-                ranked_results.len(),
-                ranked_results.first().and_then(|b| b.title.clone())
+                ranked_results.len()
             );
 
             cache.insert(
@@ -317,7 +249,6 @@ impl RecommendationService {
                 },
             );
 
-            // Cleanup old cache entries periodically
             if cache.len() > 100 {
                 self.cleanup_cache(&mut cache);
             }
@@ -326,6 +257,53 @@ impl RecommendationService {
         }
 
         Ok(ranked_results)
+    }
+
+    #[allow(dead_code)]
+    pub fn get_cache_stats(&self) -> (Option<usize>, Option<usize>) {
+        let query_stats = self.query_enhancer.cache_stats().map(|s| s.valid_entries);
+        let explanation_stats = self
+            .explanation_generator
+            .cache_stats()
+            .map(|s| s.valid_entries);
+        (query_stats, explanation_stats)
+    }
+
+    fn convert_enhanced_to_intent(&self, enhanced: &EnhancedQuery) -> QueryIntent {
+        use crate::services::templates::QueryPattern;
+
+        match enhanced.pattern {
+            QueryPattern::Author => {
+                if let Some(author) = &enhanced.filters.author {
+                    QueryIntent::Author {
+                        name: author.clone(),
+                        original_query: enhanced.original_query.clone(),
+                    }
+                } else {
+                    QueryIntent::General {
+                        query: enhanced.original_query.clone(),
+                    }
+                }
+            }
+            QueryPattern::Genre => {
+                if let Some(genre) = enhanced.filters.genres.first() {
+                    QueryIntent::Genre {
+                        genre: genre.clone(),
+                        original_query: enhanced.original_query.clone(),
+                    }
+                } else {
+                    QueryIntent::General {
+                        query: enhanced.original_query.clone(),
+                    }
+                }
+            }
+            QueryPattern::SimilarTo => QueryIntent::SimilarTo {
+                original_query: enhanced.original_query.clone(),
+            },
+            _ => QueryIntent::General {
+                query: enhanced.original_query.clone(),
+            },
+        }
     }
 
     // Helper method to clean up expired cache entries
@@ -338,89 +316,6 @@ impl RecommendationService {
 
         for key in expired_keys {
             cache.remove(&key);
-        }
-    }
-
-    // Get cached intent or compute new one
-    fn get_cached_intent(&self, query: &str) -> QueryIntent {
-        let now = Instant::now();
-        let cache_ttl = Duration::from_secs(CACHE_TTL_SECONDS);
-
-        // Try to get from cache first
-        if let Ok(mut cache) = self.query_intent_cache.lock() {
-            if let Some((intent, timestamp)) = cache.get(query) {
-                if timestamp.elapsed() < cache_ttl {
-                    return intent.clone();
-                }
-            }
-
-            // Not in cache or expired, compute new intent
-            let intent = self.parse_query_intent(query);
-
-            // Update cache
-            cache.insert(query.to_string(), (intent.clone(), now));
-
-            // Cleanup old entries if cache is too large
-            if cache.len() > 1000 {
-                let expired_keys: Vec<String> = cache
-                    .iter()
-                    .filter(|(_, (_, ts))| ts.elapsed() > cache_ttl)
-                    .map(|(k, _)| k.clone())
-                    .collect();
-
-                for key in expired_keys {
-                    cache.remove(&key);
-                }
-            }
-
-            intent
-        } else {
-            // If we can't lock the cache, just compute the intent
-            self.parse_query_intent(query)
-        }
-    }
-
-    fn parse_query_intent(&self, query: &str) -> QueryIntent {
-        // Try to match author patterns
-        for pattern in AUTHOR_PATTERNS.iter() {
-            if let Some(cap) = pattern.captures(query) {
-                let author = cap[1]
-                    .trim()
-                    .replace(|c: char| !c.is_alphanumeric() && c != ' ', "");
-                return QueryIntent::Author {
-                    name: author,
-                    original_query: query.to_string(),
-                };
-            }
-        }
-
-        // Try to match genre patterns
-        for pattern in GENRE_PATTERNS.iter() {
-            if let Some(cap) = pattern.captures(query) {
-                let potential_genre = cap[1].trim().to_lowercase();
-                if COMMON_GENRES.iter().any(|genre| {
-                    potential_genre.contains(*genre) || genre.contains(&potential_genre)
-                }) {
-                    return QueryIntent::Genre {
-                        genre: potential_genre,
-                        original_query: query.to_string(),
-                    };
-                }
-            }
-        }
-
-        // Try to match similar-to patterns
-        for pattern in SIMILAR_PATTERNS.iter() {
-            if pattern.captures(query).is_some() {
-                return QueryIntent::SimilarTo {
-                    original_query: query.to_string(),
-                };
-            }
-        }
-
-        // Default to general search
-        QueryIntent::General {
-            query: query.to_string(),
         }
     }
 
