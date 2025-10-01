@@ -16,6 +16,7 @@ export interface Book {
   page_count?: number;
   language?: string;
   publisher?: string;
+  explanation?: string;
 }
 
 /**
