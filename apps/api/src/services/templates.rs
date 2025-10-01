@@ -197,6 +197,12 @@ lazy_static! {
         m.insert("revenge", vec!["revenge", "vengeance", "retribution", "payback"]);
         m.insert("murder", vec!["murder", "killing", "death", "assassination", "homicide"]);
 
+        // Deception & Truth
+        m.insert("lies", vec!["lies", "lying", "liar", "lie", "dishonesty", "falsehood", "untruth"]);
+        m.insert("deception", vec!["deception", "deceive", "deceit", "deceiving", "trickery", "fraud", "manipulation"]);
+        m.insert("secrets", vec!["secrets", "secret", "hidden", "concealed", "mystery"]);
+        m.insert("truth", vec!["truth", "honesty", "revealing", "uncovering", "expose"]);
+
         // Fantasy & SciFi Elements
         m.insert("magic", vec!["magic", "magical", "wizard", "witch", "sorcery", "spell", "enchantment"]);
         m.insert("dragon", vec!["dragon", "dragons", "drake", "wyvern"]);
@@ -373,30 +379,29 @@ impl EnhancedQuery {
         }
 
         // Check for mood patterns
-        if MOOD_PATTERNS.iter().any(|p| p.is_match(&query_lower)) {
-            if pattern == QueryPattern::General {
-                pattern = QueryPattern::Mood;
-                hints.semantic_weight = 0.8;
-            }
+        if MOOD_PATTERNS.iter().any(|p| p.is_match(&query_lower))
+            && pattern == QueryPattern::General
+        {
+            pattern = QueryPattern::Mood;
+            hints.semantic_weight = 0.8;
         }
 
         // Check for pace patterns
-        if PACE_PATTERNS.iter().any(|p| p.is_match(&query_lower)) {
-            if pattern == QueryPattern::General {
-                pattern = QueryPattern::Pace;
-                hints.semantic_weight = 0.7;
-            }
+        if PACE_PATTERNS.iter().any(|p| p.is_match(&query_lower))
+            && pattern == QueryPattern::General
+        {
+            pattern = QueryPattern::Pace;
+            hints.semantic_weight = 0.7;
         }
 
         // Check for perspective patterns
         if PERSPECTIVE_PATTERNS
             .iter()
             .any(|p| p.is_match(&query_lower))
+            && pattern == QueryPattern::General
         {
-            if pattern == QueryPattern::General {
-                pattern = QueryPattern::Perspective;
-                hints.semantic_weight = 0.6;
-            }
+            pattern = QueryPattern::Perspective;
+            hints.semantic_weight = 0.6;
         }
 
         // Check for similar-to patterns
@@ -494,10 +499,11 @@ impl EnhancedQuery {
         // Extract general meaningful terms (non-stop words)
         for word in query_lower.split_whitespace() {
             let clean_word = word.trim_matches(|c: char| !c.is_alphanumeric());
-            if clean_word.len() > 3 && !STOP_WORDS.contains(&clean_word) {
-                if !extracted_terms.contains(&clean_word.to_string()) {
-                    extracted_terms.push(clean_word.to_string());
-                }
+            if clean_word.len() > 3
+                && !STOP_WORDS.contains(&clean_word)
+                && !extracted_terms.contains(&clean_word.to_string())
+            {
+                extracted_terms.push(clean_word.to_string());
             }
         }
 
@@ -521,121 +527,169 @@ impl EnhancedQuery {
     }
 }
 
-/// Generate explanation for a book recommendation
+/// Generate explanation for a book recommendation - ENHANCED VERSION
 pub fn generate_explanation(
     query: &str,
     book: &crate::models::Book,
     query_pattern: &QueryPattern,
 ) -> String {
     let query_lower = query.to_lowercase();
-    let mut parts = Vec::new();
+    let book_desc_lower = book.description.as_deref().unwrap_or("").to_lowercase();
+    let book_title_lower = book.title.as_deref().unwrap_or("").to_lowercase();
 
-    // Pattern-specific explanations
+    let mut explanation_parts = Vec::new();
+    let mut theme_matches = Vec::new();
+    let mut genre_matches = Vec::new();
+
+    // 1. Check for theme matches in description (CRITICAL for "lies and deception" queries)
+    for (theme, keywords) in THEME_KEYWORDS.iter() {
+        if keywords.iter().any(|&kw| query_lower.contains(kw)) {
+            // Check if book description or title contains any of these keywords
+            if keywords
+                .iter()
+                .any(|&kw| book_desc_lower.contains(kw) || book_title_lower.contains(kw))
+            {
+                let theme_display = theme.replace("-", " ");
+                theme_matches.push(theme_display);
+            }
+        }
+    }
+
+    // 2. Pattern-specific primary explanation
     match query_pattern {
         QueryPattern::Author => {
             if let Some(author) = &book.author {
-                parts.push(format!("Written by {}", author));
+                explanation_parts.push(format!("by {}", author));
             }
         }
         QueryPattern::Genre => {
             if !book.categories.is_empty() {
-                let genres = book.categories.join(", ");
-                parts.push(format!("Classified as {}", genres));
+                for category in &book.categories {
+                    if query_lower.contains(&category.to_lowercase()) {
+                        genre_matches.push(category.clone());
+                    }
+                }
+                if !genre_matches.is_empty() {
+                    explanation_parts.push(format!("{} novel", genre_matches[0]));
+                }
+            }
+        }
+        QueryPattern::Theme => {
+            // Theme matches already captured above
+            if !theme_matches.is_empty() {
+                explanation_parts.push(format!("explores {}", theme_matches.join(" and ")));
             }
         }
         _ => {}
     }
 
-    // Add rating info if high
-    if book.rating >= 4.0 {
-        parts.push(format!("Highly rated ({:.1}/5.0)", book.rating));
+    // 3. Add theme matches if we found any (PRIORITY for semantic relevance)
+    if !theme_matches.is_empty() && explanation_parts.is_empty() {
+        if theme_matches.len() == 1 {
+            explanation_parts.push(format!("centers on {}", theme_matches[0]));
+        } else if theme_matches.len() == 2 {
+            explanation_parts.push(format!(
+                "explores {} and {}",
+                theme_matches[0], theme_matches[1]
+            ));
+        } else {
+            explanation_parts.push(format!(
+                "features themes of {}, {}, and more",
+                theme_matches[0], theme_matches[1]
+            ));
+        }
+    }
+
+    // 4. Genre context if relevant
+    if !genre_matches.is_empty() && *query_pattern != QueryPattern::Genre {
+        if explanation_parts.is_empty() {
+            explanation_parts.push(format!("{} novel", genre_matches[0]));
+        }
+    } else if !book.categories.is_empty() && explanation_parts.len() < 2 {
+        // Add genre even if not exact match, for context
+        explanation_parts.push(book.categories[0].clone());
+    }
+
+    // 5. Rating boost if highly rated (adds credibility)
+    if book.rating >= 4.3 {
         if let Some(count) = book.ratings_count {
-            if count > 1000 {
-                parts.push(format!("with {}+ reviews", count));
+            if count > 5000 {
+                explanation_parts.push(format!(
+                    "highly rated ({:.1}/5 with {}+ reviews)",
+                    book.rating,
+                    count / 1000
+                ));
+            } else if count > 1000 {
+                explanation_parts.push(format!("rated {:.1}/5", book.rating));
             }
+        } else {
+            explanation_parts.push(format!("rated {:.1}/5", book.rating));
         }
     }
 
-    // Add genre context
-    if !book.categories.is_empty() && *query_pattern != QueryPattern::Genre {
-        let matching_genres: Vec<_> = book
-            .categories
-            .iter()
-            .filter(|cat| query_lower.contains(&cat.to_lowercase()))
-            .collect();
-
-        if !matching_genres.is_empty() {
-            parts.push(format!("in the {} genre", matching_genres[0]));
-        }
-    }
-
-    // Add theme matching
-    for (theme, keywords) in THEME_KEYWORDS.iter() {
-        if keywords.iter().any(|&kw| query_lower.contains(kw)) {
-            if let Some(desc) = &book.description {
-                if keywords.iter().any(|&kw| desc.to_lowercase().contains(kw)) {
-                    parts.push(format!("featuring {}", theme.replace("-", " ")));
-                    break;
-                }
-            }
-        }
-    }
-
-    // Add publication info for time-based queries
-    if query_lower.contains("recent") || query_lower.contains("new") {
-        if let Some(year) = book.year {
-            if year >= 2015 {
-                parts.push(format!("published in {}", year));
-            }
-        }
-    } else if query_lower.contains("classic") {
-        if let Some(year) = book.year {
-            if year < 2000 {
-                parts.push(format!("a classic from {}", year));
-            }
-        }
-    }
-
-    // Add series info if available
-    if let Some(title) = &book.title {
-        if title.contains("Book")
-            || title.contains("#")
-            || title.contains("Vol")
-            || title.contains("Volume")
+    // 6. Time-based context
+    if let Some(year) = book.year {
+        if query_lower.contains("recent")
+            || query_lower.contains("new")
+            || query_lower.contains("modern")
         {
-            parts.push("part of a series".to_string());
-        }
-    }
-
-    // Add perspective/POV mentions
-    if query_lower.contains("unreliable narrator") {
-        if let Some(desc) = &book.description {
-            if desc.to_lowercase().contains("narrator")
-                || desc.to_lowercase().contains("perspective")
-            {
-                parts.push("featuring unique narrative perspective".to_string());
+            if year >= 2020 {
+                explanation_parts.push(format!("published {}", year));
             }
+        } else if query_lower.contains("classic") && year < 1990 {
+            explanation_parts.push(format!("classic from {}", year));
         }
     }
 
-    // Add pace mentions
-    if query_lower.contains("fast") || query_lower.contains("action") {
-        if let Some(desc) = &book.description {
-            if desc.to_lowercase().contains("action") || desc.to_lowercase().contains("adventure") {
-                parts.push("fast-paced and engaging".to_string());
-            }
+    // 7. Series context
+    if let Some(title) = &book.title {
+        if (title.contains("Book") && title.contains("#"))
+            || title.contains("Vol.")
+            || title.contains("Volume")
+            || title.matches("#").count() > 0
+        {
+            explanation_parts.push("part of series".to_string());
         }
     }
 
-    // Combine parts into explanation
-    if parts.is_empty() {
-        "Matches your search criteria".to_string()
-    } else if parts.len() == 1 {
-        parts[0].clone()
-    } else if parts.len() == 2 {
-        format!("{} and {}", parts[0], parts[1])
+    // 8. Construct final explanation
+    if explanation_parts.is_empty() {
+        // Last resort fallback
+        if book.rating >= 4.0 {
+            return format!("Highly rated recommendation ({:.1}/5)", book.rating);
+        } else {
+            return "Matches your search".to_string();
+        }
+    }
+
+    // Format nicely
+    if explanation_parts.len() == 1 {
+        // Capitalize first letter
+        let mut result = explanation_parts[0].clone();
+        if let Some(first_char) = result.chars().next() {
+            result = first_char.to_uppercase().to_string() + &result[1..];
+        }
+        result
+    } else if explanation_parts.len() == 2 {
+        format!(
+            "{}, {}",
+            capitalize_first(&explanation_parts[0]),
+            explanation_parts[1]
+        )
     } else {
-        let last = parts.pop().unwrap();
-        format!("{}, and {}", parts.join(", "), last)
+        format!(
+            "{}, {}, and {}",
+            capitalize_first(&explanation_parts[0]),
+            explanation_parts[1],
+            explanation_parts[2]
+        )
+    }
+}
+
+fn capitalize_first(s: &str) -> String {
+    let mut chars = s.chars();
+    match chars.next() {
+        None => String::new(),
+        Some(first) => first.to_uppercase().collect::<String>() + chars.as_str(),
     }
 }

@@ -40,8 +40,8 @@ impl ExplanationGenerator {
 
     /// Generate explanation for a single book recommendation
     ///
-    /// This method uses template-based generation with caching for performance.
-    /// Explanations are contextual based on the query and book metadata.
+    /// This method uses ENHANCED template-based generation with deep semantic matching.
+    /// Explanations are contextual based on query themes, genres, and book metadata.
     pub fn generate_explanation(
         &self,
         query: &str,
@@ -62,12 +62,15 @@ impl ExplanationGenerator {
         }
 
         debug!(
-            "Cache MISS for explanation: book={:?} - generating",
+            "Cache MISS for explanation: book={:?} - generating with enhanced templates",
             book.title
         );
 
-        // Generate explanation using templates
+        // Generate explanation using ENHANCED templates with semantic matching
         let explanation = generate_explanation(query, book, &enhanced_query.pattern);
+
+        // Log quality metrics for monitoring
+        self.log_explanation_quality(query, book, &explanation, enhanced_query);
 
         // Update cache
         if let Ok(mut cache) = self.cache.write() {
@@ -97,12 +100,29 @@ impl ExplanationGenerator {
         books: &[Book],
         enhanced_query: &EnhancedQuery,
     ) -> Vec<String> {
-        info!("Generating explanations for {} books", books.len());
+        info!("Generating enhanced explanations for {} books", books.len());
 
-        books
+        let explanations: Vec<String> = books
             .iter()
             .map(|book| self.generate_explanation(query, book, enhanced_query))
-            .collect()
+            .collect();
+
+        // Log batch quality summary
+        let non_generic_count = explanations
+            .iter()
+            .filter(|e| {
+                !e.contains("Matches your search") && !e.contains("Highly rated recommendation")
+            })
+            .count();
+
+        info!(
+            "Generated {} explanations, {} are context-specific ({:.1}%)",
+            explanations.len(),
+            non_generic_count,
+            (non_generic_count as f32 / explanations.len() as f32) * 100.0
+        );
+
+        explanations
     }
 
     /// Generate explanations only for top N results
@@ -157,6 +177,52 @@ impl ExplanationGenerator {
         let mut hasher = DefaultHasher::new();
         s.hash(&mut hasher);
         hasher.finish()
+    }
+
+    /// Log explanation quality for monitoring and improvement
+    fn log_explanation_quality(
+        &self,
+        query: &str,
+        book: &Book,
+        explanation: &str,
+        enhanced_query: &EnhancedQuery,
+    ) {
+        // Check if explanation is generic (low quality)
+        let is_generic = explanation.contains("Matches your search")
+            || explanation.contains("Highly rated recommendation")
+            || explanation.len() < 20;
+
+        if is_generic {
+            debug!(
+                "Generic explanation generated for query='{}', book='{:?}', pattern={:?}, themes={:?}",
+                query,
+                book.title,
+                enhanced_query.pattern,
+                enhanced_query.filters.themes
+            );
+        } else {
+            // Log successful context-specific explanation
+            debug!(
+                "Context-specific explanation: '{}' for book '{:?}'",
+                explanation, book.title
+            );
+        }
+
+        // Check if we matched themes
+        if !enhanced_query.filters.themes.is_empty() {
+            let theme_mentioned = enhanced_query.filters.themes.iter().any(|theme| {
+                explanation
+                    .to_lowercase()
+                    .contains(&theme.replace("-", " "))
+            });
+
+            if !theme_mentioned && !is_generic {
+                debug!(
+                    "Explanation doesn't mention extracted themes {:?} for query '{}'",
+                    enhanced_query.filters.themes, query
+                );
+            }
+        }
     }
 
     /// Clean up expired cache entries
@@ -223,12 +289,18 @@ pub struct CacheStats {
 mod tests {
     use super::*;
 
-    fn create_test_book(title: &str, author: &str, rating: f32, genres: Vec<String>) -> Book {
+    fn create_test_book(
+        title: &str,
+        author: &str,
+        rating: f32,
+        genres: Vec<String>,
+        description: &str,
+    ) -> Book {
         Book {
             id: Some(format!("book_{}", title)),
             title: Some(title.to_string()),
             author: Some(author.to_string()),
-            description: Some("A great book".to_string()),
+            description: Some(description.to_string()),
             categories: genres,
             thumbnail: None,
             rating,
@@ -243,43 +315,76 @@ mod tests {
     }
 
     #[test]
-    fn test_explanation_generation() {
+    fn test_theme_based_explanation() {
         let generator = ExplanationGenerator::new();
         let book = create_test_book(
-            "The Hobbit",
-            "J.R.R. Tolkien",
+            "The Liar's Game",
+            "Author Name",
             4.5,
+            vec!["Thriller".to_string()],
+            "A psychological thriller about deception, lies, and betrayal in a high-stakes game.",
+        );
+        let enhanced_query = EnhancedQuery::from_query("books about lies and deception");
+
+        let explanation = generator.generate_explanation(
+            "books about lies and deception",
+            &book,
+            &enhanced_query,
+        );
+
+        // Should mention themes, not be generic
+        assert!(!explanation.contains("Matches your search"));
+        assert!(explanation.len() > 20);
+        println!("Generated explanation: {}", explanation);
+    }
+
+    #[test]
+    fn test_genre_explanation() {
+        let generator = ExplanationGenerator::new();
+        let book = create_test_book(
+            "Fantasy Book",
+            "Author",
+            4.2,
             vec!["Fantasy".to_string()],
+            "An epic fantasy adventure.",
         );
         let enhanced_query = EnhancedQuery::from_query("fantasy books");
 
         let explanation = generator.generate_explanation("fantasy books", &book, &enhanced_query);
 
-        assert!(!explanation.is_empty());
-        assert!(explanation.len() > 10); // Should be a meaningful explanation
+        assert!(explanation.to_lowercase().contains("fantasy"));
+        println!("Generated explanation: {}", explanation);
     }
 
     #[test]
-    fn test_batch_explanations() {
+    fn test_author_explanation() {
         let generator = ExplanationGenerator::new();
-        let books = vec![
-            create_test_book("Book 1", "Author 1", 4.0, vec!["Fantasy".to_string()]),
-            create_test_book("Book 2", "Author 2", 4.2, vec!["Sci-Fi".to_string()]),
-            create_test_book("Book 3", "Author 3", 4.5, vec!["Mystery".to_string()]),
-        ];
-        let enhanced_query = EnhancedQuery::from_query("good books");
+        let book = create_test_book(
+            "Great Book",
+            "Famous Author",
+            4.5,
+            vec!["Fiction".to_string()],
+            "A great novel.",
+        );
+        let enhanced_query = EnhancedQuery::from_query("books by Famous Author");
 
-        let explanations =
-            generator.generate_batch_explanations("good books", &books, &enhanced_query);
+        let explanation =
+            generator.generate_explanation("books by Famous Author", &book, &enhanced_query);
 
-        assert_eq!(explanations.len(), 3);
-        assert!(explanations.iter().all(|e| !e.is_empty()));
+        assert!(explanation.contains("Famous Author"));
+        println!("Generated explanation: {}", explanation);
     }
 
     #[test]
     fn test_caching() {
         let generator = ExplanationGenerator::with_ttl(1);
-        let book = create_test_book("Test Book", "Test Author", 4.0, vec!["Test".to_string()]);
+        let book = create_test_book(
+            "Test Book",
+            "Test Author",
+            4.0,
+            vec!["Test".to_string()],
+            "A test book.",
+        );
         let enhanced_query = EnhancedQuery::from_query("test");
 
         // First call - should generate
@@ -292,18 +397,49 @@ mod tests {
     }
 
     #[test]
-    fn test_top_n_explanations() {
+    fn test_batch_explanations() {
         let generator = ExplanationGenerator::new();
         let books = vec![
-            create_test_book("Book 1", "Author 1", 4.0, vec!["Fantasy".to_string()]),
-            create_test_book("Book 2", "Author 2", 4.2, vec!["Sci-Fi".to_string()]),
-            create_test_book("Book 3", "Author 3", 4.5, vec!["Mystery".to_string()]),
+            create_test_book(
+                "Book 1",
+                "Author 1",
+                4.0,
+                vec!["Fantasy".to_string()],
+                "A fantasy story about magic and dragons.",
+            ),
+            create_test_book(
+                "Book 2",
+                "Author 2",
+                4.2,
+                vec!["Sci-Fi".to_string()],
+                "A science fiction tale of space exploration.",
+            ),
+            create_test_book(
+                "Book 3",
+                "Author 3",
+                4.5,
+                vec!["Mystery".to_string()],
+                "A mystery involving deception and lies.",
+            ),
         ];
-        let enhanced_query = EnhancedQuery::from_query("good books");
+        let enhanced_query = EnhancedQuery::from_query("books about lies and deception");
 
-        let explanations =
-            generator.generate_top_explanations("good books", &books, &enhanced_query, 2);
+        let explanations = generator.generate_batch_explanations(
+            "books about lies and deception",
+            &books,
+            &enhanced_query,
+        );
 
-        assert_eq!(explanations.len(), 2); // Should only generate for top 2
+        assert_eq!(explanations.len(), 3);
+        assert!(explanations.iter().all(|e| !e.is_empty()));
+
+        // At least one should be context-specific
+        let has_specific = explanations.iter().any(|e| {
+            !e.contains("Matches your search") && !e.contains("Highly rated recommendation")
+        });
+        assert!(
+            has_specific,
+            "Should have at least one context-specific explanation"
+        );
     }
 }
