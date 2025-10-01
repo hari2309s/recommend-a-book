@@ -156,7 +156,13 @@ impl Application {
                 .allowed_origin("http://localhost:3000")
                 .allowed_origin("http://127.0.0.1:3000")
                 .allowed_methods(vec!["GET", "POST", "OPTIONS", "HEAD", "PUT", "DELETE"])
-                .allowed_headers(vec!["Content-Type", "Accept", "Authorization", "X-Requested-With", "X-Prewarm-Source"])
+                .allowed_headers(vec![
+                    "Content-Type",
+                    "Accept",
+                    "Authorization",
+                    "X-Requested-With",
+                    "X-Prewarm-Source",
+                ])
                 .expose_headers(vec!["content-disposition", "Content-Length"])
                 .supports_credentials()
                 .max_age(3600);
