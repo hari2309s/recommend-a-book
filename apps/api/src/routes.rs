@@ -26,11 +26,8 @@ pub fn swagger_routes() -> SwaggerUi {
 pub fn openapi_route() -> actix_web::Resource {
     web::resource("/api-docs/openapi.json")
         .route(web::get().to(|| async {
-            // Return the OpenAPI document with proper CORS headers
+            // Return the OpenAPI document
             HttpResponse::Ok()
-                .append_header(("Access-Control-Allow-Origin", "*"))
-                .append_header(("Access-Control-Allow-Methods", "GET, OPTIONS"))
-                .append_header(("Access-Control-Allow-Headers", "Content-Type"))
                 .append_header(("Content-Type", "application/json"))
                 .json(ApiDoc::openapi())
         }))
@@ -38,13 +35,8 @@ pub fn openapi_route() -> actix_web::Resource {
             web::route()
                 .method(actix_web::http::Method::OPTIONS)
                 .to(|| async {
-                    // Handle CORS preflight requests
-                    HttpResponse::Ok()
-                        .append_header(("Access-Control-Allow-Origin", "*"))
-                        .append_header(("Access-Control-Allow-Methods", "GET, OPTIONS"))
-                        .append_header(("Access-Control-Allow-Headers", "Content-Type"))
-                        .append_header(("Access-Control-Max-Age", "3600"))
-                        .finish()
+                    // Handle OPTIONS requests
+                    HttpResponse::Ok().finish()
                 }),
         )
 }

@@ -155,6 +155,10 @@ impl Application {
                 .allowed_origin("https://recommend-a-book-frontend.vercel.app")
                 .allowed_origin("http://localhost:3000")
                 .allowed_origin("http://127.0.0.1:3000")
+                .allowed_origin("http://localhost:5173")
+                .allowed_origin("http://127.0.0.1:5173")
+                .allowed_origin("http://0.0.0.0:3000")
+                .allowed_origin("http://0.0.0.0:5173")
                 .allowed_methods(vec!["GET", "POST", "OPTIONS", "HEAD", "PUT", "DELETE"])
                 .allowed_headers(vec![
                     "Content-Type",
@@ -200,18 +204,14 @@ impl Application {
                 .wrap(actix_web::middleware::NormalizePath::new(
                     actix_web::middleware::TrailingSlash::MergeOnly,
                 ))
-                // Add security and CORS headers
+                // Add security headers (CORS is handled by the CORS middleware above)
                 .wrap(
                     actix_web::middleware::DefaultHeaders::new()
                         .add(("X-Content-Type-Options", "nosniff"))
                         .add((
                             "Strict-Transport-Security",
                             "max-age=31536000; includeSubDomains",
-                        ))
-                        .add(("Access-Control-Allow-Origin", "*"))
-                        .add(("Access-Control-Allow-Methods", "GET, POST, OPTIONS, PUT, DELETE"))
-                        .add(("Access-Control-Allow-Headers", "Content-Type, Accept, Authorization, X-Requested-With, X-Prewarm-Source"))
-                        .add(("Access-Control-Max-Age", "3600")),
+                        )),
                 )
                 .service(swagger_ui)
                 .service(openapi_route())
