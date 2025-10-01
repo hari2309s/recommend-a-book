@@ -151,25 +151,40 @@ impl Application {
         // Create a new HTTP server with optimized configuration
         HttpServer::new(move || {
             // Configure CORS with optimized settings
-            let cors = Cors::default()
-                .allowed_origin("https://recommend-a-book-frontend.vercel.app")
-                .allowed_origin("http://localhost:3000")
-                .allowed_origin("http://127.0.0.1:3000")
-                .allowed_origin("http://localhost:5173")
-                .allowed_origin("http://127.0.0.1:5173")
-                .allowed_origin("http://0.0.0.0:3000")
-                .allowed_origin("http://0.0.0.0:5173")
-                .allowed_methods(vec!["GET", "POST", "OPTIONS", "HEAD", "PUT", "DELETE"])
-                .allowed_headers(vec![
-                    "Content-Type",
-                    "Accept",
-                    "Authorization",
-                    "X-Requested-With",
-                    "X-Prewarm-Source",
-                ])
-                .expose_headers(vec!["content-disposition", "Content-Length"])
-                .supports_credentials()
-                .max_age(3600);
+            let cors = if cfg!(debug_assertions) {
+                // Development: restrict to specific origins
+                Cors::default()
+                    .allowed_origin("http://localhost:3000")
+                    .allowed_origin("http://127.0.0.1:3000")
+                    .allowed_origin("http://localhost:5173")
+                    .allowed_origin("http://127.0.0.1:5173")
+                    .allowed_origin("http://0.0.0.0:3000")
+                    .allowed_origin("http://0.0.0.0:5173")
+                    .allowed_methods(vec!["GET", "POST", "OPTIONS", "HEAD", "PUT", "DELETE"])
+                    .allowed_headers(vec![
+                        "Content-Type",
+                        "Accept",
+                        "Authorization",
+                        "X-Requested-With",
+                        "X-Prewarm-Source",
+                    ])
+                    .expose_headers(vec!["content-disposition", "Content-Length"])
+                    .supports_credentials()
+                    .max_age(3600)
+            } else {
+                // Production: allow any origin to handle Vercel preview URLs and deployments
+                Cors::permissive()
+                    .allowed_methods(vec!["GET", "POST", "OPTIONS", "HEAD", "PUT", "DELETE"])
+                    .allowed_headers(vec![
+                        "Content-Type",
+                        "Accept",
+                        "Authorization",
+                        "X-Requested-With",
+                        "X-Prewarm-Source",
+                    ])
+                    .expose_headers(vec!["content-disposition", "Content-Length"])
+                    .max_age(3600)
+            };
 
             // Import Swagger UI from routes
             let swagger_ui = swagger_routes();
