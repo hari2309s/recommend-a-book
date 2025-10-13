@@ -40,11 +40,7 @@ impl Config {
         debug!("Configuration sources loaded from files and environment:");
         if let Ok(sources) = debug_config.collect() {
             for (key, _) in sources.iter() {
-                if key.starts_with("pinecone")
-                    || key.starts_with("supabase")
-                    || key == "host"
-                    || key == "port"
-                {
+                if key.starts_with("pinecone") || key == "host" || key == "port" {
                     let value = debug_config.get::<String>(key).unwrap_or_default();
                     let display_value = if key.contains("key") || key.contains("api") {
                         if value.len() > 10 {

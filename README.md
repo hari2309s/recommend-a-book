@@ -19,7 +19,6 @@ A full-stack application that provides personalized book recommendations based o
 - **Machine Learning**:
   - BAAI/bge-large-en-v1.5 embeddings via Hugging Face Inference API
   - Vector similarity search using Pinecone
-- **Database**: Supabase with PostgreSQL for structured data
 - **Vector Database**: Pinecone for embeddings storage and similarity search
 - **Deployment**: Render with production configuration
 - **API Features**:
@@ -54,7 +53,6 @@ The application follows a modern client-server architecture with a monorepo stru
 - **Frontend**: React single-page application with modern state management and UI components
 - **ML Pipeline**: Text embedding generation using BAAI/bge-large-en-v1.5 via Hugging Face Inference API and similarity search using Pinecone
 - **Data Storage**:
-  - Supabase (PostgreSQL) for structured data
   - Pinecone for vector embeddings and similarity search
 - **Deployment**:
   - Render for hosting the Rust API
@@ -69,7 +67,7 @@ The application follows a modern client-server architecture with a monorepo stru
 - **pnpm**: 10.14.0 (package manager)
 - **Rust**: Latest stable version
 - **PostgreSQL**: For local development
-- **API Keys**: Pinecone, Hugging Face, and Supabase accounts
+- **API Keys**: Pinecone and Hugging Face accounts
 
 ### Installation
 
@@ -159,8 +157,6 @@ This makes it easy to explore and test the API without writing any code.
 - `APP_PINECONE_ENV`: Pinecone environment
 - `APP_PINECONE_INDEX_NAME`: Pinecone index name
 - `APP_HUGGINGFACE_API_KEY`: API key for Hugging Face Inference API
-- `APP_SUPABASE_URL`: Supabase project URL
-- `APP_SUPABASE_KEY`: Supabase anon key
 - `RUST_LOG`: Logging level configuration
 
 ### Frontend
@@ -188,15 +184,10 @@ This makes it easy to explore and test the API without writing any code.
 
 ### Database Setup
 
-1. **Supabase Setup**:
-   - Create a new Supabase project
-   - Set up the database schema for search history
-   - Configure environment variables
-
-2. **Pinecone Setup**:
-   - Create a Pinecone account and index
-   - Configure the index for vector similarity search
-   - Set up environment variables
+**Pinecone Setup**:
+  - Create a Pinecone account and index
+  - Configure the index for vector similarity search
+  - Set up environment variables
 
 ## Deployment
 

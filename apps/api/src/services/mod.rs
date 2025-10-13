@@ -2,7 +2,6 @@ pub mod explanation_generator;
 pub mod pinecone;
 pub mod query_enhancer;
 pub mod recommendation;
-pub mod supabase;
 pub mod templates;
 
 // Re-export public types
