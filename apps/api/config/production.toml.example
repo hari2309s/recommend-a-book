@@ -6,15 +6,6 @@ port = 10000
 environment = "production"
 frontend_url = "https://recommend-a-book-frontend.vercel.app"
 
-# Database configuration - will be overridden by environment variables
-# This is a placeholder - actual URL should be set via APP_DATABASE_URL env var
-database_url = "postgres://user:password@host:port/database"
-
-# Supabase configuration - set via Render dashboard environment variables
-# These will be set via APP_SUPABASE_URL and APP_SUPABASE_KEY env vars
-supabase_url = ""
-supabase_key = ""
-
 # Pinecone configuration - set via Render dashboard environment variables
 # These will be set via APP_PINECONE_API_KEY, APP_PINECONE_ENVIRONMENT, and APP_PINECONE_INDEX env vars
 pinecone_api_key = ""

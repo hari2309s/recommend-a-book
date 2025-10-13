@@ -9,9 +9,6 @@ frontend_url = "http://localhost:3000"
 # Database configuration
 database_url = "postgres://localhost:5432/books"
 
-# Supabase configuration
-supabase_url = "${APP_SUPABASE_URL}"
-supabase_key = "${APP_SUPABASE_KEY}"
 
 # Pinecone configuration
 pinecone_api_key = "${APP_PINECONE_API_KEY}"

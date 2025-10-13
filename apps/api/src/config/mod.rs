@@ -8,8 +8,6 @@ use std::{env, path::PathBuf};
 pub struct Config {
     pub host: String,
     pub port: u16,
-    pub supabase_url: String,
-    pub supabase_key: String,
     pub pinecone_api_key: String,
     pub pinecone_environment: String,
     pub pinecone_index: String,
@@ -85,17 +83,6 @@ impl Config {
             }
         } else {
             info!("Using default port from config: {}", config.port);
-        }
-
-        // Override sensitive values with environment variables
-        if let Ok(value) = env::var("APP_SUPABASE_URL") {
-            info!("Using Supabase URL from environment variable");
-            config.supabase_url = value;
-        }
-
-        if let Ok(value) = env::var("APP_SUPABASE_KEY") {
-            info!("Using Supabase key from environment variable");
-            config.supabase_key = value;
         }
 
         if let Ok(value) = env::var("APP_PINECONE_API_KEY") {

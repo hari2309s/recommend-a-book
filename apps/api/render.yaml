@@ -38,14 +38,6 @@ services:
         value: "60"
       - key: APP_FRONTEND_URL
         value: https://recommend-a-book-frontend.vercel.app
-      # Database configuration
-      - key: APP_DATABASE_URL
-        value: postgres://localhost:5432/books
-      # Supabase configuration - REQUIRED, must be set via Render dashboard
-      - key: APP_SUPABASE_URL  # Your Supabase project URL
-        sync: false
-      - key: APP_SUPABASE_KEY  # Your Supabase API key
-        sync: false
       # Pinecone configuration - REQUIRED, must be set via Render dashboard
       # These values must be set correctly for the API to function
       - key: APP_PINECONE_API_KEY  # Your Pinecone API key (from Pinecone dashboard)
