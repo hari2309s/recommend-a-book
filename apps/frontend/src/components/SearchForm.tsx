@@ -146,16 +146,16 @@ const SearchForm: React.FC<SearchFormProps> = ({
 
   return (
     <motion.div
-      className="z-50 fixed left-4 right-4 w-[80%] sm:w-[50%] bg-green-500/40
-        backdrop-blur-lg border border-dashed border-green-300/20 shadow-lg
-        shadow-green-500/10 flex justify-center items-center min-h-[75px]"
+      className="z-50 fixed left-4 right-4 w-[80%] sm:w-[50%] bg-soft-sand/40
+        backdrop-blur-lg border border-dashed border-soft-sand/20 shadow-lg
+        shadow-soft-sand/10 flex justify-center items-center min-h-[75px]"
       style={{
         padding: '19px',
         backdropFilter: 'blur(20px)',
         WebkitBackdropFilter: 'blur(20px)',
-        background: 'rgba(34, 197, 94, 0.4)',
+        background: 'rgba(230, 217, 204, 0.4)',
         borderRadius: '6px',
-        borderColor: 'green',
+        borderColor: 'var(--espresso)',
       }}
       variants={{
         initial: {
@@ -181,8 +181,8 @@ const SearchForm: React.FC<SearchFormProps> = ({
         },
         top: isSticky ? 50 : 190,
         boxShadow: isSticky
-          ? '0 25px 50px -12px rgba(34, 197, 94, 0.25), 0 8px 16px -8px rgba(34, 197, 94, 0.1)'
-          : '0 10px 25px -5px rgba(34, 197, 94, 0.1), 0 4px 6px -2px rgba(34, 197, 94, 0.05)',
+          ? '0 25px 50px -12px rgba(230, 217, 204, 0.25), 0 8px 16px -8px rgba(230, 217, 204, 0.1)'
+          : '0 10px 25px -5px rgba(230, 217, 204, 0.1), 0 4px 6px -2px rgba(230, 217, 204, 0.05)',
       }}
       transition={{
         opacity: { duration: 0.6, ease: 'easeOut', delay: 0.4 },
@@ -232,8 +232,8 @@ const SearchForm: React.FC<SearchFormProps> = ({
               className="w-full"
               style={{
                 backgroundColor: 'rgba(255, 255, 255, 0.9)',
-                border: '1px solid rgba(34, 197, 94, 0.3)',
-                outline: '1px solid rgba(34, 197, 94, 0.5)',
+                border: '1px solid rgba(230, 217, 204, 0.3)',
+                outline: '1px solid rgba(230, 217, 204, 0.5)',
                 outlineOffset: '0px',
               }}
             >
@@ -258,10 +258,10 @@ const SearchForm: React.FC<SearchFormProps> = ({
               loading={loading}
               disabled={loading || !input.trim()}
               size="3"
-              className="whitespace-nowrap bg-green-600 hover:bg-green-700 text-white"
+              className="whitespace-nowrap bg-soft-sand hover:bg-soft-sand-2 text-espresso"
               style={{
-                backgroundColor: 'rgb(34, 197, 94)',
-                color: 'white',
+                backgroundColor: 'var(--espresso)',
+                color: 'var(--soft-sand)',
               }}
             >
               Get Recommendations

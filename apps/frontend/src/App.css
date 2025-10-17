@@ -99,7 +99,7 @@
 
 /* Focus states for accessibility */
 .focus-ring:focus {
-  outline: 2px solid #10b981;
+  outline: 2px solid var(--soft-sand);
   outline-offset: 2px;
 }
 

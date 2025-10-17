@@ -9,12 +9,12 @@ const Header: React.FC = () => {
       asChild
       p="4"
       style={{
-        border: '1px dashed var(--accent-8)',
+        border: '1px dashed var(--espresso)',
         textAlign: 'center',
         borderRadius: '6px',
         boxShadow: '0 2px 4px rgba(0, 0, 0, 0.1)',
-        backgroundColor: 'var(--accent-2)',
-        color: 'var(--accent-11)',
+        backgroundColor: 'var(--soft-sand)',
+        color: 'var(--espresso)',
       }}
       direction="column"
       justify="center"

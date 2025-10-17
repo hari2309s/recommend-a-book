@@ -30,7 +30,7 @@ const App: React.FC = () => {
         variants={pageVariants}
         initial="initial"
         animate="animate"
-        className="min-h-screen max-w-screen bg-[var(--accent-1)]"
+        className="min-h-screen max-w-screen bg-[var(--wallnut)]"
       >
         <Header />
         <SearchForm

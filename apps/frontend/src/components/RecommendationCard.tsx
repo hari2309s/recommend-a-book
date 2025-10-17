@@ -28,8 +28,8 @@ const RecommendationCard: React.FC<RecommendationCardProps> = ({ book, resetAcco
       size={{ initial: '1', sm: '2', md: '3' }}
       style={{
         textAlign: 'right',
-        backgroundColor: 'var(--accent-6)',
-        color: 'var(--accent-11)',
+        backgroundColor: 'var(--soft-sand-2)',
+        color: 'var(--espresso)',
         minHeight: '290px',
         cursor: 'pointer',
         transition: 'box-shadow 0.3s ease',
@@ -76,7 +76,11 @@ const RecommendationCard: React.FC<RecommendationCardProps> = ({ book, resetAcco
               transition={{ duration: 0.3, delay: 0.3 }}
               className="w-full flex justify-between"
             >
-              <Badge size="3" variant="surface" className="max-w-max">
+              <Badge
+                size="3"
+                variant="soft"
+                className="max-w-max bg-[var(--soft-sand)]! text-[var(--espresso)]!"
+              >
                 {book.categories
                   ? book.categories.reduce(
                       (acc, curr) => (curr && acc ? `${curr} | ${acc}` : curr),
@@ -105,7 +109,7 @@ const RecommendationCard: React.FC<RecommendationCardProps> = ({ book, resetAcco
                       damping: 10,
                     }}
                   >
-                    <ShoppingCartIcon fill="green" color="green" />
+                    <ShoppingCartIcon fill="var(--vivid-ember)" color="var(--vivid-ember)" />
                   </motion.a>
                 ))}
               </div>
@@ -117,7 +121,7 @@ const RecommendationCard: React.FC<RecommendationCardProps> = ({ book, resetAcco
                   animate={{ rotate: 0, opacity: 1 }}
                   transition={{ duration: 0.5, delay: 0.4 }}
                 >
-                  <Star fill="green" />
+                  <Star fill="var(--vivid-ember)" color="var(--vivid-ember)" />
                 </motion.div>
                 <Text>
                   {book.rating?.toFixed(2)} / {formatRatingsCount(book.ratings_count || 0)}

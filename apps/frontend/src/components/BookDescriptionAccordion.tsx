@@ -21,18 +21,20 @@ const BookDescriptionAccordion: React.FC<BookDescriptionAccordionProps> = ({
   return (
     <div className="w-full">
       <motion.button
-        className="w-full px-3 py-2.5 rounded-[5px] border border-[var(--accent-7)]
-        hover:bg-[var(--accent-5)] hover:cursor-pointer focus:outline-none focus:ring-2
-        focus:ring-[var(--accent-7)] focus:ring-offset-1 transition-all duration-200 flex
-        items-center justify-between shadow-sm text-[var(--accent-11)] text-lg"
-        style={{ backgroundColor: 'var(--accent-6)' }}
+        className="w-full px-3 py-2.5 rounded-[5px] border border-[var(--espresso)]
+        hover:bg-[var(--vivid-ember)] hover:cursor-pointer focus:outline-none focus:ring-2
+        focus:ring-[var(--espresso)] focus:ring-offset-1 transition-all duration-200 flex
+        items-center justify-between shadow-sm text-[var(--espresso)] text-lg"
+        style={{ backgroundColor: 'var(--soft-sand)' }}
         whileHover={{
           scale: 1.01,
-          backgroundColor: 'var(--accent-5)',
+          backgroundColor: 'var(--espresso)',
+          color: 'var(--soft-sand)',
         }}
         whileTap={{
           scale: 0.99,
-          backgroundColor: 'var(--accent-7)',
+          backgroundColor: 'var(--espresso)',
+          color: 'var(--soft-sand)',
         }}
         onClick={onToggle}
       >
@@ -40,9 +42,9 @@ const BookDescriptionAccordion: React.FC<BookDescriptionAccordionProps> = ({
         <motion.div
           animate={{ rotate: isOpen ? 180 : 0 }}
           transition={{ duration: 0.3 }}
-          className="text-[var(--accent-10)] text-lg"
+          className="text-[var(--espresso)] text-lg hover:text-[var(--soft-sand)]"
         >
-          <ChevronDown size={20} />
+          <ChevronDown size={20} className="hover:text-[var(--soft-sand)]!" />
         </motion.div>
       </motion.button>
       <AnimatePresence>
@@ -58,8 +60,8 @@ const BookDescriptionAccordion: React.FC<BookDescriptionAccordionProps> = ({
               stiffness: 100,
               damping: 15,
             }}
-            className="overflow-hidden rounded-[5px] p-4 bg-[var(--accent-6)]
-            text-[var(--accent-11)] mt-[10px]"
+            className="overflow-hidden rounded-[5px] p-4 bg-[var(--soft-sand)]
+            text-[var(--espresso)] mt-[10px]"
           >
             <motion.div
               initial={{ opacity: 0 }}

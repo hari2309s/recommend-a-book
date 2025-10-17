@@ -13,6 +13,34 @@
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  --curtain: #ECE6DF;
+  --dark-light: #8A846E;
+  --espresso: #443218;
+  --soft-sand: #E6D9CC;
+  --soft-sand-2: #FAF1C6;
+  --vivid-ember: #FD4319;
+  --walnut: #63523A;
+  --vivid-black: #1A1715;
+}
+
+/* Global text selection colors */
+::selection {
+  background: var(--soft-sand);
+  color: var(--espresso);
+}
+::-moz-selection {
+  background: var(--soft-sand);
+  color: var(--espresso);
+}
+input::selection,
+textarea::selection {
+  background: var(--soft-sand);
+  color: var(--espresso);
+}
+input::-moz-selection,
+textarea::-moz-selection {
+  background: var(--soft-sand);
+  color: var(--espresso);
 }
 
 /* Apply Inter font to all elements */

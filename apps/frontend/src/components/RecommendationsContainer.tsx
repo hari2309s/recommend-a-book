@@ -38,7 +38,7 @@ const RecommendationContainer: React.FC<RecommendationContainerProps> = ({
             borderRadius: '5px',
             height: '350px',
             textAlign: 'center',
-            color: error ? 'red' : 'green',
+            color: error ?? 'red',
           }}
           direction="column"
           align="center"
@@ -47,7 +47,7 @@ const RecommendationContainer: React.FC<RecommendationContainerProps> = ({
           <motion.div initial="initial" animate="animate" variants={containerVariants}>
             {loading ? (
               <motion.div style={{ marginBottom: '10px' }}>
-                <Spinner size="3" loading={loading} className="mb-4" />
+                <Spinner size="3" loading={loading} className="mb-4 text-[var(--vivid-ember)]" />
               </motion.div>
             ) : (
               <motion.img
@@ -61,7 +61,7 @@ const RecommendationContainer: React.FC<RecommendationContainerProps> = ({
                 style={{ marginBottom: '10px' }}
               />
             )}
-            <Text size={{ initial: '4', md: '5', lg: '5' }} className="text-[var(--accent-12)]">
+            <Text size={{ initial: '4', md: '5', lg: '5' }} className="text-[var(--espresso)]">
               {error
                 ? error !== ''
                   ? error

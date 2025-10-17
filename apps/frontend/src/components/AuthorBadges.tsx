@@ -17,7 +17,7 @@ const AuthorBadges: React.FC<AuthorBadgesProps> = ({ authors }) => {
             size="1"
             variant="soft"
             key={index}
-            className="max-w-max hover:bg-green-200 transition-colors duration-200"
+            className="max-w-max transition-colors duration-200 bg-[var(--soft-sand)]! text-[var(--espresso)]!"
           >
             <motion.div variants={badgeVariants}>{author}</motion.div>
           </Badge>

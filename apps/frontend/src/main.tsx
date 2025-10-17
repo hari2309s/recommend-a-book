@@ -11,7 +11,7 @@ initializePrewarm();
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
-    <Theme accentColor="green" grayColor="slate" radius="medium" scaling="95%">
+    <Theme accentColor="sand" grayColor="slate" radius="medium" scaling="95%">
       <App />
       <Toaster
         position="top-right"
@@ -23,7 +23,7 @@ createRoot(document.getElementById('root')!).render(
           style: {
             background: 'rgba(255, 255, 255, 0.95)',
             backdropFilter: 'blur(10px)',
-            border: '1px solid rgba(34, 197, 94, 0.2)',
+            border: '1px solid rgba(230, 217, 204, 0.2)',
           },
         }}
       />

@@ -42,6 +42,14 @@ export default {
       colors: {
         ...slate,
         ...green,
+        curtain: '#ECE6DF',
+        'dark-light': '#8A846E',
+        espresso: '#443218',
+        'soft-sand': '#E6D9CC',
+        'soft-sand-2': '#FAF1C6',
+        'vivid-ember': '#FD4319',
+        walnut: '#63523A',
+        'vivid-black': '#1A1715',
       },
       keyframes: {
         slideDown: {
