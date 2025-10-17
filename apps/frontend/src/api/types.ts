@@ -42,3 +42,12 @@ export interface ApiErrorResponse {
     details?: Record<string, unknown>;
   };
 }
+
+/**
+ * Cold start detection result
+ */
+export interface ColdStartInfo {
+  isColdStart: boolean;
+  reason?: 'timeout' | 'slow_response' | 'first_request' | 'network_error';
+  duration?: number;
+}

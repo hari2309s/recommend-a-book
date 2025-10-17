@@ -2,7 +2,8 @@ import React, { useState } from 'react';
 import { motion, useScroll, useMotionValueEvent } from 'framer-motion';
 import { Button, Flex, TextField } from '@radix-ui/themes';
 import { Search } from 'lucide-react';
-import type { Book } from '@/api/types';
+import { toast } from 'sonner';
+import type { Book, ColdStartInfo } from '@/api/types';
 import { fetchRecommendations } from '@/api';
 import { containerVariants } from '@/utils';
 
@@ -24,10 +25,57 @@ const SearchForm: React.FC<SearchFormProps> = ({
   const [isSticky, setIsSticky] = useState<boolean>(false);
   const { scrollY } = useScroll();
   const [input, setInput] = useState<string>('');
+  const [coldStartToastId, setColdStartToastId] = useState<string | number | null>(null);
 
   useMotionValueEvent(scrollY, 'change', (latest) => {
     setIsSticky(latest > 140);
   });
+
+  const handleColdStart = (info: ColdStartInfo) => {
+    // Dismiss any existing cold start toast
+    if (coldStartToastId) {
+      toast.dismiss(coldStartToastId);
+    }
+
+    let message = 'API is warming up...';
+    let description = 'This may take a moment on the first request. Retrying automatically.';
+
+    switch (info.reason) {
+      case 'first_request':
+        message = '🔥 Warming up the API...';
+        description =
+          'First request detected. The API is starting up. This will be faster next time!';
+        break;
+      case 'timeout':
+        message = '⏱️ Request timed out';
+        description = 'The API is experiencing a cold start. Retrying with extended timeout...';
+        break;
+      case 'slow_response':
+        message = '🐌 Slow response detected';
+        description = 'The API might be cold starting. Hang tight, retrying...';
+        break;
+      case 'network_error':
+        message = '🌐 Connection issue';
+        description = 'Attempting to reconnect to the API...';
+        break;
+    }
+
+    const toastId = toast.loading(message, {
+      description,
+      duration: Infinity, // Keep it visible until we dismiss it
+    });
+
+    setColdStartToastId(toastId);
+  };
+
+  const handleRetry = (attempt: number, maxRetries: number) => {
+    if (coldStartToastId) {
+      toast.loading(`Retry ${attempt}/${maxRetries}...`, {
+        id: coldStartToastId,
+        description: `Still warming up. Please wait...`,
+      });
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -36,17 +84,61 @@ const SearchForm: React.FC<SearchFormProps> = ({
     setLoading(true);
     setErrorMessage(null);
     resetScroll();
+    setColdStartToastId(null);
 
     try {
-      const data = await fetchRecommendations(input, 100);
+      const data = await fetchRecommendations(input, 100, {
+        onColdStart: handleColdStart,
+        onRetry: handleRetry,
+      });
+
+      // Dismiss cold start toast on success
+      if (coldStartToastId) {
+        toast.dismiss(coldStartToastId);
+        toast.success('Recommendations loaded!', {
+          description: `Found ${data.recommendations.length} books for you.`,
+          duration: 3000,
+        });
+        setColdStartToastId(null);
+      }
+
       if (data.recommendations && Array.isArray(data.recommendations)) {
         setAllRecommendations(data.recommendations);
       } else {
         console.error('Invalid recommendations format received');
+        toast.error('Invalid response format', {
+          description: 'Please try again.',
+        });
       }
     } catch (error) {
       console.error('Error fetching recommendations:', error);
-      setErrorMessage('Failed to fetch recommendations');
+
+      // Dismiss cold start toast on error
+      if (coldStartToastId) {
+        toast.dismiss(coldStartToastId);
+        setColdStartToastId(null);
+      }
+
+      let errorMessage = 'Failed to fetch recommendations';
+      let errorDescription = 'Please try again later.';
+
+      if (error instanceof Error) {
+        if (error.message.includes('timed out')) {
+          errorMessage = 'Request timed out';
+          errorDescription = 'The API is taking longer than expected. Please try again.';
+        } else if (error.message.includes('Network error')) {
+          errorMessage = 'Connection failed';
+          errorDescription = 'Could not reach the API server. Check your connection.';
+        } else {
+          errorDescription = error.message;
+        }
+      }
+
+      setErrorMessage(errorMessage);
+      toast.error(errorMessage, {
+        description: errorDescription,
+        duration: 5000,
+      });
     } finally {
       setLoading(false);
     }

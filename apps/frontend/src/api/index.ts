@@ -4,6 +4,7 @@ import type {
   RecommendationRequest,
   RecommendationResponse,
   ApiErrorResponse,
+  ColdStartInfo,
 } from '@api/types';
 
 // Cache for API responses
@@ -16,7 +17,14 @@ interface CacheEntry {
 // Cache storage with TTL (5 minutes default)
 const responseCache = new Map<string, CacheEntry>();
 const CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes cache duration
-const MAX_RETRIES = 2;
+
+// Cold start detection thresholds
+const COLD_START_THRESHOLD_MS = 25000; // 25 seconds indicates potential cold start
+const COLD_START_RETRY_DELAYS = [5000, 10000, 15000]; // Progressive delays for retries
+const MAX_COLD_START_RETRIES = 3;
+
+// Track if this is the first request
+let isFirstRequest = true;
 
 /**
  * Custom API error class for better error handling
@@ -25,13 +33,23 @@ export class ApiError extends Error {
   status?: number;
   code?: string;
   retryable: boolean;
+  coldStartInfo?: ColdStartInfo;
 
-  constructor(message: string, options?: { status?: number; code?: string; retryable?: boolean }) {
+  constructor(
+    message: string,
+    options?: {
+      status?: number;
+      code?: string;
+      retryable?: boolean;
+      coldStartInfo?: ColdStartInfo;
+    }
+  ) {
     super(message);
     this.name = 'ApiError';
     this.status = options?.status;
     this.code = options?.code;
     this.retryable = options?.retryable ?? false;
+    this.coldStartInfo = options?.coldStartInfo;
   }
 
   static isRetryable(error: unknown): boolean {
@@ -47,28 +65,79 @@ export class ApiError extends Error {
     }
     return false;
   }
+
+  static isColdStart(error: unknown): boolean {
+    if (error instanceof ApiError) {
+      return error.coldStartInfo?.isColdStart ?? false;
+    }
+    return false;
+  }
 }
 
 /**
- * Fetches book recommendations based on the provided search criteria
- * @param searchText - The search query text
- * @param topK - Number of recommendations to return (default: 100)
- * @param options - Additional options like cache control and retry settings
- * @returns Promise with recommendations response
- * @throws ApiError if the API request fails
+ * Detects if the request was affected by a cold start
+ */
+function detectColdStart(duration: number, error?: Error, isFirst: boolean = false): ColdStartInfo {
+  // First request after page load is likely to hit a cold API
+  if (isFirst && duration > 10000) {
+    return {
+      isColdStart: true,
+      reason: 'first_request',
+      duration,
+    };
+  }
+
+  // Timeout errors are strong indicators of cold starts
+  if (error?.name === 'AbortError') {
+    return {
+      isColdStart: true,
+      reason: 'timeout',
+      duration,
+    };
+  }
+
+  // Network errors during initial connection
+  if (error?.name === 'TypeError' && error.message.includes('Failed to fetch')) {
+    return {
+      isColdStart: true,
+      reason: 'network_error',
+      duration,
+    };
+  }
+
+  // Slow response time indicates cold start
+  if (duration > COLD_START_THRESHOLD_MS) {
+    return {
+      isColdStart: true,
+      reason: 'slow_response',
+      duration,
+    };
+  }
+
+  return {
+    isColdStart: false,
+    duration,
+  };
+}
+
+/**
+ * Fetches book recommendations with cold start detection and retry logic
  */
 export async function fetchRecommendations(
   searchText: string,
   topK: number = 100,
   options: {
     useCache?: boolean;
-    retries?: number;
     signal?: AbortSignal;
+    onColdStart?: (info: ColdStartInfo) => void;
+    onRetry?: (attempt: number, maxRetries: number) => void;
   } = {}
 ): Promise<RecommendationResponse> {
-  const { useCache = true, retries = MAX_RETRIES, signal } = options;
+  const { useCache = true, signal, onColdStart, onRetry } = options;
   const trimmedQuery = searchText.trim();
   const cacheKey = `${trimmedQuery}:${topK}`;
+  const wasFirstRequest = isFirstRequest;
+  isFirstRequest = false;
 
   // Check cache if enabled
   if (useCache) {
@@ -80,29 +149,34 @@ export async function fetchRecommendations(
     }
   }
 
-  // Create abort controller for timeout if signal not provided
-  let timeoutId: ReturnType<typeof setTimeout> | undefined;
-  const controller = new AbortController();
-
-  if (!signal) {
-    timeoutId = setTimeout(() => controller.abort(), apiConfig.requestTimeout);
-  }
-
-  // Use provided signal or our controller's signal
-  const requestSignal = signal || controller.signal;
-
   let lastError: Error | null = null;
   let attempt = 0;
 
-  while (attempt <= retries) {
+  while (attempt <= MAX_COLD_START_RETRIES) {
+    const startTime = Date.now();
+
+    // Create abort controller with extended timeout for cold starts
+    const controller = new AbortController();
+    const timeoutMs = attempt === 0 ? apiConfig.requestTimeout : apiConfig.requestTimeout * 2;
+    const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+
+    // Use provided signal or our controller's signal
+    const requestSignal = signal || controller.signal;
+
     try {
       if (attempt > 0) {
-        // Add exponential backoff for retries
-        const backoffTime = Math.min(100 * Math.pow(2, attempt), 2000);
+        // Use progressive backoff for cold start retries
+        const backoffTime = COLD_START_RETRY_DELAYS[attempt - 1] || 15000;
+
+        // Notify about retry
+        if (onRetry) {
+          onRetry(attempt, MAX_COLD_START_RETRIES);
+        }
+
         await new Promise((resolve) => setTimeout(resolve, backoffTime));
       }
 
-      // Construct URL correctly by combining baseURL and endpoint
+      // Construct URL
       const url = `${apiConfig.baseURL}${apiConfig.endpoints.recommendations}`;
 
       const response = await fetch(url, {
@@ -118,8 +192,16 @@ export async function fetchRecommendations(
         signal: requestSignal,
       });
 
+      const duration = Date.now() - startTime;
+
+      // Detect potential cold start based on response time
+      const coldStartInfo = detectColdStart(duration, undefined, wasFirstRequest && attempt === 0);
+
+      if (coldStartInfo.isColdStart && onColdStart && attempt === 0) {
+        onColdStart(coldStartInfo);
+      }
+
       if (!response.ok) {
-        // Handle different HTTP error status codes
         const status = response.status;
         let errorMessage: string;
         let isRetryable = false;
@@ -131,12 +213,13 @@ export async function fetchRecommendations(
           errorMessage = `API request failed with status ${status}`;
         }
 
-        // Determine if error is retryable based on status code
-        isRetryable = status >= 500 || status === 429; // Server errors and rate limiting
+        // Server errors, rate limiting, and gateway timeouts are retryable
+        isRetryable = status >= 500 || status === 429 || status === 504;
 
         throw new ApiError(errorMessage, {
           status,
           retryable: isRetryable,
+          coldStartInfo: isRetryable ? coldStartInfo : undefined,
         });
       }
 
@@ -163,6 +246,7 @@ export async function fetchRecommendations(
         page_count: book.page_count,
         language: book.language,
         publisher: book.publisher,
+        explanation: book.explanation,
       }));
 
       const result = { recommendations };
@@ -181,36 +265,48 @@ export async function fetchRecommendations(
         }
       }
 
+      clearTimeout(timeoutId);
       return result;
     } catch (error) {
+      clearTimeout(timeoutId);
+      const duration = Date.now() - startTime;
       lastError = error instanceof Error ? error : new Error('Unknown error occurred');
 
-      // Check if we should retry
-      if (attempt < retries && ApiError.isRetryable(error)) {
+      // Detect cold start from error
+      const coldStartInfo = detectColdStart(duration, lastError, wasFirstRequest && attempt === 0);
+
+      // Check if we should retry for cold start
+      if (attempt < MAX_COLD_START_RETRIES && coldStartInfo.isColdStart) {
+        if (onColdStart && attempt === 0) {
+          onColdStart(coldStartInfo);
+        }
         attempt++;
         continue;
       }
 
-      // No more retries or non-retryable error
+      // No more retries or non-cold-start error
       if (error instanceof ApiError) {
         throw error;
       } else if (error instanceof Error) {
         if (error.name === 'AbortError') {
-          throw new ApiError(`Request timed out after ${apiConfig.requestTimeout}ms`, {
+          throw new ApiError(`Request timed out after ${timeoutMs}ms`, {
             code: 'TIMEOUT',
             retryable: true,
+            coldStartInfo,
           });
         } else if (error.name === 'TypeError' && error.message.includes('Failed to fetch')) {
-          throw new ApiError('Network error: API server may be unavailable or CORS issue', {
-            code: 'NETWORK_ERROR',
-            retryable: true,
-          });
+          throw new ApiError(
+            'Network error: API server may be unavailable or experiencing cold start',
+            {
+              code: 'NETWORK_ERROR',
+              retryable: true,
+              coldStartInfo,
+            }
+          );
         }
-        throw new ApiError(error.message);
+        throw new ApiError(error.message, { coldStartInfo });
       }
-      throw new ApiError('An unexpected error occurred');
-    } finally {
-      if (timeoutId) clearTimeout(timeoutId);
+      throw new ApiError('An unexpected error occurred', { coldStartInfo });
     }
   }
 
@@ -232,18 +328,15 @@ function cleanupCache(): void {
 
 /**
  * Invalidates the cache for a specific query or all queries
- * @param query - Optional query to invalidate, if not provided all cache is cleared
  */
 export function invalidateCache(query?: string): void {
   if (query) {
-    // Remove all cache entries that start with this query
     for (const key of responseCache.keys()) {
       if (key.startsWith(query.trim())) {
         responseCache.delete(key);
       }
     }
   } else {
-    // Clear all cache
     responseCache.clear();
   }
 }
