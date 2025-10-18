@@ -1,23 +1,19 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
+import { toast } from 'sonner';
 import apiConfig from '@api/config';
+import type { ColdStartInfo } from '@api/types';
 
 // Enhanced configuration for prewarming
 const PREWARM_CONFIG = {
-  // Endpoints to try in order (first one is preferred)
   ENDPOINTS: ['/prewarm', '/health'],
-  // Maximum number of retry attempts
   MAX_RETRIES: 3,
-  // Base delay between retries in ms (will use exponential backoff)
   RETRY_DELAY_MS: 2000,
-  // Timeout for each prewarm request in ms - increased for cold starts
-  TIMEOUT_MS: 45000, // 45 seconds to handle cold starts
-  // Whether to log prewarm activities to console (disable in production)
+  TIMEOUT_MS: 45000,
   ENABLE_LOGGING: import.meta.env.DEV || import.meta.env.VITE_ENABLE_PREWARM_LOGS === 'true',
-  // Cache duration for successful prewarm (in ms)
-  CACHE_DURATION_MS: 15 * 60 * 1000, // 15 minutes
-};
+  CACHE_DURATION_MS: 15 * 60 * 1000,
+  COLD_START_TOAST_DELAY_MS: 2000, // Only show toast if request takes longer than 2 seconds
+} as const;
 
-// Prewarm status enum
 export enum PrewarmStatus {
   NOT_STARTED = 'not_started',
   IN_PROGRESS = 'in_progress',
@@ -26,7 +22,6 @@ export enum PrewarmStatus {
   FAILED = 'failed',
 }
 
-// Prewarm state interface
 interface PrewarmState {
   status: PrewarmStatus;
   lastAttempt: number;
@@ -34,23 +29,32 @@ interface PrewarmState {
   error?: string;
 }
 
-// Hook return type
+interface ColdStartToastState {
+  id: string | number | null;
+  isActive: boolean;
+}
+
+type ColdStartToastAction = 'start' | 'retry' | 'success' | 'error';
+
+interface ColdStartToastData {
+  info?: ColdStartInfo;
+  attempt?: number;
+  maxRetries?: number;
+}
+
 interface UsePrewarmReturn {
   status: PrewarmStatus;
   isPrewarmed: boolean;
   prewarmApi: (force?: boolean) => Promise<PrewarmStatus>;
   isPrewarming: boolean;
   error?: string;
+  handleColdStartToast: (action: ColdStartToastAction, data?: ColdStartToastData) => void;
+  markRequestStart: () => void;
 }
 
-/**
- * Logs prewarm-related messages to console if logging is enabled
- */
 function logPrewarm(message: string, level: 'info' | 'warn' | 'error' = 'info'): void {
   if (!PREWARM_CONFIG.ENABLE_LOGGING) return;
-
   const prefix = '[API Prewarm]';
-
   switch (level) {
     case 'info':
       console.info(`${prefix} ${message}`);
@@ -64,9 +68,6 @@ function logPrewarm(message: string, level: 'info' | 'warn' | 'error' = 'info'):
   }
 }
 
-/**
- * Pings a specific API endpoint with retry logic
- */
 async function pingEndpoint(
   endpoint: string,
   options: {
@@ -80,28 +81,21 @@ async function pingEndpoint(
     ? ({ aborted: signal.aborted || controller.signal.aborted } as AbortSignal)
     : controller.signal;
 
-  // Set timeout
   const timeoutId = setTimeout(() => controller.abort(), PREWARM_CONFIG.TIMEOUT_MS);
 
   try {
-    // Make sure endpoint starts with /
     const normalizedEndpoint = endpoint.startsWith('/') ? endpoint : `/${endpoint}`;
-
-    // Construct URL - use proxy in development, direct URLs in production
-    let url;
+    let url: string;
     if (import.meta.env.DEV) {
-      // In development, use relative URLs to leverage Vite proxy
       url = normalizedEndpoint.startsWith('/api/')
         ? normalizedEndpoint
         : `/api${normalizedEndpoint}`;
     } else {
-      // In production, use the relative path from apiConfig
       url = `${apiConfig.baseURL}${normalizedEndpoint}`;
     }
 
     logPrewarm(`Pinging ${url}...`);
 
-    // Try the request with retries
     for (let attempt = 0; attempt <= retries; attempt++) {
       if (combinedSignal.aborted) {
         throw new Error('Request aborted');
@@ -109,9 +103,8 @@ async function pingEndpoint(
 
       try {
         if (attempt > 0) {
-          // Exponential backoff with jitter
           const baseDelay = PREWARM_CONFIG.RETRY_DELAY_MS * Math.pow(2, attempt - 1);
-          const jitter = Math.random() * 1000; // Add up to 1 second of jitter
+          const jitter = Math.random() * 1000;
           const delay = baseDelay + jitter;
           logPrewarm(`Retry attempt ${attempt}/${retries} after ${Math.round(delay)}ms delay`);
           await new Promise((resolve) => setTimeout(resolve, delay));
@@ -146,7 +139,7 @@ async function pingEndpoint(
             `Prewarm request to ${endpoint} timed out after ${PREWARM_CONFIG.TIMEOUT_MS}ms`,
             'warn'
           );
-          break; // Don't retry timeouts
+          break;
         } else {
           logPrewarm(`Error during prewarm attempt ${attempt}: ${error.message}`, 'warn');
         }
@@ -160,9 +153,6 @@ async function pingEndpoint(
   }
 }
 
-/**
- * Custom hook for API prewarming functionality
- */
 export function usePrewarm(): UsePrewarmReturn {
   const [state, setState] = useState<PrewarmState>({
     status: PrewarmStatus.NOT_STARTED,
@@ -170,22 +160,120 @@ export function usePrewarm(): UsePrewarmReturn {
     isInitialLoad: true,
   });
 
-  const [isPrewarming, setIsPrewarming] = useState(false);
-  const abortControllerRef = useRef<AbortController | null>(null);
+  const [isPrewarming, setIsPrewarming] = useState<boolean>(false);
+  const [coldStartToast, setColdStartToast] = useState<ColdStartToastState>({
+    id: null,
+    isActive: false,
+  });
 
-  // Check if API is prewarmed
-  const isPrewarmed =
+  const abortControllerRef = useRef<AbortController | null>(null);
+  const requestStartTimeRef = useRef<number | null>(null);
+
+  const isPrewarmed: boolean =
     state.status === PrewarmStatus.SUCCESS &&
     Date.now() - state.lastAttempt < PREWARM_CONFIG.CACHE_DURATION_MS;
 
-  /**
-   * Attempts to prewarm the API by trying multiple endpoints in sequence
-   */
+  // Mark the start of a request (called from component before fetching)
+  const markRequestStart = useCallback((): void => {
+    requestStartTimeRef.current = Date.now();
+  }, []);
+
+  // Handle cold start toast display and dismissal
+  const handleColdStartToast = useCallback(
+    (action: ColdStartToastAction, data?: ColdStartToastData): void => {
+      switch (action) {
+        case 'start': {
+          // Only show toast if request is taking longer than the threshold
+          const elapsed = Date.now() - (requestStartTimeRef.current || Date.now());
+
+          if (elapsed < PREWARM_CONFIG.COLD_START_TOAST_DELAY_MS) {
+            // Request is fast, don't show toast
+            return;
+          }
+
+          // Dismiss any existing toast
+          if (coldStartToast.id !== null) {
+            toast.dismiss(coldStartToast.id);
+          }
+
+          const info = data?.info;
+          let message = '🔥 Warming up the API...';
+          let description = 'First request detected. This will be faster next time!';
+
+          if (info) {
+            switch (info.reason) {
+              case 'first_request':
+                message = '🔥 Warming up the API...';
+                description =
+                  'First request detected. The API is starting up. This will be faster next time!';
+                break;
+              case 'timeout':
+                message = '⏱️ Request timed out';
+                description =
+                  'The API is experiencing a cold start. Retrying with extended timeout...';
+                break;
+              case 'slow_response':
+                message = '🐌 Slow response detected';
+                description = 'The API might be cold starting. Hang tight, retrying...';
+                break;
+              case 'network_error':
+                message = '🌐 Connection issue';
+                description = 'Attempting to reconnect to the API...';
+                break;
+            }
+          }
+
+          const toastId = toast.loading(message, {
+            description,
+            duration: Infinity,
+          });
+
+          setColdStartToast({ id: toastId, isActive: true });
+          logPrewarm('Cold start toast displayed');
+          break;
+        }
+
+        case 'retry': {
+          if (coldStartToast.id !== null && coldStartToast.isActive) {
+            const { attempt, maxRetries } = data || {};
+            if (attempt !== undefined && maxRetries !== undefined) {
+              toast.loading(`Retry ${attempt}/${maxRetries}...`, {
+                id: coldStartToast.id,
+                description: 'Still warming up. Please wait...',
+              });
+            }
+          }
+          break;
+        }
+
+        case 'success': {
+          if (coldStartToast.id !== null && coldStartToast.isActive) {
+            toast.dismiss(coldStartToast.id);
+            setColdStartToast({ id: null, isActive: false });
+            logPrewarm('Cold start toast dismissed on success');
+          }
+          requestStartTimeRef.current = null;
+          break;
+        }
+
+        case 'error': {
+          if (coldStartToast.id !== null && coldStartToast.isActive) {
+            toast.dismiss(coldStartToast.id);
+            setColdStartToast({ id: null, isActive: false });
+            logPrewarm('Cold start toast dismissed on error');
+          }
+          requestStartTimeRef.current = null;
+          break;
+        }
+      }
+    },
+    [coldStartToast]
+  );
+
   const prewarmApi = useCallback(
     async (force: boolean = false): Promise<PrewarmStatus> => {
       const now = Date.now();
 
-      // Skip if already prewarmed recently unless forced
       if (
         !force &&
         state.status === PrewarmStatus.SUCCESS &&
@@ -195,12 +283,10 @@ export function usePrewarm(): UsePrewarmReturn {
         return PrewarmStatus.SUCCESS;
       }
 
-      // Cancel any existing prewarm operation
       if (abortControllerRef.current) {
         abortControllerRef.current.abort();
       }
 
-      // Create new abort controller
       abortControllerRef.current = new AbortController();
 
       setIsPrewarming(true);
@@ -215,7 +301,6 @@ export function usePrewarm(): UsePrewarmReturn {
       logPrewarm('Starting API prewarm sequence');
 
       try {
-        // Try each endpoint in order until one succeeds
         let anySuccess = false;
 
         for (const endpoint of PREWARM_CONFIG.ENDPOINTS) {
@@ -235,7 +320,6 @@ export function usePrewarm(): UsePrewarmReturn {
           }
         }
 
-        // Update state based on result
         if (anySuccess) {
           setState((prev) => ({ ...prev, status: PrewarmStatus.SUCCESS }));
           logPrewarm('API prewarm completed successfully');
@@ -266,35 +350,35 @@ export function usePrewarm(): UsePrewarmReturn {
     [state.status, state.lastAttempt]
   );
 
-  /**
-   * Auto-prewarm on initial load
-   */
+  // Auto-prewarm on initial load (silently in background)
   useEffect(() => {
     if (state.isInitialLoad) {
-      // Delay initial prewarm to not compete with critical resources
       const timeoutId = setTimeout(() => {
         logPrewarm('Auto-prewarming API on initial page load');
         prewarmApi().catch((err) => {
-          logPrewarm(`Error during initial prewarm: ${err.message}`, 'error');
+          logPrewarm(
+            `Error during initial prewarm: ${err instanceof Error ? err.message : 'Unknown error'}`,
+            'error'
+          );
         });
-      }, 1000); // Reduced delay for faster initial prewarm
+      }, 1000);
 
       return () => clearTimeout(timeoutId);
     }
   }, [state.isInitialLoad, prewarmApi]);
 
-  /**
-   * Prewarm when page becomes visible after being hidden
-   */
+  // Prewarm when page becomes visible after being hidden
   useEffect(() => {
-    const handleVisibilityChange = () => {
+    const handleVisibilityChange = (): void => {
       if (document.visibilityState === 'visible') {
         const now = Date.now();
-        // Only prewarm if it's been at least 10 minutes since last prewarm
         if (now - state.lastAttempt > 10 * 60 * 1000) {
           logPrewarm('Prewarming API after tab became visible');
           prewarmApi().catch((err) => {
-            logPrewarm(`Error during visibility prewarm: ${err.message}`, 'error');
+            logPrewarm(
+              `Error during visibility prewarm: ${err instanceof Error ? err.message : 'Unknown error'}`,
+              'error'
+            );
           });
         }
       }
@@ -304,16 +388,17 @@ export function usePrewarm(): UsePrewarmReturn {
     return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
   }, [state.lastAttempt, prewarmApi]);
 
-  /**
-   * Cleanup on unmount
-   */
+  // Cleanup on unmount
   useEffect(() => {
     return () => {
       if (abortControllerRef.current) {
         abortControllerRef.current.abort();
       }
+      if (coldStartToast.id !== null) {
+        toast.dismiss(coldStartToast.id);
+      }
     };
-  }, []);
+  }, [coldStartToast.id]);
 
   return {
     status: state.status,
@@ -321,6 +406,8 @@ export function usePrewarm(): UsePrewarmReturn {
     prewarmApi,
     isPrewarming,
     error: state.error,
+    handleColdStartToast,
+    markRequestStart,
   };
 }
 

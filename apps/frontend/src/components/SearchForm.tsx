@@ -26,102 +26,43 @@ const SearchForm: React.FC<SearchFormProps> = ({
   const [isSticky, setIsSticky] = useState<boolean>(false);
   const { scrollY } = useScroll();
   const [input, setInput] = useState<string>('');
-  const [coldStartToastId, setColdStartToastId] = useState<string | number | null>(null);
   const [currentSemanticTags, setCurrentSemanticTags] = useState<string[]>([]);
 
-  // Use the prewarming hook
-  const { isPrewarmed, prewarmApi, isPrewarming } = usePrewarm();
+  // Use the prewarming hook with cold start toast handling
+  const { handleColdStartToast, markRequestStart } = usePrewarm();
 
-  useMotionValueEvent(scrollY, 'change', (latest) => {
+  useMotionValueEvent(scrollY, 'change', (latest: number) => {
     setIsSticky(latest > 140);
   });
 
-  const handleColdStart = (info: ColdStartInfo) => {
-    // Dismiss any existing cold start toast
-    if (coldStartToastId) {
-      toast.dismiss(coldStartToastId);
-    }
-
-    let message = 'API is warming up...';
-    let description = 'This may take a moment on the first request. Retrying automatically.';
-
-    switch (info.reason) {
-      case 'first_request':
-        message = '🔥 Warming up the API...';
-        description =
-          'First request detected. The API is starting up. This will be faster next time!';
-        break;
-      case 'timeout':
-        message = '⏱️ Request timed out';
-        description = 'The API is experiencing a cold start. Retrying with extended timeout...';
-        break;
-      case 'slow_response':
-        message = '🐌 Slow response detected';
-        description = 'The API might be cold starting. Hang tight, retrying...';
-        break;
-      case 'network_error':
-        message = '🌐 Connection issue';
-        description = 'Attempting to reconnect to the API...';
-        break;
-    }
-
-    const toastId = toast.loading(message, {
-      description,
-      duration: Infinity, // Keep it visible until we dismiss it
-    });
-
-    setColdStartToastId(toastId);
+  const handleColdStart = (info: ColdStartInfo): void => {
+    // Trigger cold start toast only if request is slow
+    handleColdStartToast('start', { info });
   };
 
-  const handleRetry = (attempt: number, maxRetries: number) => {
-    if (coldStartToastId) {
-      toast.loading(`Retry ${attempt}/${maxRetries}...`, {
-        id: coldStartToastId,
-        description: `Still warming up. Please wait...`,
-      });
-    }
+  const handleRetry = (attempt: number, maxRetries: number): void => {
+    handleColdStartToast('retry', { attempt, maxRetries });
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>): Promise<void> => {
     e.preventDefault();
     if (!input.trim()) return;
 
     setLoading(true);
     setErrorMessage(null);
     resetScroll();
-    setColdStartToastId(null);
+
+    // Mark the start time for cold start detection
+    markRequestStart();
 
     try {
-      // If API is not prewarmed, try to prewarm it first
-      if (!isPrewarmed && !isPrewarming) {
-        toast.loading('Preparing API...', {
-          description: 'Ensuring the API is ready for your request.',
-          duration: 2000,
-        });
-
-        try {
-          await prewarmApi(true);
-          toast.dismiss();
-        } catch (prewarmError) {
-          console.warn('Prewarm failed, proceeding with request:', prewarmError);
-          toast.dismiss();
-        }
-      }
-
       const data = await fetchRecommendations(input, 100, {
         onColdStart: handleColdStart,
         onRetry: handleRetry,
       });
 
       // Dismiss cold start toast on success
-      if (coldStartToastId) {
-        toast.dismiss(coldStartToastId);
-        toast.success('Recommendations loaded!', {
-          description: `Found ${data.recommendations.length} books for you.`,
-          duration: 3000,
-        });
-        setColdStartToastId(null);
-      }
+      handleColdStartToast('success');
 
       if (data.recommendations && Array.isArray(data.recommendations)) {
         setAllRecommendations(data.recommendations);
@@ -136,10 +77,7 @@ const SearchForm: React.FC<SearchFormProps> = ({
       console.error('Error fetching recommendations:', error);
 
       // Dismiss cold start toast on error
-      if (coldStartToastId) {
-        toast.dismiss(coldStartToastId);
-        setColdStartToastId(null);
-      }
+      handleColdStartToast('error');
 
       let errorMessage = 'Failed to fetch recommendations';
       let errorDescription = 'Please try again later.';
@@ -249,8 +187,8 @@ const SearchForm: React.FC<SearchFormProps> = ({
               size="3"
               placeholder="Enter your book preferences"
               value={input}
-              onChange={(e) => setInput(e.target.value)}
-              onBlur={(e) => setInput(e.target.value)}
+              onChange={(e: React.ChangeEvent<HTMLInputElement>) => setInput(e.target.value)}
+              onBlur={(e: React.FocusEvent<HTMLInputElement>) => setInput(e.target.value)}
               className="w-full"
               style={{
                 backgroundColor: 'rgba(255, 255, 255, 0.9)',
@@ -307,7 +245,7 @@ const SearchForm: React.FC<SearchFormProps> = ({
               </Text>
             </Flex>
             <Flex gap="2" wrap="wrap" justify="center">
-              {currentSemanticTags.map((tag, index) => (
+              {currentSemanticTags.map((tag: string, index: number) => (
                 <motion.div
                   key={tag}
                   initial={{ opacity: 0, scale: 0.8 }}
