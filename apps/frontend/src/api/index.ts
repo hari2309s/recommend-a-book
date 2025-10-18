@@ -246,7 +246,6 @@ export async function fetchRecommendations(
         page_count: book.page_count,
         language: book.language,
         publisher: book.publisher,
-        explanation: book.explanation,
       }));
 
       const result = { recommendations };
