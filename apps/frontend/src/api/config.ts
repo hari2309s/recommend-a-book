@@ -19,8 +19,8 @@ const apiConfig = {
     prewarm: '/prewarm',
   },
 
-  // Request timeout in milliseconds
-  requestTimeout: 30000,
+  // Request timeout in milliseconds - increased for cold starts
+  requestTimeout: 60000, // 60 seconds to handle cold starts
 };
 
 export default apiConfig;

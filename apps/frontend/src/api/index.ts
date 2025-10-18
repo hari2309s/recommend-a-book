@@ -18,10 +18,10 @@ interface CacheEntry {
 const responseCache = new Map<string, CacheEntry>();
 const CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes cache duration
 
-// Cold start detection thresholds
-const COLD_START_THRESHOLD_MS = 25000; // 25 seconds indicates potential cold start
-const COLD_START_RETRY_DELAYS = [5000, 10000, 15000]; // Progressive delays for retries
-const MAX_COLD_START_RETRIES = 3;
+// Cold start detection thresholds - more aggressive settings
+const COLD_START_THRESHOLD_MS = 15000; // 15 seconds indicates potential cold start
+const COLD_START_RETRY_DELAYS = [3000, 6000, 10000]; // Faster retry delays
+const MAX_COLD_START_RETRIES = 4; // More retries for better success rate
 
 // Track if this is the first request
 let isFirstRequest = true;
@@ -79,7 +79,7 @@ export class ApiError extends Error {
  */
 function detectColdStart(duration: number, error?: Error, isFirst: boolean = false): ColdStartInfo {
   // First request after page load is likely to hit a cold API
-  if (isFirst && duration > 10000) {
+  if (isFirst && duration > 5000) {
     return {
       isColdStart: true,
       reason: 'first_request',
@@ -157,7 +157,8 @@ export async function fetchRecommendations(
 
     // Create abort controller with extended timeout for cold starts
     const controller = new AbortController();
-    const timeoutMs = attempt === 0 ? apiConfig.requestTimeout : apiConfig.requestTimeout * 2;
+    // Use longer timeout for cold start retries
+    const timeoutMs = attempt === 0 ? apiConfig.requestTimeout : apiConfig.requestTimeout * 1.5;
     const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
 
     // Use provided signal or our controller's signal

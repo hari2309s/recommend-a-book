@@ -3,11 +3,7 @@ import { createRoot } from 'react-dom/client';
 import '@/index.css';
 import App from '@/App.tsx';
 import { Theme } from '@radix-ui/themes';
-import { initializePrewarm } from '@/utils';
 import { Toaster } from 'sonner';
-
-// Initialize API prewarming to prevent cold starts
-initializePrewarm();
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>

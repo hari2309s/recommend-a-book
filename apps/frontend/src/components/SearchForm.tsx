@@ -6,6 +6,7 @@ import { toast } from 'sonner';
 import type { Book, ColdStartInfo } from '@/api/types';
 import { fetchRecommendations } from '@/api';
 import { containerVariants } from '@/utils';
+import { usePrewarm } from '@/hooks';
 
 type SearchFormProps = {
   loading: boolean;
@@ -27,6 +28,9 @@ const SearchForm: React.FC<SearchFormProps> = ({
   const [input, setInput] = useState<string>('');
   const [coldStartToastId, setColdStartToastId] = useState<string | number | null>(null);
   const [currentSemanticTags, setCurrentSemanticTags] = useState<string[]>([]);
+  
+  // Use the prewarming hook
+  const { isPrewarmed, prewarmApi, isPrewarming } = usePrewarm();
 
   useMotionValueEvent(scrollY, 'change', (latest) => {
     setIsSticky(latest > 140);
@@ -88,6 +92,22 @@ const SearchForm: React.FC<SearchFormProps> = ({
     setColdStartToastId(null);
 
     try {
+      // If API is not prewarmed, try to prewarm it first
+      if (!isPrewarmed && !isPrewarming) {
+        toast.loading('Preparing API...', {
+          description: 'Ensuring the API is ready for your request.',
+          duration: 2000,
+        });
+        
+        try {
+          await prewarmApi(true);
+          toast.dismiss();
+        } catch (prewarmError) {
+          console.warn('Prewarm failed, proceeding with request:', prewarmError);
+          toast.dismiss();
+        }
+      }
+
       const data = await fetchRecommendations(input, 100, {
         onColdStart: handleColdStart,
         onRetry: handleRetry,
