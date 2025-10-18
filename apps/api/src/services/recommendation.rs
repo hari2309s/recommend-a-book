@@ -1,6 +1,5 @@
 use crate::error::Result;
 use crate::services::templates::EnhancedQuery;
-use crate::services::ExplanationGenerator;
 use crate::services::QueryEnhancer;
 use crate::{
     error::ApiError, ml::huggingface_embedder::HuggingFaceEmbedder, models::Book,
@@ -63,7 +62,6 @@ pub struct RecommendationService {
     result_cache: std::sync::Arc<RwLock<HashMap<String, CacheEntry>>>,
     prewarmed: Arc<std::sync::atomic::AtomicBool>,
     query_enhancer: QueryEnhancer,
-    explanation_generator: ExplanationGenerator,
 }
 
 impl RecommendationService {
@@ -74,7 +72,6 @@ impl RecommendationService {
             result_cache: std::sync::Arc::new(RwLock::new(HashMap::new())),
             prewarmed: Arc::new(std::sync::atomic::AtomicBool::new(false)),
             query_enhancer: QueryEnhancer::new(),
-            explanation_generator: ExplanationGenerator::new(),
         }
     }
 
@@ -209,29 +206,13 @@ impl RecommendationService {
         };
 
         // Rank and process results (your existing code)
-        let mut ranked_results = self.rank_results(raw_results, &intent, top_k);
+        let ranked_results = self.rank_results(raw_results, &intent, top_k);
         info!(
             "Returning {} ranked results for query '{}'",
             ranked_results.len(),
             trimmed_query
         );
 
-        // *** NEW: Generate explanations for all results ***
-        let explanations = self.explanation_generator.generate_batch_explanations(
-            trimmed_query,
-            &ranked_results,
-            &enhanced_query,
-        );
-
-        // Attach explanations to books
-        for (book, explanation) in ranked_results.iter_mut().zip(explanations.iter()) {
-            book.explanation = Some(explanation.clone());
-        }
-
-        info!(
-            "Generated {} explanations for recommendations",
-            explanations.len()
-        );
 
         // Update cache with new results (your existing code)
         if let Ok(mut cache) = self.result_cache.write() {
@@ -260,13 +241,8 @@ impl RecommendationService {
     }
 
     #[allow(dead_code)]
-    pub fn get_cache_stats(&self) -> (Option<usize>, Option<usize>) {
-        let query_stats = self.query_enhancer.cache_stats().map(|s| s.valid_entries);
-        let explanation_stats = self
-            .explanation_generator
-            .cache_stats()
-            .map(|s| s.valid_entries);
-        (query_stats, explanation_stats)
+    pub fn get_cache_stats(&self) -> Option<usize> {
+        self.query_enhancer.cache_stats().map(|s| s.valid_entries)
     }
 
     fn convert_enhanced_to_intent(&self, enhanced: &EnhancedQuery) -> QueryIntent {

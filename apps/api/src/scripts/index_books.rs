@@ -224,7 +224,6 @@ fn csv_record_to_book(record: BookCsvRecord, row_index: usize) -> Option<Book> {
             .publisher
             .filter(|p| !p.trim().is_empty())
             .or(Some("unknown".to_string())),
-        explanation: None,
     })
 }
 

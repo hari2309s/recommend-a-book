@@ -611,10 +611,6 @@ impl Pinecone {
                                 .get("publisher")
                                 .and_then(|v| v.as_str())
                                 .map(|s| s.to_string()),
-                            explanation: metadata_map
-                                .get("explanation")
-                                .and_then(|v| v.as_str())
-                                .map(|s| s.to_string()),
                         };
 
                         debug!("Created minimal book fallback for ID: {}", match_.id);
@@ -639,7 +635,6 @@ impl Pinecone {
                     ratings_count: None,
                     language: None,
                     publisher: None,
-                    explanation: None,
                 };
 
                 debug!("Created minimal book fallback for ID: {}", match_.id);
