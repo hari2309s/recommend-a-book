@@ -3,7 +3,7 @@ import { motion, useScroll, useMotionValueEvent } from 'framer-motion';
 import { Button, Flex, TextField, Badge, Text } from '@radix-ui/themes';
 import { Search, Tag } from 'lucide-react';
 import { toast } from 'sonner';
-import type { Book } from '@/api/types';
+import type { Book, ColdStartInfo } from '@/api/types';
 import { fetchRecommendations } from '@/api';
 import { containerVariants } from '@/utils';
 import { usePrewarm } from '@/hooks';
@@ -35,6 +35,43 @@ const SearchForm: React.FC<SearchFormProps> = ({
   useMotionValueEvent(scrollY, 'change', (latest) => {
     setIsSticky(latest > 140);
   });
+
+  const handleColdStart = (info: ColdStartInfo) => {
+    // Dismiss any existing cold start toast
+    if (coldStartToastId) {
+      toast.dismiss(coldStartToastId);
+    }
+
+    let message = 'API is warming up...';
+    let description = 'This may take a moment on the first request. Retrying automatically.';
+
+    switch (info.reason) {
+      case 'first_request':
+        message = '🔥 Warming up the API...';
+        description =
+          'First request detected. The API is starting up. This will be faster next time!';
+        break;
+      case 'timeout':
+        message = '⏱️ Request timed out';
+        description = 'The API is experiencing a cold start. Retrying with extended timeout...';
+        break;
+      case 'slow_response':
+        message = '🐌 Slow response detected';
+        description = 'The API might be cold starting. Hang tight, retrying...';
+        break;
+      case 'network_error':
+        message = '🌐 Connection issue';
+        description = 'Attempting to reconnect to the API...';
+        break;
+    }
+
+    const toastId = toast.loading(message, {
+      description,
+      duration: Infinity, // Keep it visible until we dismiss it
+    });
+
+    setColdStartToastId(toastId);
+  };
 
   const handleRetry = (attempt: number, maxRetries: number) => {
     if (coldStartToastId) {
@@ -72,6 +109,7 @@ const SearchForm: React.FC<SearchFormProps> = ({
       }
 
       const data = await fetchRecommendations(input, 100, {
+        onColdStart: handleColdStart,
         onRetry: handleRetry,
       });
 
