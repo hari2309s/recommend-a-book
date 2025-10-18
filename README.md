@@ -1,6 +1,21 @@
-# Semantic Book Recommendation System
+# Recommend a Book 📚
 
-A full-stack application that provides personalized book recommendations based on user preferences. The system uses advanced natural language processing and vector similarity search to suggest books that match your reading interests.
+> **Discover your next great read with AI-powered semantic search and intelligent recommendations.**
+
+[![Rust](https://img.shields.io/badge/Rust-1.70+-orange.svg)](https://www.rust-lang.org/)
+[![Actix Web](https://img.shields.io/badge/Actix%20Web-4.4-blue.svg)](https://actix.rs/)
+[![Tokio](https://img.shields.io/badge/Tokio-Async%20Runtime-green.svg)](https://tokio.rs/)
+[![React](https://img.shields.io/badge/React-19+-blue.svg)](https://reactjs.org/)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5.8+-blue.svg)](https://www.typescriptlang.org/)
+[![Vite](https://img.shields.io/badge/Vite-6-purple.svg)](https://vitejs.dev/)
+[![Tailwind CSS](https://img.shields.io/badge/Tailwind%20CSS-4-38bdf8.svg)](https://tailwindcss.com/)
+[![Radix UI](https://img.shields.io/badge/Radix%20UI-Components-black.svg)](https://www.radix-ui.com/)
+[![Pinecone](https://img.shields.io/badge/Pinecone-Vector%20DB-00D4AA.svg)](https://www.pinecone.io/)
+[![Hugging Face](https://img.shields.io/badge/🤗%20Hugging%20Face-BGE--large-yellow.svg)](https://huggingface.co/)
+[![Performance](https://img.shields.io/badge/Search%20Speed-1--2s-brightgreen)](#performance)
+[![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
+
+**Recommend a Book** is a full-stack application that provides personalized book recommendations using advanced natural language processing and vector similarity search. Simply describe what you're looking for, and let AI find books that truly match your reading interests.
 
 ## Features
 
@@ -262,3 +277,11 @@ The frontend is deployed on Vercel with:
 - **Build Command**: `pnpm run build`
 - **Output Directory**: `dist`
 - **Environment Variables**: Configured for production API URL
+
+## 📄 License
+
+**MIT License** - see [LICENSE](LICENSE) file for details.
+
+---
+
+**Built with ❤️ for book lovers who believe in the power of the perfect recommendation.**
