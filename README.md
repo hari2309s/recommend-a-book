@@ -6,6 +6,9 @@ A full-stack application that provides personalized book recommendations based o
 
 - **Semantic Search**: Advanced natural language search powered by sentence embeddings using BAAI/bge-large-en-v1.5 via Hugging Face Inference API
 - **Smart Book Recommendations**: Get book suggestions based on semantic understanding of your preferences using vector similarity search
+- **Relevance Indicators**: Each recommendation shows why it was suggested with contextual tags like "Fantasy", "Magic", "Author: Tolkien"
+- **Confidence Scores**: See how well each book matches your query with percentage match scores (e.g., "95% match")
+- **Semantic Tags**: View extracted themes and topics from your search query to understand what the system detected
 - **OpenAPI Documentation**: Interactive API documentation with Swagger UI for easy testing and integration
 - **Fast and Efficient**: Built with Rust for high-performance backend operations
 - **Modern UI**: Clean and responsive interface built with React 19, Radix UI, and Tailwind CSS
@@ -27,6 +30,8 @@ A full-stack application that provides personalized book recommendations based o
   - Structured error handling with custom error types
   - Configuration management with TOML files
   - Comprehensive logging and tracing
+  - Enhanced response data with relevance indicators and confidence scores
+  - Semantic tag extraction from user queries
 
 ### Frontend (React)
 - **Core**:
@@ -44,8 +49,36 @@ A full-stack application that provides personalized book recommendations based o
   - Infinite scrolling with progressive loading
   - Modern component architecture with TypeScript
   - Error handling and loading states
+  - Interactive book cards with relevance indicators
+  - Confidence score visualization
+  - Semantic tag display for query understanding
+  - Smooth animations and transitions
 
-## Architecture
+## Enhanced Recommendation Features
+
+The system now provides rich contextual information to help users understand why specific books were recommended:
+
+### Relevance Indicators
+Each book recommendation includes contextual tags showing why it was suggested:
+- **Theme Matches**: Tags like "friendship", "family", "magic" when found in book descriptions
+- **Author Matches**: "Author: Tolkien" when searching for specific authors
+- **Setting Matches**: "Setting: Medieval" for location-based queries
+- **Genre Relevance**: Categories that relate to your query themes
+
+### Confidence Scores
+Every recommendation displays a percentage match score (0-100%) indicating how well the book matches your query:
+- Calculated based on semantic similarity and book quality ratings
+- Higher scores indicate better matches to your search intent
+- Helps prioritize recommendations by relevance
+
+### Semantic Tags
+The search interface displays extracted themes from your query:
+- Shows what concepts the system detected from your search
+- Includes both direct terms and expanded related concepts
+- Helps you understand how the system interpreted your request
+- Example: "books about authentic friendships" → ["friendship", "authentic", "families", "lies"]
+
+These features work together to provide transparent, explainable recommendations that help users make informed choices about their next read.
 
 The application follows a modern client-server architecture with a monorepo structure:
 
@@ -127,6 +160,25 @@ cargo run --bin index_books -- data/books.csv
 
 ### Recommendations
 - `POST /api/recommendations/` - Get book recommendations based on query
+  - **Request Body**: `{ "query": "fantasy books with dragons", "top_k": 50 }`
+  - **Response**: 
+    ```json
+    {
+      "recommendations": [
+        {
+          "id": "book_123",
+          "title": "The Hobbit",
+          "author": "J.R.R. Tolkien",
+          "description": "A fantasy adventure...",
+          "categories": ["Fantasy", "Adventure"],
+          "rating": 4.5,
+          "relevance_indicators": ["Fantasy", "Magic", "Adventure"],
+          "confidence_score": 0.95
+        }
+      ],
+      "semantic_tags": ["fantasy", "dragons", "magic", "adventure"]
+    }
+    ```
 
 ### Health Check
 - `GET /api/health` - API health status
