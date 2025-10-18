@@ -28,7 +28,7 @@ const SearchForm: React.FC<SearchFormProps> = ({
   const [input, setInput] = useState<string>('');
   const [coldStartToastId, setColdStartToastId] = useState<string | number | null>(null);
   const [currentSemanticTags, setCurrentSemanticTags] = useState<string[]>([]);
-  
+
   // Use the prewarming hook
   const { isPrewarmed, prewarmApi, isPrewarming } = usePrewarm();
 
@@ -98,7 +98,7 @@ const SearchForm: React.FC<SearchFormProps> = ({
           description: 'Ensuring the API is ready for your request.',
           duration: 2000,
         });
-        
+
         try {
           await prewarmApi(true);
           toast.dismiss();
@@ -306,7 +306,7 @@ const SearchForm: React.FC<SearchFormProps> = ({
                 Detected themes:
               </Text>
             </Flex>
-            <Flex gap="2" wrap="wrap">
+            <Flex gap="2" wrap="wrap" justify="center">
               {currentSemanticTags.map((tag, index) => (
                 <motion.div
                   key={tag}

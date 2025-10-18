@@ -165,7 +165,7 @@ const RecommendationCard: React.FC<RecommendationCardProps> = ({ book, resetAcco
                   </Flex>
                 </motion.div>
                 <Flex gap="1" wrap="wrap" className="ml-5">
-                  {book.relevance_indicators.slice(0, 3).map((indicator, index) => (
+                  {[...new Set(book.relevance_indicators)].map((indicator, index) => (
                     <motion.div
                       key={indicator}
                       initial={{ opacity: 0, scale: 0.8 }}
