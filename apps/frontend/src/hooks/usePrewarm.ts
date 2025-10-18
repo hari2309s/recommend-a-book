@@ -1,9 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { toast } from 'sonner';
 import apiConfig from '@api/config';
-import type { ColdStartInfo } from '@api/types';
 
-// Enhanced configuration for prewarming
 const PREWARM_CONFIG = {
   ENDPOINTS: ['/prewarm', '/health'],
   MAX_RETRIES: 3,
@@ -11,7 +8,6 @@ const PREWARM_CONFIG = {
   TIMEOUT_MS: 45000,
   ENABLE_LOGGING: import.meta.env.DEV || import.meta.env.VITE_ENABLE_PREWARM_LOGS === 'true',
   CACHE_DURATION_MS: 15 * 60 * 1000,
-  COLD_START_TOAST_DELAY_MS: 2000, // Only show toast if request takes longer than 2 seconds
 } as const;
 
 export enum PrewarmStatus {
@@ -29,27 +25,12 @@ interface PrewarmState {
   error?: string;
 }
 
-interface ColdStartToastState {
-  id: string | number | null;
-  isActive: boolean;
-}
-
-type ColdStartToastAction = 'start' | 'retry' | 'success' | 'error';
-
-interface ColdStartToastData {
-  info?: ColdStartInfo;
-  attempt?: number;
-  maxRetries?: number;
-}
-
 interface UsePrewarmReturn {
   status: PrewarmStatus;
   isPrewarmed: boolean;
   prewarmApi: (force?: boolean) => Promise<PrewarmStatus>;
   isPrewarming: boolean;
   error?: string;
-  handleColdStartToast: (action: ColdStartToastAction, data?: ColdStartToastData) => void;
-  markRequestStart: () => void;
 }
 
 function logPrewarm(message: string, level: 'info' | 'warn' | 'error' = 'info'): void {
@@ -161,114 +142,11 @@ export function usePrewarm(): UsePrewarmReturn {
   });
 
   const [isPrewarming, setIsPrewarming] = useState<boolean>(false);
-  const [coldStartToast, setColdStartToast] = useState<ColdStartToastState>({
-    id: null,
-    isActive: false,
-  });
-
   const abortControllerRef = useRef<AbortController | null>(null);
-  const requestStartTimeRef = useRef<number | null>(null);
 
   const isPrewarmed: boolean =
     state.status === PrewarmStatus.SUCCESS &&
     Date.now() - state.lastAttempt < PREWARM_CONFIG.CACHE_DURATION_MS;
-
-  // Mark the start of a request (called from component before fetching)
-  const markRequestStart = useCallback((): void => {
-    requestStartTimeRef.current = Date.now();
-  }, []);
-
-  // Handle cold start toast display and dismissal
-  const handleColdStartToast = useCallback(
-    (action: ColdStartToastAction, data?: ColdStartToastData): void => {
-      switch (action) {
-        case 'start': {
-          // Only show toast if request is taking longer than the threshold
-          const elapsed = Date.now() - (requestStartTimeRef.current || Date.now());
-
-          if (elapsed < PREWARM_CONFIG.COLD_START_TOAST_DELAY_MS) {
-            // Request is fast, don't show toast
-            return;
-          }
-
-          // Dismiss any existing toast
-          if (coldStartToast.id !== null) {
-            toast.dismiss(coldStartToast.id);
-          }
-
-          const info = data?.info;
-          let message = '🔥 Warming up the API...';
-          let description = 'First request detected. This will be faster next time!';
-
-          if (info) {
-            switch (info.reason) {
-              case 'first_request':
-                message = '🔥 Warming up the API...';
-                description =
-                  'First request detected. The API is starting up. This will be faster next time!';
-                break;
-              case 'timeout':
-                message = '⏱️ Request timed out';
-                description =
-                  'The API is experiencing a cold start. Retrying with extended timeout...';
-                break;
-              case 'slow_response':
-                message = '🐌 Slow response detected';
-                description = 'The API might be cold starting. Hang tight, retrying...';
-                break;
-              case 'network_error':
-                message = '🌐 Connection issue';
-                description = 'Attempting to reconnect to the API...';
-                break;
-            }
-          }
-
-          const toastId = toast.loading(message, {
-            description,
-            duration: Infinity,
-          });
-
-          setColdStartToast({ id: toastId, isActive: true });
-          logPrewarm('Cold start toast displayed');
-          break;
-        }
-
-        case 'retry': {
-          if (coldStartToast.id !== null && coldStartToast.isActive) {
-            const { attempt, maxRetries } = data || {};
-            if (attempt !== undefined && maxRetries !== undefined) {
-              toast.loading(`Retry ${attempt}/${maxRetries}...`, {
-                id: coldStartToast.id,
-                description: 'Still warming up. Please wait...',
-              });
-            }
-          }
-          break;
-        }
-
-        case 'success': {
-          if (coldStartToast.id !== null && coldStartToast.isActive) {
-            toast.dismiss(coldStartToast.id);
-            setColdStartToast({ id: null, isActive: false });
-            logPrewarm('Cold start toast dismissed on success');
-          }
-          requestStartTimeRef.current = null;
-          break;
-        }
-
-        case 'error': {
-          if (coldStartToast.id !== null && coldStartToast.isActive) {
-            toast.dismiss(coldStartToast.id);
-            setColdStartToast({ id: null, isActive: false });
-            logPrewarm('Cold start toast dismissed on error');
-          }
-          requestStartTimeRef.current = null;
-          break;
-        }
-      }
-    },
-    [coldStartToast]
-  );
 
   const prewarmApi = useCallback(
     async (force: boolean = false): Promise<PrewarmStatus> => {
@@ -394,11 +272,8 @@ export function usePrewarm(): UsePrewarmReturn {
       if (abortControllerRef.current) {
         abortControllerRef.current.abort();
       }
-      if (coldStartToast.id !== null) {
-        toast.dismiss(coldStartToast.id);
-      }
     };
-  }, [coldStartToast.id]);
+  }, []);
 
   return {
     status: state.status,
@@ -406,8 +281,6 @@ export function usePrewarm(): UsePrewarmReturn {
     prewarmApi,
     isPrewarming,
     error: state.error,
-    handleColdStartToast,
-    markRequestStart,
   };
 }
 

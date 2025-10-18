@@ -3,10 +3,10 @@ import { motion, useScroll, useMotionValueEvent } from 'framer-motion';
 import { Button, Flex, TextField, Badge, Text } from '@radix-ui/themes';
 import { Search, Tag } from 'lucide-react';
 import { toast } from 'sonner';
-import type { Book, ColdStartInfo } from '@/api/types';
+import type { Book } from '@/api/types';
 import { fetchRecommendations } from '@/api';
 import { containerVariants } from '@/utils';
-import { usePrewarm } from '@/hooks';
+import { coldStartToastManager } from '@/utils/coldStartToast';
 
 type SearchFormProps = {
   loading: boolean;
@@ -28,21 +28,9 @@ const SearchForm: React.FC<SearchFormProps> = ({
   const [input, setInput] = useState<string>('');
   const [currentSemanticTags, setCurrentSemanticTags] = useState<string[]>([]);
 
-  // Use the prewarming hook with cold start toast handling
-  const { handleColdStartToast, markRequestStart } = usePrewarm();
-
   useMotionValueEvent(scrollY, 'change', (latest: number) => {
     setIsSticky(latest > 140);
   });
-
-  const handleColdStart = (info: ColdStartInfo): void => {
-    // Trigger cold start toast only if request is slow
-    handleColdStartToast('start', { info });
-  };
-
-  const handleRetry = (attempt: number, maxRetries: number): void => {
-    handleColdStartToast('retry', { attempt, maxRetries });
-  };
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>): Promise<void> => {
     e.preventDefault();
@@ -52,17 +40,18 @@ const SearchForm: React.FC<SearchFormProps> = ({
     setErrorMessage(null);
     resetScroll();
 
-    // Mark the start time for cold start detection
-    markRequestStart();
+    // Start cold start toast timer
+    coldStartToastManager.start();
 
     try {
       const data = await fetchRecommendations(input, 100, {
-        onColdStart: handleColdStart,
-        onRetry: handleRetry,
+        onRetry: (attempt, maxRetries) => {
+          coldStartToastManager.retry(attempt, maxRetries);
+        },
       });
 
-      // Dismiss cold start toast on success
-      handleColdStartToast('success');
+      // Dismiss toast immediately when results arrive
+      coldStartToastManager.dismiss();
 
       if (data.recommendations && Array.isArray(data.recommendations)) {
         setAllRecommendations(data.recommendations);
@@ -76,8 +65,8 @@ const SearchForm: React.FC<SearchFormProps> = ({
     } catch (error) {
       console.error('Error fetching recommendations:', error);
 
-      // Dismiss cold start toast on error
-      handleColdStartToast('error');
+      // Dismiss toast on error
+      coldStartToastManager.dismiss();
 
       let errorMessage = 'Failed to fetch recommendations';
       let errorDescription = 'Please try again later.';
