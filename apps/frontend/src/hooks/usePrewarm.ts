@@ -174,93 +174,97 @@ export function usePrewarm(): UsePrewarmReturn {
   const abortControllerRef = useRef<AbortController | null>(null);
 
   // Check if API is prewarmed
-  const isPrewarmed = state.status === PrewarmStatus.SUCCESS && 
-    (Date.now() - state.lastAttempt) < PREWARM_CONFIG.CACHE_DURATION_MS;
+  const isPrewarmed =
+    state.status === PrewarmStatus.SUCCESS &&
+    Date.now() - state.lastAttempt < PREWARM_CONFIG.CACHE_DURATION_MS;
 
   /**
    * Attempts to prewarm the API by trying multiple endpoints in sequence
    */
-  const prewarmApi = useCallback(async (force: boolean = false): Promise<PrewarmStatus> => {
-    const now = Date.now();
+  const prewarmApi = useCallback(
+    async (force: boolean = false): Promise<PrewarmStatus> => {
+      const now = Date.now();
 
-    // Skip if already prewarmed recently unless forced
-    if (
-      !force &&
-      state.status === PrewarmStatus.SUCCESS &&
-      now - state.lastAttempt < PREWARM_CONFIG.CACHE_DURATION_MS
-    ) {
-      logPrewarm('API already prewarmed recently, skipping');
-      return PrewarmStatus.SUCCESS;
-    }
+      // Skip if already prewarmed recently unless forced
+      if (
+        !force &&
+        state.status === PrewarmStatus.SUCCESS &&
+        now - state.lastAttempt < PREWARM_CONFIG.CACHE_DURATION_MS
+      ) {
+        logPrewarm('API already prewarmed recently, skipping');
+        return PrewarmStatus.SUCCESS;
+      }
 
-    // Cancel any existing prewarm operation
-    if (abortControllerRef.current) {
-      abortControllerRef.current.abort();
-    }
+      // Cancel any existing prewarm operation
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort();
+      }
 
-    // Create new abort controller
-    abortControllerRef.current = new AbortController();
+      // Create new abort controller
+      abortControllerRef.current = new AbortController();
 
-    setIsPrewarming(true);
-    setState(prev => ({
-      ...prev,
-      status: PrewarmStatus.IN_PROGRESS,
-      lastAttempt: now,
-      isInitialLoad: false,
-      error: undefined,
-    }));
+      setIsPrewarming(true);
+      setState((prev) => ({
+        ...prev,
+        status: PrewarmStatus.IN_PROGRESS,
+        lastAttempt: now,
+        isInitialLoad: false,
+        error: undefined,
+      }));
 
-    logPrewarm('Starting API prewarm sequence');
+      logPrewarm('Starting API prewarm sequence');
 
-    try {
-      // Try each endpoint in order until one succeeds
-      let anySuccess = false;
+      try {
+        // Try each endpoint in order until one succeeds
+        let anySuccess = false;
 
-      for (const endpoint of PREWARM_CONFIG.ENDPOINTS) {
-        if (abortControllerRef.current?.signal.aborted) {
-          logPrewarm('Prewarm operation aborted by caller', 'warn');
-          setState(prev => ({ ...prev, status: PrewarmStatus.FAILED }));
+        for (const endpoint of PREWARM_CONFIG.ENDPOINTS) {
+          if (abortControllerRef.current?.signal.aborted) {
+            logPrewarm('Prewarm operation aborted by caller', 'warn');
+            setState((prev) => ({ ...prev, status: PrewarmStatus.FAILED }));
+            return PrewarmStatus.FAILED;
+          }
+
+          const success = await pingEndpoint(endpoint, {
+            signal: abortControllerRef.current?.signal,
+          });
+
+          if (success) {
+            anySuccess = true;
+            break;
+          }
+        }
+
+        // Update state based on result
+        if (anySuccess) {
+          setState((prev) => ({ ...prev, status: PrewarmStatus.SUCCESS }));
+          logPrewarm('API prewarm completed successfully');
+          return PrewarmStatus.SUCCESS;
+        } else {
+          setState((prev) => ({
+            ...prev,
+            status: PrewarmStatus.FAILED,
+            error: 'All prewarm attempts failed',
+          }));
+          logPrewarm('All prewarm attempts failed', 'error');
           return PrewarmStatus.FAILED;
         }
-
-        const success = await pingEndpoint(endpoint, { 
-          signal: abortControllerRef.current?.signal 
-        });
-
-        if (success) {
-          anySuccess = true;
-          break;
-        }
-      }
-
-      // Update state based on result
-      if (anySuccess) {
-        setState(prev => ({ ...prev, status: PrewarmStatus.SUCCESS }));
-        logPrewarm('API prewarm completed successfully');
-        return PrewarmStatus.SUCCESS;
-      } else {
-        setState(prev => ({ 
-          ...prev, 
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+        setState((prev) => ({
+          ...prev,
           status: PrewarmStatus.FAILED,
-          error: 'All prewarm attempts failed'
+          error: errorMessage,
         }));
-        logPrewarm('All prewarm attempts failed', 'error');
+        logPrewarm(`Prewarm error: ${errorMessage}`, 'error');
         return PrewarmStatus.FAILED;
+      } finally {
+        setIsPrewarming(false);
+        abortControllerRef.current = null;
       }
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-      setState(prev => ({ 
-        ...prev, 
-        status: PrewarmStatus.FAILED,
-        error: errorMessage
-      }));
-      logPrewarm(`Prewarm error: ${errorMessage}`, 'error');
-      return PrewarmStatus.FAILED;
-    } finally {
-      setIsPrewarming(false);
-      abortControllerRef.current = null;
-    }
-  }, [state.status, state.lastAttempt]);
+    },
+    [state.status, state.lastAttempt]
+  );
 
   /**
    * Auto-prewarm on initial load

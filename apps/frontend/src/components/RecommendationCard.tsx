@@ -160,7 +160,7 @@ const RecommendationCard: React.FC<RecommendationCardProps> = ({ book, resetAcco
                   <Flex gap="1" align="center">
                     <Target size={19} className="text-green-600" />
                     <Text size="2" className="text-green-700 font-medium">
-                      Matches your interest in:
+                      Matches
                     </Text>
                   </Flex>
                 </motion.div>
