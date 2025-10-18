@@ -139,7 +139,7 @@ The application follows a modern client-server architecture with a monorepo stru
 
    After starting the backend, you can access the API documentation at:
    - Swagger UI: `http://localhost:10000/swagger-ui/`
-   - OpenAPI JSON: `http://localhost:10000/api-doc/openapi.json`
+   - OpenAPI JSON: `http://localhost:10000/api-docs/openapi.json`
 
 ### Book Indexing
 
@@ -161,7 +161,7 @@ cargo run --bin index_books -- data/books.csv
 ### Recommendations
 - `POST /api/recommendations/` - Get book recommendations based on query
   - **Request Body**: `{ "query": "fantasy books with dragons", "top_k": 50 }`
-  - **Response**: 
+  - **Response**:
     ```json
     {
       "recommendations": [
