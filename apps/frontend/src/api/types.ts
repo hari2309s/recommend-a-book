@@ -16,6 +16,8 @@ export interface Book {
   page_count?: number;
   language?: string;
   publisher?: string;
+  relevance_indicators: string[];
+  confidence_score: number;
 }
 
 /**
@@ -31,6 +33,7 @@ export interface RecommendationRequest {
  */
 export interface RecommendationResponse {
   recommendations: Book[];
+  semantic_tags: string[];
 }
 
 /**

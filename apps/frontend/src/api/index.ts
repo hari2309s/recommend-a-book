@@ -246,9 +246,14 @@ export async function fetchRecommendations(
         page_count: book.page_count,
         language: book.language,
         publisher: book.publisher,
+        relevance_indicators: book.relevance_indicators || [],
+        confidence_score: book.confidence_score || 0,
       }));
 
-      const result = { recommendations };
+      const result = {
+        recommendations,
+        semantic_tags: data.semantic_tags || [],
+      };
 
       // Store in cache if caching is enabled
       if (useCache) {

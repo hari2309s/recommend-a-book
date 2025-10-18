@@ -1,7 +1,7 @@
 import type { Book } from '@/api/types';
 import { Card, Heading, Badge, Flex, Text, Separator } from '@radix-ui/themes';
 import { motion } from 'framer-motion';
-import { ShoppingCartIcon, Star } from 'lucide-react';
+import { ShoppingCartIcon, Star, Target, TrendingUp } from 'lucide-react';
 import React, { useState, useEffect } from 'react';
 import BookThumbnail from '@/components/BookThumbnail';
 import AuthorBadges from '@/components/AuthorBadges';
@@ -134,6 +134,52 @@ const RecommendationCard: React.FC<RecommendationCardProps> = ({ book, resetAcco
                   </motion.div>
                 ))}
             </Flex>
+
+            {/* Confidence Score */}
+            <Flex gap="2" align="center" direction="row" className="w-full">
+              <motion.div
+                initial={{ opacity: 0, x: -20 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ duration: 0.4, delay: 0.6 }}
+              >
+                <TrendingUp size={16} className="text-green-600" />
+              </motion.div>
+              <Text size="2" className="text-green-700 font-medium">
+                {Math.round(book.confidence_score * 100)}% match
+              </Text>
+            </Flex>
+
+            {/* Relevance Indicators */}
+            {book.relevance_indicators && book.relevance_indicators.length > 0 && (
+              <Flex gap="2" align="center" className="w-full">
+                <motion.div
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.4, delay: 0.7 }}
+                >
+                  <Flex gap="1" align="center">
+                    <Target size={19} className="text-green-600" />
+                    <Text size="2" className="text-green-700 font-medium">
+                      Matches your interest in:
+                    </Text>
+                  </Flex>
+                </motion.div>
+                <Flex gap="1" wrap="wrap" className="ml-5">
+                  {book.relevance_indicators.slice(0, 3).map((indicator, index) => (
+                    <motion.div
+                      key={indicator}
+                      initial={{ opacity: 0, scale: 0.8 }}
+                      animate={{ opacity: 1, scale: 1 }}
+                      transition={{ duration: 0.3, delay: 0.8 + index * 0.1 }}
+                    >
+                      <Badge variant="solid" size="2" className="text-sm">
+                        {indicator}
+                      </Badge>
+                    </motion.div>
+                  ))}
+                </Flex>
+              </Flex>
+            )}
             <Separator size="4" />
             <div className="mt-3 w-full">
               <BookDescriptionAccordion

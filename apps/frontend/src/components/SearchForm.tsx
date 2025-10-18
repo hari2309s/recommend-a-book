@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { motion, useScroll, useMotionValueEvent } from 'framer-motion';
-import { Button, Flex, TextField } from '@radix-ui/themes';
-import { Search } from 'lucide-react';
+import { Button, Flex, TextField, Badge, Text } from '@radix-ui/themes';
+import { Search, Tag } from 'lucide-react';
 import { toast } from 'sonner';
 import type { Book, ColdStartInfo } from '@/api/types';
 import { fetchRecommendations } from '@/api';
@@ -26,6 +26,7 @@ const SearchForm: React.FC<SearchFormProps> = ({
   const { scrollY } = useScroll();
   const [input, setInput] = useState<string>('');
   const [coldStartToastId, setColdStartToastId] = useState<string | number | null>(null);
+  const [currentSemanticTags, setCurrentSemanticTags] = useState<string[]>([]);
 
   useMotionValueEvent(scrollY, 'change', (latest) => {
     setIsSticky(latest > 140);
@@ -104,6 +105,7 @@ const SearchForm: React.FC<SearchFormProps> = ({
 
       if (data.recommendations && Array.isArray(data.recommendations)) {
         setAllRecommendations(data.recommendations);
+        setCurrentSemanticTags(data.semantic_tags || []);
       } else {
         console.error('Invalid recommendations format received');
         toast.error('Invalid response format', {
@@ -148,7 +150,7 @@ const SearchForm: React.FC<SearchFormProps> = ({
     <motion.div
       className="z-50 fixed left-4 right-4 w-[80%] sm:w-[50%] bg-green-500/40
         backdrop-blur-lg border border-dashed border-green-300/20 shadow-lg
-        shadow-green-500/10 flex justify-center items-center min-h-[75px]"
+        shadow-green-500/10 flex flex-col gap-[10px] justify-center items-center min-h-[75px]"
       style={{
         padding: '19px',
         backdropFilter: 'blur(20px)',
@@ -269,6 +271,38 @@ const SearchForm: React.FC<SearchFormProps> = ({
           </motion.div>
         </Flex>
       </motion.form>
+
+      {currentSemanticTags.length > 0 && (
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5, delay: 0.3 }}
+          className="w-full max-w-4xl mt-4 m-3"
+        >
+          <Flex gap="2" direction="column" align="center">
+            <Flex gap="2" align="center">
+              <Tag size={16} className="text-green-600" />
+              <Text size="2" className="text-green-700 font-medium">
+                Detected themes:
+              </Text>
+            </Flex>
+            <Flex gap="2" wrap="wrap">
+              {currentSemanticTags.map((tag, index) => (
+                <motion.div
+                  key={tag}
+                  initial={{ opacity: 0, scale: 0.8 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  transition={{ duration: 0.3, delay: 0.4 + index * 0.1 }}
+                >
+                  <Badge variant="solid" size="3" className="text-sm">
+                    {tag}
+                  </Badge>
+                </motion.div>
+              ))}
+            </Flex>
+          </Flex>
+        </motion.div>
+      )}
     </motion.div>
   );
 };
