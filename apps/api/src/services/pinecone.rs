@@ -611,6 +611,8 @@ impl Pinecone {
                                 .get("publisher")
                                 .and_then(|v| v.as_str())
                                 .map(|s| s.to_string()),
+                            relevance_indicators: vec![],
+                            confidence_score: 0.0,
                         };
 
                         debug!("Created minimal book fallback for ID: {}", match_.id);
@@ -635,6 +637,8 @@ impl Pinecone {
                     ratings_count: None,
                     language: None,
                     publisher: None,
+                    relevance_indicators: vec![],
+                    confidence_score: 0.0,
                 };
 
                 debug!("Created minimal book fallback for ID: {}", match_.id);

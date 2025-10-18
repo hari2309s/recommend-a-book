@@ -146,7 +146,11 @@ impl RecommendationService {
         Ok(true)
     }
 
-    pub async fn get_recommendations(&self, query: &str, top_k: usize) -> Result<Vec<Book>> {
+    pub async fn get_recommendations(
+        &self,
+        query: &str,
+        top_k: usize,
+    ) -> Result<(Vec<Book>, Vec<String>)> {
         let trimmed_query = query.trim();
         if trimmed_query.is_empty() {
             return Err(ApiError::InvalidInput("Query cannot be empty".into()));
@@ -162,7 +166,10 @@ impl RecommendationService {
             if let Some(entry) = cache.get(&cache_key) {
                 if entry.timestamp.elapsed() < Duration::from_secs(CACHE_TTL_SECONDS) {
                     info!("CACHE HIT for query: {}", trimmed_query);
-                    return Ok(entry.results.clone());
+                    // For cached results, we need to extract semantic tags from the query
+                    let enhanced_query = self.query_enhancer.enhance(trimmed_query);
+                    let semantic_tags = self.extract_semantic_tags(&enhanced_query);
+                    return Ok((entry.results.clone(), semantic_tags));
                 }
             }
         }
@@ -173,6 +180,9 @@ impl RecommendationService {
         let enhanced_query = self.query_enhancer.enhance(trimmed_query);
         info!("Enhanced query pattern: {:?}", enhanced_query.pattern);
         info!("Extracted terms: {:?}", enhanced_query.extracted_terms);
+
+        // Extract semantic tags from the enhanced query
+        let semantic_tags = self.extract_semantic_tags(&enhanced_query);
 
         // Convert EnhancedQuery to your existing QueryIntent for backward compatibility
         let intent = self.convert_enhanced_to_intent(&enhanced_query);
@@ -205,14 +215,14 @@ impl RecommendationService {
             }
         };
 
-        // Rank and process results (your existing code)
-        let ranked_results = self.rank_results(raw_results, &intent, top_k);
+        // Rank and process results with confidence scores and relevance indicators
+        let ranked_results =
+            self.rank_results_with_metadata(raw_results, &intent, &enhanced_query, top_k);
         info!(
             "Returning {} ranked results for query '{}'",
             ranked_results.len(),
             trimmed_query
         );
-
 
         // Update cache with new results (your existing code)
         if let Ok(mut cache) = self.result_cache.write() {
@@ -237,12 +247,328 @@ impl RecommendationService {
             info!("Current cache size: {} entries", cache.len());
         }
 
-        Ok(ranked_results)
+        Ok((ranked_results, semantic_tags))
     }
 
     #[allow(dead_code)]
     pub fn get_cache_stats(&self) -> Option<usize> {
         self.query_enhancer.cache_stats().map(|s| s.valid_entries)
+    }
+
+    /// Extract semantic tags from enhanced query
+    fn extract_semantic_tags(&self, enhanced_query: &EnhancedQuery) -> Vec<String> {
+        let mut tags = Vec::new();
+
+        // Add extracted terms
+        tags.extend(enhanced_query.extracted_terms.clone());
+
+        // Add expanded terms (but avoid duplicates)
+        for term in &enhanced_query.expanded_terms {
+            if !tags.contains(term) {
+                tags.push(term.clone());
+            }
+        }
+
+        // Add filter-based tags
+        if let Some(author) = &enhanced_query.filters.author {
+            tags.push(format!("Author: {}", author));
+        }
+
+        for genre in &enhanced_query.filters.genres {
+            if !tags.contains(genre) {
+                tags.push(genre.clone());
+            }
+        }
+
+        for theme in &enhanced_query.filters.themes {
+            if !tags.contains(theme) {
+                tags.push(theme.clone());
+            }
+        }
+
+        for setting in &enhanced_query.filters.settings {
+            if !tags.contains(setting) {
+                tags.push(format!("Setting: {}", setting));
+            }
+        }
+
+        // Limit to top 10 most relevant tags
+        tags.into_iter().take(10).collect()
+    }
+
+    /// Rank results with confidence scores and relevance indicators
+    fn rank_results_with_metadata(
+        &self,
+        mut results: Vec<Book>,
+        intent: &QueryIntent,
+        enhanced_query: &EnhancedQuery,
+        top_k: usize,
+    ) -> Vec<Book> {
+        // Early return if no results or only one result
+        if results.len() <= 1 {
+            return results;
+        }
+
+        // Calculate the max result count to avoid unnecessary sorting
+        let max_needed = (top_k * 3).min(results.len());
+
+        // Use specialized sorting based on intent for better performance
+        match intent {
+            QueryIntent::Author { name, .. } => {
+                let name_lower = name.to_lowercase();
+
+                // Create a vector with (index, match score, rating) for each book
+                let mut indexed_books: Vec<(usize, i32, f32)> = results
+                    .iter()
+                    .enumerate()
+                    .map(|(idx, book)| {
+                        let author = book.author.as_deref().unwrap_or("").to_lowercase();
+                        let exact_match = author.contains(&name_lower) as i32;
+                        (idx, exact_match, book.rating)
+                    })
+                    .collect();
+
+                // Sort the indices
+                indexed_books.sort_by(|a, b| {
+                    let (_, a_exact, a_rating) = *a;
+                    let (_, b_exact, b_rating) = *b;
+
+                    b_exact.cmp(&a_exact).then_with(|| {
+                        b_rating
+                            .partial_cmp(&a_rating)
+                            .unwrap_or(std::cmp::Ordering::Equal)
+                    })
+                });
+
+                // Create a new sorted result vector
+                let mut sorted_results = Vec::with_capacity(results.len());
+                for (idx, _, _) in indexed_books {
+                    sorted_results.push(results[idx].clone());
+                }
+
+                // Replace the original results with the sorted ones
+                results = sorted_results;
+            }
+            QueryIntent::Genre { genre, .. } => {
+                let genre_lower = genre.to_lowercase();
+
+                // Create a vector with (index, match score, rating) for each book
+                let mut indexed_books: Vec<(usize, i32, f32)> = results
+                    .iter()
+                    .enumerate()
+                    .map(|(idx, book)| {
+                        let categories = book.categories.join(", ").to_lowercase();
+                        let has_match = categories.contains(&genre_lower) as i32;
+                        (idx, has_match, book.rating)
+                    })
+                    .collect();
+
+                // Sort the indices
+                indexed_books.sort_by(|a, b| {
+                    let (_, a_match, a_rating) = *a;
+                    let (_, b_match, b_rating) = *b;
+
+                    b_match.cmp(&a_match).then_with(|| {
+                        b_rating
+                            .partial_cmp(&a_rating)
+                            .unwrap_or(std::cmp::Ordering::Equal)
+                    })
+                });
+
+                // Create a new sorted result vector
+                let mut sorted_results = Vec::with_capacity(results.len());
+                for (idx, _, _) in indexed_books {
+                    sorted_results.push(results[idx].clone());
+                }
+
+                // Replace the original results with the sorted ones
+                results = sorted_results;
+            }
+            _ => {
+                info!("Using GENERAL search ranking logic");
+
+                // For general search, use more sophisticated ranking that balances
+                // semantic relevance with book quality
+                let total_results = results.len();
+                let mut scored_results = results.iter().enumerate()
+                    .map(|(idx, book)| {
+                        // Position score: 3.0 (best) to 0.01 (worst)
+                        let position_score = 3.0 * (1.0 - (idx as f32 / total_results as f32));
+
+                        // Rating score: Scale to 0-1 range and then to 0.85-0.95
+                        // This gives ratings influence but doesn't overpower position
+                        let rating_score = 0.85 + (book.rating / 5.0) * 0.10;
+
+                        // Compute final score
+                        let final_score = if idx < 50 {
+                            // For top results, position has more weight
+                            position_score + rating_score
+                        } else {
+                            // For later results, rating has more weight to help good books rise
+                            position_score * 0.7 + rating_score * 1.3
+                        };
+
+                        if tracing::enabled!(tracing::Level::DEBUG) {
+                            debug!("Book scoring: {:?} - Position: {}/{} (score: {:.2}), Rating: {:.2} (scaled: {:.2}), Final score: {:.2}",
+                                 book.title, idx + 1, total_results, position_score, book.rating, rating_score, final_score);
+                        }
+
+                        (book.clone(), final_score)
+                    })
+                    .collect::<Vec<_>>();
+
+                // Sort by final score
+                scored_results
+                    .sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap_or(std::cmp::Ordering::Equal));
+
+                // Extract just the books in new order
+                results = scored_results.into_iter().map(|(book, _)| book).collect();
+
+                // Just log a summary at info level
+                info!("Completed scoring of {} books", results.len());
+
+                // Add detailed information only at debug level
+                if tracing::enabled!(tracing::Level::DEBUG) {
+                    debug!(
+                        "After custom scoring, top 5 results: {:?}",
+                        results
+                            .iter()
+                            .take(5)
+                            .map(|b| b.title.clone())
+                            .collect::<Vec<_>>()
+                    );
+                }
+            }
+        }
+
+        // Remove duplicates but don't limit too early
+        let mut seen = HashSet::with_capacity(max_needed);
+        let mut unique_results = Vec::with_capacity(max_needed);
+
+        for book in results {
+            // Keep collecting until we have significantly more than requested
+            // This ensures we don't limit too early and end up with fewer than desired
+            if unique_results.len() >= top_k * 3 {
+                break;
+            }
+
+            let key = format!(
+                "{}-{}",
+                book.title.as_deref().unwrap_or("Unknown"),
+                book.author.as_deref().unwrap_or("Unknown")
+            );
+
+            if seen.insert(key) {
+                unique_results.push(book);
+            }
+        }
+
+        // Final ranking list with metadata
+        let final_results = unique_results
+            .iter()
+            .enumerate()
+            .take(top_k)
+            .map(|(index, book)| {
+                let mut book_clone = book.clone();
+                // Calculate confidence score based on position and rating
+                let position_factor = 1.0 - (index as f32 / top_k as f32);
+                let rating_factor = book_clone.rating / 5.0;
+                book_clone.confidence_score =
+                    (position_factor * 0.7 + rating_factor * 0.3).min(1.0);
+
+                // Generate relevance indicators
+                book_clone.relevance_indicators =
+                    self.generate_relevance_indicators(&book_clone, enhanced_query);
+
+                book_clone
+            })
+            .collect::<Vec<Book>>();
+
+        info!(
+            "FINAL RANKING: Top {} results ready for response. First book: {:?}",
+            final_results.len(),
+            final_results.first().map(|b| b.title.clone())
+        );
+
+        // Return limited results
+        final_results
+    }
+
+    /// Generate relevance indicators for a book based on the query
+    fn generate_relevance_indicators(
+        &self,
+        book: &Book,
+        enhanced_query: &EnhancedQuery,
+    ) -> Vec<String> {
+        let mut indicators = Vec::new();
+
+        // Check for theme matches in description
+        for theme in &enhanced_query.filters.themes {
+            if book.description.as_ref().map_or(false, |desc| {
+                desc.to_lowercase().contains(&theme.to_lowercase())
+            }) {
+                indicators.push(theme.clone());
+            }
+        }
+
+        // Check for specific query terms in description
+        for term in &enhanced_query.extracted_terms {
+            if book.description.as_ref().map_or(false, |desc| {
+                desc.to_lowercase().contains(&term.to_lowercase())
+            }) {
+                indicators.push(term.clone());
+            }
+        }
+
+        // Add author match if applicable
+        if let Some(author) = &enhanced_query.filters.author {
+            if book.author.as_ref().map_or(false, |book_author| {
+                book_author.to_lowercase().contains(&author.to_lowercase())
+            }) {
+                indicators.push(format!("Author: {}", author));
+            }
+        }
+
+        // Add setting match if applicable
+        for setting in &enhanced_query.filters.settings {
+            if book.description.as_ref().map_or(false, |desc| {
+                desc.to_lowercase().contains(&setting.to_lowercase())
+            }) {
+                indicators.push(format!("Setting: {}", setting));
+            }
+        }
+
+        // Add genre matches that are contextually relevant
+        for category in &book.categories {
+            // Check if this category relates to the query themes
+            let category_lower = category.to_lowercase();
+            let is_relevant = enhanced_query.filters.themes.iter().any(|theme| {
+                category_lower.contains(&theme.to_lowercase())
+                    || theme.to_lowercase().contains(&category_lower)
+            }) || enhanced_query.extracted_terms.iter().any(|term| {
+                category_lower.contains(&term.to_lowercase())
+                    || term.to_lowercase().contains(&category_lower)
+            });
+
+            if is_relevant {
+                indicators.push(category.clone());
+            }
+        }
+
+        // If we still don't have enough indicators, add the most relevant categories
+        if indicators.len() < 3 {
+            for category in &book.categories {
+                if !indicators.contains(category) {
+                    indicators.push(category.clone());
+                }
+                if indicators.len() >= 3 {
+                    break;
+                }
+            }
+        }
+
+        // Limit to 3 most relevant indicators
+        indicators.into_iter().take(3).collect()
     }
 
     fn convert_enhanced_to_intent(&self, enhanced: &EnhancedQuery) -> QueryIntent {
@@ -444,188 +770,6 @@ impl RecommendationService {
         }
 
         Ok(results)
-    }
-
-    fn rank_results(
-        &self,
-        mut results: Vec<Book>,
-        intent: &QueryIntent,
-        top_k: usize,
-    ) -> Vec<Book> {
-        // Early return if no results or only one result
-        if results.len() <= 1 {
-            return results;
-        }
-
-        // Calculate the max result count to avoid unnecessary sorting
-        // Allow for 2-3x more results than requested to account for duplicates and filtering
-        let max_needed = (top_k * 3).min(results.len());
-
-        // Use specialized sorting based on intent for better performance
-        match intent {
-            QueryIntent::Author { name, .. } => {
-                let name_lower = name.to_lowercase();
-
-                // Create a vector with (index, match score, rating) for each book
-                let mut indexed_books: Vec<(usize, i32, f32)> = results
-                    .iter()
-                    .enumerate()
-                    .map(|(idx, book)| {
-                        let author = book.author.as_deref().unwrap_or("").to_lowercase();
-                        let exact_match = author.contains(&name_lower) as i32;
-                        (idx, exact_match, book.rating)
-                    })
-                    .collect();
-
-                // Sort the indices
-                indexed_books.sort_by(|a, b| {
-                    let (_, a_exact, a_rating) = *a;
-                    let (_, b_exact, b_rating) = *b;
-
-                    b_exact.cmp(&a_exact).then_with(|| {
-                        b_rating
-                            .partial_cmp(&a_rating)
-                            .unwrap_or(std::cmp::Ordering::Equal)
-                    })
-                });
-
-                // Create a new sorted result vector
-                let mut sorted_results = Vec::with_capacity(results.len());
-                for (idx, _, _) in indexed_books {
-                    sorted_results.push(results[idx].clone());
-                }
-
-                // Replace the original results with the sorted ones
-                results = sorted_results;
-            }
-            QueryIntent::Genre { genre, .. } => {
-                let genre_lower = genre.to_lowercase();
-
-                // Create a vector with (index, match score, rating) for each book
-                let mut indexed_books: Vec<(usize, i32, f32)> = results
-                    .iter()
-                    .enumerate()
-                    .map(|(idx, book)| {
-                        let categories = book.categories.join(", ").to_lowercase();
-                        let has_match = categories.contains(&genre_lower) as i32;
-                        (idx, has_match, book.rating)
-                    })
-                    .collect();
-
-                // Sort the indices
-                indexed_books.sort_by(|a, b| {
-                    let (_, a_match, a_rating) = *a;
-                    let (_, b_match, b_rating) = *b;
-
-                    b_match.cmp(&a_match).then_with(|| {
-                        b_rating
-                            .partial_cmp(&a_rating)
-                            .unwrap_or(std::cmp::Ordering::Equal)
-                    })
-                });
-
-                // Create a new sorted result vector
-                let mut sorted_results = Vec::with_capacity(results.len());
-                for (idx, _, _) in indexed_books {
-                    sorted_results.push(results[idx].clone());
-                }
-
-                // Replace the original results with the sorted ones
-                results = sorted_results;
-            }
-            _ => {
-                info!("Using GENERAL search ranking logic");
-
-                // For general search, use more sophisticated ranking that balances
-                // semantic relevance with book quality
-                let total_results = results.len();
-                let mut scored_results = results.iter().enumerate()
-                    .map(|(idx, book)| {
-                        // Position score: 3.0 (best) to 0.01 (worst)
-                        let position_score = 3.0 * (1.0 - (idx as f32 / total_results as f32));
-
-                        // Rating score: Scale to 0-1 range and then to 0.85-0.95
-                        // This gives ratings influence but doesn't overpower position
-                        let rating_score = 0.85 + (book.rating / 5.0) * 0.10;
-
-                        // Compute final score
-                        let final_score = if idx < 50 {
-                            // For top results, position has more weight
-                            position_score + rating_score
-                        } else {
-                            // For later results, rating has more weight to help good books rise
-                            position_score * 0.7 + rating_score * 1.3
-                        };
-
-                        if tracing::enabled!(tracing::Level::DEBUG) {
-                            debug!("Book scoring: {:?} - Position: {}/{} (score: {:.2}), Rating: {:.2} (scaled: {:.2}), Final score: {:.2}",
-                                 book.title, idx + 1, total_results, position_score, book.rating, rating_score, final_score);
-                        }
-
-                        (book.clone(), final_score)
-                    })
-                    .collect::<Vec<_>>();
-
-                // Sort by final score
-                scored_results
-                    .sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap_or(std::cmp::Ordering::Equal));
-
-                // Extract just the books in new order
-                results = scored_results.into_iter().map(|(book, _)| book).collect();
-
-                // Just log a summary at info level
-                info!("Completed scoring of {} books", results.len());
-
-                // Add detailed information only at debug level
-                if tracing::enabled!(tracing::Level::DEBUG) {
-                    debug!(
-                        "After custom scoring, top 5 results: {:?}",
-                        results
-                            .iter()
-                            .take(5)
-                            .map(|b| b.title.clone())
-                            .collect::<Vec<_>>()
-                    );
-                }
-            }
-        }
-
-        // Remove duplicates but don't limit too early
-        let mut seen = HashSet::with_capacity(max_needed);
-        let mut unique_results = Vec::with_capacity(max_needed);
-
-        for book in results {
-            // Keep collecting until we have significantly more than requested
-            // This ensures we don't limit too early and end up with fewer than desired
-            if unique_results.len() >= top_k * 3 {
-                break;
-            }
-
-            let key = format!(
-                "{}-{}",
-                book.title.as_deref().unwrap_or("Unknown"),
-                book.author.as_deref().unwrap_or("Unknown")
-            );
-
-            if seen.insert(key) {
-                unique_results.push(book);
-            }
-        }
-
-        // Final ranking list
-        let final_results = unique_results
-            .into_iter()
-            .take(top_k)
-            .collect::<Vec<Book>>();
-
-        info!(
-            "FINAL RANKING: Top {} results ready for response. First book: {:?}",
-            final_results.len(),
-            final_results.first().map(|b| b.title.clone())
-        );
-
-        // Return limited results
-        final_results
     }
 
     /// Fallback search when HuggingFace embedding service is unavailable

@@ -148,6 +148,16 @@ pub struct Book {
     #[schema(example = "Houghton Mifflin Harcourt")]
     pub publisher: Option<String>,
 
+    /// Relevance indicators showing why this book was recommended
+    #[serde(default)]
+    #[schema(example = json!(["Fantasy", "Adventure", "Magic"]))]
+    pub relevance_indicators: Vec<String>,
+
+    /// Confidence score indicating how well this book matches the query (0.0 to 1.0)
+    #[serde(default)]
+    #[schema(example = 0.95, minimum = 0.0, maximum = 1.0)]
+    pub confidence_score: f32,
+
 }
 
 /// Book recommendation with similarity score

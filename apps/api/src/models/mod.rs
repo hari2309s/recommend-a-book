@@ -23,6 +23,9 @@ pub struct RecommendationRequest {
 pub struct RecommendationResponse {
     /// List of recommended books
     pub recommendations: Vec<Book>,
+    /// Semantic tags extracted from the query
+    #[schema(example = json!(["Fantasy", "Magic", "Adventure"]))]
+    pub semantic_tags: Vec<String>,
 }
 
 /// Health check response structure

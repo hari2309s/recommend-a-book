@@ -37,11 +37,12 @@ pub async fn get_recommendations(
         return Err(ApiError::InvalidInput("Query cannot be empty".to_string()));
     }
 
-    let recommendations = recommendation_service
+    let (recommendations, semantic_tags) = recommendation_service
         .get_recommendations(&request.query, top_k)
         .await?;
 
     Ok(HttpResponse::Ok().json(serde_json::json!({
         "recommendations": recommendations,
+        "semantic_tags": semantic_tags,
     })))
 }
