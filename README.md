@@ -34,6 +34,7 @@
 
 ### Backend (Rust)
 - **Web Framework**: Actix-web 4.4 with CORS support
+- **Async Runtime**: Tokio for high-performance asynchronous operations
 - **Machine Learning**:
   - BAAI/bge-large-en-v1.5 embeddings via Hugging Face Inference API
   - Vector similarity search using Pinecone
@@ -69,218 +70,61 @@
   - Semantic tag display for query understanding
   - Smooth animations and transitions
 
-## Enhanced Recommendation Features
-
-The system now provides rich contextual information to help users understand why specific books were recommended:
-
-### Relevance Indicators
-Each book recommendation includes contextual tags showing why it was suggested:
-- **Theme Matches**: Tags like "friendship", "family", "magic" when found in book descriptions
-- **Author Matches**: "Author: Tolkien" when searching for specific authors
-- **Setting Matches**: "Setting: Medieval" for location-based queries
-- **Genre Relevance**: Categories that relate to your query themes
-
-### Confidence Scores
-Every recommendation displays a percentage match score (0-100%) indicating how well the book matches your query:
-- Calculated based on semantic similarity and book quality ratings
-- Higher scores indicate better matches to your search intent
-- Helps prioritize recommendations by relevance
-
-### Semantic Tags
-The search interface displays extracted themes from your query:
-- Shows what concepts the system detected from your search
-- Includes both direct terms and expanded related concepts
-- Helps you understand how the system interpreted your request
-- Example: "books about authentic friendships" → ["friendship", "authentic", "families", "lies"]
-
-These features work together to provide transparent, explainable recommendations that help users make informed choices about their next read.
-
-The application follows a modern client-server architecture with a monorepo structure:
-
-- **Backend**: Rust-based API server providing high-performance endpoints for search and recommendations
-- **Frontend**: React single-page application with modern state management and UI components
-- **ML Pipeline**: Text embedding generation using BAAI/bge-large-en-v1.5 via Hugging Face Inference API and similarity search using Pinecone
-- **Data Storage**:
-  - Pinecone for vector embeddings and similarity search
-- **Deployment**:
-  - Render for hosting the Rust API
-  - Vercel for hosting the React frontend
-- **Monorepo**: Managed with pnpm workspaces and Turbo for build orchestration
-
 ## Getting Started
 
 ### Prerequisites
+- Node.js >= 18.0.0
+- pnpm 10.14.0
+- Rust (latest stable)
+- Pinecone & Hugging Face API keys
 
-- **Node.js**: >= 18.0.0
-- **pnpm**: 10.14.0 (package manager)
-- **Rust**: Latest stable version
-- **PostgreSQL**: For local development
-- **API Keys**: Pinecone and Hugging Face accounts
-
-### Installation
-
-1. **Clone the repository**
-   ```bash
-   git clone https://github.com/hari2309s/recommend-a-book.git
-   cd recommend-a-book
-   ```
-
-2. **Install dependencies**
-   ```bash
-   pnpm install
-   cd apps/api && cargo fetch
-   ```
-
-3. **Set up environment variables**
-   ```bash
-   # Copy example configuration files
-   cp apps/api/config/development.toml.example apps/api/config/development.toml
-
-   # Set up environment variables (see Environment Variables section)
-   ```
-
-4. **Start development servers**
-   ```bash
-   # Start both frontend and backend in development mode
-   pnpm dev
-
-   # Or start individually
-   pnpm dev:frontend  # Frontend on http://localhost:3000
-   pnpm dev:api       # Backend on http://localhost:10000
-
-   # For production-like testing (API in dev mode, frontend built)
-   pnpm start
-   ```
-
-   After starting the backend, you can access the API documentation at:
-   - Swagger UI: `http://localhost:10000/swagger-ui/`
-   - OpenAPI JSON: `http://localhost:10000/api-docs/openapi.json`
-
-### Book Indexing
-
-To index books from a CSV file:
-
+### Quick Start
 ```bash
-# Using the convenient script
-pnpm index:books
+# Clone and install
+git clone https://github.com/hari2309s/recommend-a-book.git
+cd recommend-a-book
+pnpm install
+cd apps/api && cargo fetch
 
-# Or manually
-cd apps/api
-cargo run --bin index_books -- data/books.csv
+# Set up environment
+cp apps/api/config/development.toml.example apps/api/config/development.toml
+# Edit development.toml with your API keys
+
+# Start development servers
+pnpm dev
 ```
 
-## API Endpoints
+- Frontend: http://localhost:3000
+- Backend: http://localhost:10000
+- API Docs: http://localhost:10000/swagger-ui/
 
-**Base URL**: `http://localhost:10000` (development) / `https://recommend-a-book-api.onrender.com` (production)
+## API
 
-### Recommendations
-- `POST /api/recommendations/` - Get book recommendations based on query
-  - **Request Body**: `{ "query": "fantasy books with dragons", "top_k": 50 }`
-  - **Response**:
-    ```json
-    {
-      "recommendations": [
-        {
-          "id": "book_123",
-          "title": "The Hobbit",
-          "author": "J.R.R. Tolkien",
-          "description": "A fantasy adventure...",
-          "categories": ["Fantasy", "Adventure"],
-          "rating": 4.5,
-          "relevance_indicators": ["Fantasy", "Magic", "Adventure"],
-          "confidence_score": 0.95
-        }
-      ],
-      "semantic_tags": ["fantasy", "dragons", "magic", "adventure"]
-    }
-    ```
+**Base URL**: `http://localhost:10000` (dev) / `https://recommend-a-book-api.onrender.com` (prod)
 
-### Health Check
-- `GET /api/health` - API health status
+### Main Endpoints
+- `POST /api/recommendations/` - Get book recommendations
+- `GET /api/health` - Health check
+- `/swagger-ui/` - Interactive API documentation
 
-### API Documentation
-- `/swagger-ui/` - Interactive Swagger UI documentation
-- `/api-doc/openapi.json` - OpenAPI specification in JSON format
+### Example Request
+```json
+{
+  "query": "fantasy books with dragons",
+  "top_k": 50
+}
+```
 
-#### Using Swagger UI
-Once the server is running, you can access the Swagger UI documentation:
+## Scripts
 
-1. Navigate to `http://localhost:10000/swagger-ui/` in your browser (using your configured port)
-2. The UI shows all available endpoints with their descriptions, parameters, and response formats
-3. To test an endpoint:
-   - Click on the endpoint to expand it
-   - Click the "Try it out" button
-   - Fill in any required parameters or request body
-   - Click "Execute" to make a real API call
-   - View the response directly in the UI
-
-This makes it easy to explore and test the API without writing any code.
-
-## Environment Variables
-
-### Backend
-- `APP_DATABASE_URL`: PostgreSQL connection string
-- `APP_PINECONE_API_KEY`: API key for Pinecone vector database
-- `APP_PINECONE_ENV`: Pinecone environment
-- `APP_PINECONE_INDEX_NAME`: Pinecone index name
-- `APP_HUGGINGFACE_API_KEY`: API key for Hugging Face Inference API
-- `RUST_LOG`: Logging level configuration
-
-### Frontend
-- `VITE_API_URL`: Backend API endpoint for development
-- `VITE_RECOMMEND_A_BOOK_API_BASE_URL`: Development API base URL (default: http://localhost:10000)
-- `VITE_RECOMMEND_A_BOOK_API_PROD_BASE_URL`: Production API base URL (https://recommend-a-book-api.onrender.com)
-- `VITE_ENVIRONMENT`: Development/production environment setting
-
-### Available Scripts
-
-- `pnpm dev` - Start both frontend and backend in development mode
-- `pnpm dev:frontend` - Start only the frontend development server
-- `pnpm dev:api` - Start only the backend development server
+- `pnpm dev` - Start both frontend and backend
 - `pnpm build` - Build both applications
-- `pnpm build:frontend` - Build only the frontend
-- `pnpm build:api` - Build only the backend
-- `pnpm start` - Start both applications (API in dev mode, frontend built and previewed)
-- `pnpm start:api` - Start only the backend API server
-- `pnpm start:frontend` - Build and preview the frontend
-- `pnpm lint` - Run linting across the project
-- `pnpm lint:frontend` - Run linting only on frontend
-- `pnpm format` - Format code with Prettier
-- `pnpm clean` - Clean build artifacts and dependencies
-- `pnpm index:books` - Index books from CSV file
-
-### Database Setup
-
-**Pinecone Setup**:
-  - Create a Pinecone account and index
-  - Configure the index for vector similarity search
-  - Set up environment variables
+- `pnpm index:books` - Index books from CSV
 
 ## Deployment
 
-### Backend (Render)
-
-The backend is deployed on Render with the following setup:
-
-- **Live URL**: [https://recommend-a-book-api.onrender.com](https://recommend-a-book-api.onrender.com)
-- **Runtime**: Rust
-- **Build Command**: `cargo build --release`
-- **Start Command**: `./target/release/recommend-a-book-api`
-- **Health Check**: `/api/health`
-- **Documentation**: `/swagger-ui/`
-
-### Frontend (Vercel)
-
-The frontend is deployed on Vercel with:
-
-- **Live URL**: [https://recommend-a-book-frontend.vercel.app/](https://recommend-a-book-frontend.vercel.app/)
-- **Build Command**: `pnpm run build`
-- **Output Directory**: `dist`
-- **Environment Variables**: Configured for production API URL
-
-## 📄 License
-
-**MIT License** - see [LICENSE](LICENSE) file for details.
+- **API**: [https://recommend-a-book-api.onrender.com](https://recommend-a-book-api.onrender.com) (Render)
+- **Frontend**: [https://recommend-a-book-frontend.vercel.app/](https://recommend-a-book-frontend.vercel.app/) (Vercel)
 
 ---
 
