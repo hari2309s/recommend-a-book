@@ -38,6 +38,7 @@ const SearchForm: React.FC<SearchFormProps> = ({
 
     setLoading(true);
     setErrorMessage(null);
+    setCurrentSemanticTags([]);
     resetScroll();
 
     // Start cold start toast timer
