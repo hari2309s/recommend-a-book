@@ -96,9 +96,9 @@ const SearchForm: React.FC<SearchFormProps> = ({
 
   return (
     <motion.div
-      className="z-50 fixed left-4 right-4 w-[80%] sm:w-[50%] bg-secondary/40 backdrop-blur-lg
-      border border-dashed border-primary/20 shadow-lg shadow-primary/10 flex flex-col gap-[10px]
-      justify-center items-center min-h-[75px]"
+      className="z-50 fixed left-1/2 -translate-x-1/2 w-[80%] sm:w-[80%] md:w-[70%] lg:w-[60%] xl:w-[50%]
+      bg-secondary/40 backdrop-blur-lg border border-dashed border-primary/20 shadow-lg shadow-primary/10
+      flex flex-col gap-[10px] justify-center items-center min-h-[75px] max-w-[1000px]"
       style={{
         padding: '19px',
         backdropFilter: 'blur(20px)',
@@ -129,7 +129,7 @@ const SearchForm: React.FC<SearchFormProps> = ({
           opacity: 1,
           scale: 1,
         },
-        top: isSticky ? 50 : 190,
+        top: isSticky ? 20 : 190,
         boxShadow: isSticky
           ? '0 25px 50px -12px rgba(139, 69, 19, 0.25), 0 8px 16px -8px rgba(139, 69, 19, 0.1)'
           : '0 10px 25px -5px rgba(139, 69, 19, 0.1), 0 4px 6px -2px rgba(139, 69, 19, 0.05)',

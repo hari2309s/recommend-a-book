@@ -29,7 +29,7 @@ const RecommendationList: React.FC<RecommendationListProps> = ({
     <Flex asChild p="4" m="4" direction="column" align="center">
       <motion.div variants={listVariants} initial="hidden" animate="visible">
         {recommendations && recommendations.length > 0 ? (
-          <Grid columns={{ initial: '1', sm: '2', md: '3' }} gapY="5" gapX="4" mt="170px">
+          <Grid columns={{ initial: '1', sm: '2', md: '3' }} gapY="5" gapX="4">
             {recommendations.map((book) => (
               <motion.div key={`${book.title}-${book.author}`} variants={listItemVariants}>
                 <RecommendationCard book={book} resetAccordion={resetAccordions} />

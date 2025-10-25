@@ -7,7 +7,7 @@ import SearchForm from '@/components/SearchForm';
 import Header from '@/components/Header';
 import { useInfiniteScroll } from '@/hooks';
 import { pageVariants } from '@/utils';
-import RecommendationsContainer from '@/components/RecommendationsContainer';
+import RecommendationContainer from '@/components/RecommendationContainer';
 
 const App: React.FC = () => {
   const [loading, setLoading] = useState<boolean>(false);
@@ -40,7 +40,7 @@ const App: React.FC = () => {
           setAllRecommendations={setAllRecommendations}
           setErrorMessage={setErrorMessage}
         />
-        <RecommendationsContainer
+        <RecommendationContainer
           searchPerformed={searchPerformed}
           loading={loading}
           recommendations={recommendations}

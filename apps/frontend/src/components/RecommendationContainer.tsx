@@ -24,7 +24,7 @@ const RecommendationContainer: React.FC<RecommendationContainerProps> = ({
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, y: -20 }}
       transition={{ duration: 0.5 }}
-      className="w-full min-w-[400px]"
+      className="w-full min-w-[400px] pt-[190px]"
     >
       {recommendations.length > 0 && (
         <RecommendationList recommendations={recommendations} searchPerformed={searchPerformed} />
