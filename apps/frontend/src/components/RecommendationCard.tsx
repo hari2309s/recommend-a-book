@@ -34,7 +34,7 @@ const RecommendationCard: React.FC<RecommendationCardProps> = ({ book, resetAcco
         cursor: 'pointer',
         transition: 'box-shadow 0.3s ease',
       }}
-      className="hover:shadow-lg hover:shadow-green-200/50 border-0"
+      className="hover:shadow-lg hover:shadow-brown-200/50 border-0"
     >
       <motion.div
         whileHover={{
@@ -105,7 +105,7 @@ const RecommendationCard: React.FC<RecommendationCardProps> = ({ book, resetAcco
                       damping: 10,
                     }}
                   >
-                    <ShoppingCartIcon fill="green" color="green" />
+                    <ShoppingCartIcon fill="brown" color="brown" />
                   </motion.a>
                 ))}
               </div>
@@ -117,7 +117,7 @@ const RecommendationCard: React.FC<RecommendationCardProps> = ({ book, resetAcco
                   animate={{ rotate: 0, opacity: 1 }}
                   transition={{ duration: 0.5, delay: 0.4 }}
                 >
-                  <Star fill="green" />
+                  <Star fill="brown" color="brown" />
                 </motion.div>
                 <Text>
                   {book.rating?.toFixed(2)} / {formatRatingsCount(book.ratings_count || 0)}
@@ -142,9 +142,9 @@ const RecommendationCard: React.FC<RecommendationCardProps> = ({ book, resetAcco
                 animate={{ opacity: 1, x: 0 }}
                 transition={{ duration: 0.4, delay: 0.6 }}
               >
-                <TrendingUp size={16} className="text-green-600" />
+                <TrendingUp size={16} className="text-brown-600" />
               </motion.div>
-              <Text size="2" className="text-green-700 font-medium">
+              <Text size="2" className="text-brown-700 font-medium">
                 {Math.round(book.confidence_score * 100)}% match
               </Text>
             </Flex>
@@ -158,8 +158,8 @@ const RecommendationCard: React.FC<RecommendationCardProps> = ({ book, resetAcco
                   transition={{ duration: 0.4, delay: 0.7 }}
                 >
                   <Flex gap="1" align="center">
-                    <Target size={19} className="text-green-600" />
-                    <Text size="2" className="text-green-700 font-medium">
+                    <Target size={19} className="text-brown-600" />
+                    <Text size="2" className="text-brown-700 font-medium">
                       Matches
                     </Text>
                   </Flex>

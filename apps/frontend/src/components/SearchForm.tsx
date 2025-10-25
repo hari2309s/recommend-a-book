@@ -96,16 +96,16 @@ const SearchForm: React.FC<SearchFormProps> = ({
 
   return (
     <motion.div
-      className="z-50 fixed left-4 right-4 w-[80%] sm:w-[50%] bg-green-500/40
-        backdrop-blur-lg border border-dashed border-green-300/20 shadow-lg
-        shadow-green-500/10 flex flex-col gap-[10px] justify-center items-center min-h-[75px]"
+      className="z-50 fixed left-4 right-4 w-[80%] sm:w-[50%] bg-secondary/40 backdrop-blur-lg
+      border border-dashed border-primary/20 shadow-lg shadow-primary/10 flex flex-col gap-[10px]
+      justify-center items-center min-h-[75px]"
       style={{
         padding: '19px',
         backdropFilter: 'blur(20px)',
         WebkitBackdropFilter: 'blur(20px)',
-        background: 'rgba(34, 197, 94, 0.4)',
+        background: 'rgba(245, 245, 220, 0.4)',
         borderRadius: '6px',
-        borderColor: 'green',
+        borderColor: '#8B4513',
       }}
       variants={{
         initial: {
@@ -131,8 +131,8 @@ const SearchForm: React.FC<SearchFormProps> = ({
         },
         top: isSticky ? 50 : 190,
         boxShadow: isSticky
-          ? '0 25px 50px -12px rgba(34, 197, 94, 0.25), 0 8px 16px -8px rgba(34, 197, 94, 0.1)'
-          : '0 10px 25px -5px rgba(34, 197, 94, 0.1), 0 4px 6px -2px rgba(34, 197, 94, 0.05)',
+          ? '0 25px 50px -12px rgba(139, 69, 19, 0.25), 0 8px 16px -8px rgba(139, 69, 19, 0.1)'
+          : '0 10px 25px -5px rgba(139, 69, 19, 0.1), 0 4px 6px -2px rgba(139, 69, 19, 0.05)',
       }}
       transition={{
         opacity: { duration: 0.6, ease: 'easeOut', delay: 0.4 },
@@ -182,8 +182,8 @@ const SearchForm: React.FC<SearchFormProps> = ({
               className="w-full"
               style={{
                 backgroundColor: 'rgba(255, 255, 255, 0.9)',
-                border: '1px solid rgba(34, 197, 94, 0.3)',
-                outline: '1px solid rgba(34, 197, 94, 0.5)',
+                border: '1px solid rgba(139, 69, 19, 0.3)',
+                outline: '1px solid rgba(139, 69, 19, 0.5)',
                 outlineOffset: '0px',
               }}
             >
@@ -208,9 +208,9 @@ const SearchForm: React.FC<SearchFormProps> = ({
               loading={loading}
               disabled={loading || !input.trim()}
               size="3"
-              className="whitespace-nowrap bg-green-600 hover:bg-green-700 text-white"
+              className="whitespace-nowrap bg-primary hover:bg-primary-dark text-white"
               style={{
-                backgroundColor: 'rgb(34, 197, 94)',
+                backgroundColor: '#8B4513',
                 color: 'white',
               }}
             >
@@ -229,8 +229,8 @@ const SearchForm: React.FC<SearchFormProps> = ({
         >
           <Flex gap="2" direction="column" align="center">
             <Flex gap="2" align="center">
-              <Tag size={16} className="text-green-600" />
-              <Text size="2" className="text-green-700 font-medium">
+              <Tag size={16} className="text-primary" />
+              <Text size="2" className="text-primary-dark font-medium">
                 Detected themes:
               </Text>
             </Flex>
@@ -242,7 +242,11 @@ const SearchForm: React.FC<SearchFormProps> = ({
                   animate={{ opacity: 1, scale: 1 }}
                   transition={{ duration: 0.3, delay: 0.4 + index * 0.1 }}
                 >
-                  <Badge variant="solid" size="3" className="text-sm">
+                  <Badge
+                    variant="solid"
+                    size="3"
+                    className="text-sm bg-primary/20 text-primary-dark"
+                  >
                     {tag}
                   </Badge>
                 </motion.div>

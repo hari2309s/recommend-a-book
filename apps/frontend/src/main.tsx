@@ -7,7 +7,13 @@ import { Toaster } from 'sonner';
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
-    <Theme accentColor="green" grayColor="slate" radius="medium" scaling="95%">
+    <Theme
+      accentColor="brown"
+      grayColor="olive"
+      radius="medium"
+      scaling="95%"
+      className="custom-theme"
+    >
       <App />
       <Toaster
         position="top-right"
@@ -17,9 +23,9 @@ createRoot(document.getElementById('root')!).render(
         duration={5000}
         toastOptions={{
           style: {
-            background: 'rgba(255, 255, 255, 0.95)',
+            background: 'rgba(245, 245, 220, 0.95)',
             backdropFilter: 'blur(10px)',
-            border: '1px solid rgba(34, 197, 94, 0.2)',
+            border: '1px solid rgba(139, 69, 19, 0.2)',
           },
         }}
       />

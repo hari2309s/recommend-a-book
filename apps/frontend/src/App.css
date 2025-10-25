@@ -5,6 +5,12 @@
   padding: 0;
   width: 100%;
   overflow-x: hidden;
+  --accent-9: 139 69 19; /* Saddle Brown */
+  --accent-10: 139 69 19;
+  --accent-11: 139 69 19;
+  --gray-9: 245 245 220; /* Beige */
+  --gray-10: 245 245 220;
+  --gray-11: 245 245 220;
 }
 
 
@@ -93,9 +99,6 @@
   transform: translateY(-2px);
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
 }
-
-/* Loading states */
-
 
 /* Focus states for accessibility */
 .focus-ring:focus {

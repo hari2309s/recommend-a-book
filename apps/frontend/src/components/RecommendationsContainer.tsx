@@ -46,7 +46,7 @@ const RecommendationContainer: React.FC<RecommendationContainerProps> = ({
         >
           <motion.div initial="initial" animate="animate" variants={containerVariants}>
             {loading ? (
-              <motion.div style={{ marginBottom: '10px' }}>
+              <motion.div style={{ marginBottom: '10px', color: 'brown' }}>
                 <Spinner size="3" loading={loading} className="mb-4" />
               </motion.div>
             ) : (

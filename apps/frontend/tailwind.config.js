@@ -1,5 +1,4 @@
 /** @type {import('tailwindcss').Config} */
-import { slate, green } from '@radix-ui/colors';
 import { accordion } from '@radix-ui/themes';
 
 export default {
@@ -40,8 +39,20 @@ export default {
     },
     extend: {
       colors: {
-        ...slate,
-        ...green,
+        // Warm Earthy Tones
+        primary: {
+          DEFAULT: '#8B4513', // Saddle Brown
+          light: '#A0522D', // Lighter Brown
+          dark: '#5C3A1D', // Darker Brown
+        },
+        secondary: {
+          DEFAULT: '#F5F5DC', // Beige
+          light: '#FAF9F6', // Off-White
+          dark: '#E6E6D8', // Darker Beige
+        },
+        accent: {
+          DEFAULT: '#D2691E', // Chocolate
+        },
       },
       keyframes: {
         slideDown: {
