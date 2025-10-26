@@ -1,6 +1,6 @@
 import type { Book } from '@/api/types';
-import React from 'react';
-import { motion } from 'framer-motion';
+import React, { useEffect } from 'react';
+import { motion, useMotionValue, useSpring } from 'framer-motion';
 import RecommendationList from '@/components/RecommendationList';
 import { Flex, Spinner, Text } from '@radix-ui/themes';
 import { containerVariants, imageVariants, APP_MESSAGES } from '@/utils';
@@ -21,6 +21,18 @@ const RecommendationContainer: React.FC<RecommendationContainerProps> = ({
   error,
   paddingTop,
 }) => {
+  // Convert paddingTop string to a number for animation
+  const paddingTopValue = useMotionValue(parseInt(paddingTop.replace('px', ''), 10) || 190);
+  const smoothPaddingTop = useSpring(paddingTopValue, {
+    damping: 20,
+    stiffness: 100,
+  });
+
+  // Update the motion value when paddingTop changes
+  useEffect(() => {
+    paddingTopValue.set(parseInt(paddingTop.replace('px', ''), 10) || 190);
+  }, [paddingTop, paddingTopValue]);
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
@@ -28,12 +40,11 @@ const RecommendationContainer: React.FC<RecommendationContainerProps> = ({
       exit={{ opacity: 0, y: -20 }}
       transition={{ duration: 0.5 }}
       className="w-full min-w-[400px]"
-      style={{ paddingTop }}
+      style={{ paddingTop: smoothPaddingTop }}
     >
-      {recommendations.length > 0 && (
+      {recommendations.length > 0 ? (
         <RecommendationList recommendations={recommendations} searchPerformed={searchPerformed} />
-      )}
-      {recommendations.length === 0 && (
+      ) : (
         <Flex
           asChild
           p="4"
