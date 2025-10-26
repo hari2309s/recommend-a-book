@@ -1,4 +1,5 @@
 import { toast } from 'sonner';
+import { TOAST_MESSAGES, formatRetryMessage } from '@/utils';
 
 const COLD_START_DELAY_MS = 2000; // Show toast only if request takes > 2 seconds
 
@@ -28,8 +29,8 @@ class ColdStartToastManager {
   private showToast(): void {
     if (this.toastId !== null) return;
 
-    this.toastId = toast.loading('🔥 Warming up the API...', {
-      description: 'First request detected. The API is starting up. This will be faster next time!',
+    this.toastId = toast.loading(TOAST_MESSAGES.COLD_START_LOADING, {
+      description: TOAST_MESSAGES.COLD_START_DESCRIPTION,
       duration: Infinity,
     });
   }
@@ -39,9 +40,9 @@ class ColdStartToastManager {
    */
   retry(attempt: number, maxRetries: number): void {
     if (this.toastId !== null) {
-      toast.loading(`Retry ${attempt}/${maxRetries}...`, {
+      toast.loading(formatRetryMessage(attempt, maxRetries), {
         id: this.toastId,
-        description: 'Still warming up. Please wait...',
+        description: TOAST_MESSAGES.COLD_START_RETRY_DESCRIPTION,
       });
     }
   }

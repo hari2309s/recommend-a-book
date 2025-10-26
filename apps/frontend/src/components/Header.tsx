@@ -2,6 +2,7 @@ import { Flex, Heading } from '@radix-ui/themes';
 import React from 'react';
 import { motion } from 'framer-motion';
 import { imageVariants, headerVariants } from '@/utils';
+import { APP_MESSAGES } from '@/utils';
 
 const Header: React.FC = () => {
   return (
@@ -26,7 +27,7 @@ const Header: React.FC = () => {
           src="/book-store.png"
           width={35}
           height={35}
-          alt="Book Recommendation System"
+          alt={APP_MESSAGES.LOGO_ALT}
           initial="initial"
           animate="animate"
           variants={imageVariants}
@@ -41,7 +42,7 @@ const Header: React.FC = () => {
             onClick={() => window.location.reload()}
             style={{ all: 'unset', cursor: 'pointer' }}
           >
-            Book Recommendation System
+            {APP_MESSAGES.TITLE}
           </a>
         </Heading>
       </motion.div>

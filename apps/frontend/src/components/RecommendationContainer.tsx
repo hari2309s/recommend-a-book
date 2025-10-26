@@ -3,7 +3,8 @@ import React from 'react';
 import { motion } from 'framer-motion';
 import RecommendationList from '@/components/RecommendationList';
 import { Flex, Spinner, Text } from '@radix-ui/themes';
-import { containerVariants, imageVariants, RECOMMENDATIONS_MESSAGES } from '@/utils';
+import { containerVariants, imageVariants, APP_MESSAGES } from '@/utils';
+import { IMAGE_ALT_MESSAGES } from '@/utils';
 
 type RecommendationContainerProps = {
   searchPerformed: boolean;
@@ -56,7 +57,7 @@ const RecommendationContainer: React.FC<RecommendationContainerProps> = ({
                 src={error ? '/error.png' : '/info.png'}
                 width={40}
                 height={40}
-                alt="Error"
+                alt={error ? IMAGE_ALT_MESSAGES.ERROR : IMAGE_ALT_MESSAGES.INFO}
                 initial="initial"
                 animate="animate"
                 variants={imageVariants}
@@ -67,10 +68,10 @@ const RecommendationContainer: React.FC<RecommendationContainerProps> = ({
               {error
                 ? error !== ''
                   ? error
-                  : RECOMMENDATIONS_MESSAGES.ERROR_LOADING
+                  : APP_MESSAGES.ERROR_LOADING
                 : loading
-                  ? RECOMMENDATIONS_MESSAGES.LOADING
-                  : RECOMMENDATIONS_MESSAGES.INFO}
+                  ? APP_MESSAGES.LOADING
+                  : APP_MESSAGES.INFO}
             </Text>
           </motion.div>
         </Flex>

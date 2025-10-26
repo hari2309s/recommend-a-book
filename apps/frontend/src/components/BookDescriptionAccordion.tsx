@@ -2,6 +2,7 @@ import React from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ChevronDown } from 'lucide-react';
 import { Text } from '@radix-ui/themes';
+import { BOOK_DESCRIPTION_MESSAGES } from '@/utils';
 
 type BookDescriptionAccordionProps = {
   description: string;
@@ -36,7 +37,7 @@ const BookDescriptionAccordion: React.FC<BookDescriptionAccordionProps> = ({
         }}
         onClick={onToggle}
       >
-        <Text>Description</Text>
+        <Text>{BOOK_DESCRIPTION_MESSAGES.DESCRIPTION_LABEL}</Text>
         <motion.div
           animate={{ rotate: isOpen ? 180 : 0 }}
           transition={{ duration: 0.3 }}

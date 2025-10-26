@@ -7,6 +7,7 @@ import type { Book } from '@/api/types';
 import { fetchRecommendations } from '@/api';
 import { containerVariants } from '@/utils';
 import { coldStartToastManager } from '@/utils/coldStartToast';
+import { SEARCH_MESSAGES, TOAST_MESSAGES } from '@/utils';
 
 type SearchFormProps = {
   loading: boolean;
@@ -66,24 +67,24 @@ const SearchForm: React.FC<SearchFormProps> = ({
         setAllRecommendations(data.recommendations);
         setCurrentSemanticTags(data.semantic_tags || []);
       } else {
-        toast.error('Invalid response format', {
-          description: 'Please try again.',
+        toast.error(TOAST_MESSAGES.INVALID_RESPONSE, {
+          description: TOAST_MESSAGES.INVALID_RESPONSE_DESCRIPTION,
         });
       }
     } catch (error) {
       // Dismiss toast on error
       coldStartToastManager.dismiss();
 
-      let errorMessage = 'Failed to fetch recommendations';
-      let errorDescription = 'Please try again later.';
+      let errorMessage = TOAST_MESSAGES.FETCH_FAILED;
+      let errorDescription = TOAST_MESSAGES.FETCH_FAILED_DESCRIPTION;
 
       if (error instanceof Error) {
         if (error.message.includes('timed out')) {
-          errorMessage = 'Request timed out';
-          errorDescription = 'The API is taking longer than expected. Please try again.';
+          errorMessage = TOAST_MESSAGES.TIMEOUT;
+          errorDescription = TOAST_MESSAGES.TIMEOUT_DESCRIPTION;
         } else if (error.message.includes('Network error')) {
-          errorMessage = 'Connection failed';
-          errorDescription = 'Could not reach the API server. Check your connection.';
+          errorMessage = TOAST_MESSAGES.NETWORK_ERROR;
+          errorDescription = TOAST_MESSAGES.NETWORK_ERROR_DESCRIPTION;
         } else {
           errorDescription = error.message;
         }
@@ -181,7 +182,7 @@ const SearchForm: React.FC<SearchFormProps> = ({
             <TextField.Root
               id="search-input"
               size="3"
-              placeholder="Enter your book preferences"
+              placeholder={SEARCH_MESSAGES.PLACEHOLDER}
               value={input}
               onChange={(e: React.ChangeEvent<HTMLInputElement>) => setInput(e.target.value)}
               onBlur={(e: React.FocusEvent<HTMLInputElement>) => setInput(e.target.value)}
@@ -220,7 +221,7 @@ const SearchForm: React.FC<SearchFormProps> = ({
                 color: 'white',
               }}
             >
-              Get Recommendations
+              {SEARCH_MESSAGES.SUBMIT_LABEL}
             </Button>
           </motion.div>
         </Flex>
@@ -237,7 +238,7 @@ const SearchForm: React.FC<SearchFormProps> = ({
             <Flex gap="2" align="center">
               <Tag size={18} color="brown" fill="brown" />
               <Text size="2" className="text-primary-dark font-medium">
-                Detected themes:
+                {SEARCH_MESSAGES.DETECTED_THEMES_LABEL}
               </Text>
             </Flex>
             <Flex gap="2" wrap="wrap" justify="center">
