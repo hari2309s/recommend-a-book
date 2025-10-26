@@ -3,8 +3,7 @@ import React, { useEffect } from 'react';
 import { motion, useMotionValue, useSpring } from 'framer-motion';
 import RecommendationList from '@/components/RecommendationList';
 import { Flex, Spinner, Text } from '@radix-ui/themes';
-import { containerVariants, imageVariants, APP_MESSAGES } from '@/utils';
-import { IMAGE_ALT_MESSAGES } from '@/utils';
+import { containerVariants, imageVariants, APP_MESSAGES, IMAGE_ALT_MESSAGES } from '@/utils';
 
 type RecommendationContainerProps = {
   searchPerformed: boolean;

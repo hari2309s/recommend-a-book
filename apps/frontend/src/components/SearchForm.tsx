@@ -5,9 +5,7 @@ import { Search, Tag } from 'lucide-react';
 import { toast } from 'sonner';
 import type { Book } from '@/api/types';
 import { fetchRecommendations } from '@/api';
-import { containerVariants } from '@/utils';
-import { coldStartToastManager } from '@/utils/coldStartToast';
-import { SEARCH_MESSAGES, TOAST_MESSAGES } from '@/utils';
+import { containerVariants, coldStartToastManager, SEARCH_MESSAGES, TOAST_MESSAGES } from '@/utils';
 
 type SearchFormProps = {
   loading: boolean;
