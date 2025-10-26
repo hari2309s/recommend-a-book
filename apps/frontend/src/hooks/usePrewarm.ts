@@ -33,22 +33,6 @@ interface UsePrewarmReturn {
   error?: string;
 }
 
-function logPrewarm(message: string, level: 'info' | 'warn' | 'error' = 'info'): void {
-  if (!PREWARM_CONFIG.ENABLE_LOGGING) return;
-  const prefix = '[API Prewarm]';
-  switch (level) {
-    case 'info':
-      console.info(`${prefix} ${message}`);
-      break;
-    case 'warn':
-      console.warn(`${prefix} ${message}`);
-      break;
-    case 'error':
-      console.error(`${prefix} ${message}`);
-      break;
-  }
-}
-
 async function pingEndpoint(
   endpoint: string,
   options: {
@@ -75,8 +59,6 @@ async function pingEndpoint(
       url = `${apiConfig.baseURL}${normalizedEndpoint}`;
     }
 
-    logPrewarm(`Pinging ${url}...`);
-
     for (let attempt = 0; attempt <= retries; attempt++) {
       if (combinedSignal.aborted) {
         throw new Error('Request aborted');
@@ -87,7 +69,7 @@ async function pingEndpoint(
           const baseDelay = PREWARM_CONFIG.RETRY_DELAY_MS * Math.pow(2, attempt - 1);
           const jitter = Math.random() * 1000;
           const delay = baseDelay + jitter;
-          logPrewarm(`Retry attempt ${attempt}/${retries} after ${Math.round(delay)}ms delay`);
+
           await new Promise((resolve) => setTimeout(resolve, delay));
         }
 
@@ -105,29 +87,16 @@ async function pingEndpoint(
         });
 
         if (response.ok) {
-          logPrewarm(`Successfully prewarmed API using ${endpoint} endpoint`);
           return true;
-        } else {
-          logPrewarm(
-            `Prewarm request to ${endpoint} failed with status ${response.status}`,
-            'warn'
-          );
         }
       } catch (err) {
         const error = err as Error;
         if (error.name === 'AbortError') {
-          logPrewarm(
-            `Prewarm request to ${endpoint} timed out after ${PREWARM_CONFIG.TIMEOUT_MS}ms`,
-            'warn'
-          );
           break;
-        } else {
-          logPrewarm(`Error during prewarm attempt ${attempt}: ${error.message}`, 'warn');
         }
       }
     }
 
-    logPrewarm(`All retry attempts failed for endpoint ${endpoint}`, 'error');
     return false;
   } finally {
     clearTimeout(timeoutId);
@@ -157,7 +126,6 @@ export function usePrewarm(): UsePrewarmReturn {
         state.status === PrewarmStatus.SUCCESS &&
         now - state.lastAttempt < PREWARM_CONFIG.CACHE_DURATION_MS
       ) {
-        logPrewarm('API already prewarmed recently, skipping');
         return PrewarmStatus.SUCCESS;
       }
 
@@ -176,14 +144,11 @@ export function usePrewarm(): UsePrewarmReturn {
         error: undefined,
       }));
 
-      logPrewarm('Starting API prewarm sequence');
-
       try {
         let anySuccess = false;
 
         for (const endpoint of PREWARM_CONFIG.ENDPOINTS) {
           if (abortControllerRef.current?.signal.aborted) {
-            logPrewarm('Prewarm operation aborted by caller', 'warn');
             setState((prev) => ({ ...prev, status: PrewarmStatus.FAILED }));
             return PrewarmStatus.FAILED;
           }
@@ -200,7 +165,6 @@ export function usePrewarm(): UsePrewarmReturn {
 
         if (anySuccess) {
           setState((prev) => ({ ...prev, status: PrewarmStatus.SUCCESS }));
-          logPrewarm('API prewarm completed successfully');
           return PrewarmStatus.SUCCESS;
         } else {
           setState((prev) => ({
@@ -208,7 +172,6 @@ export function usePrewarm(): UsePrewarmReturn {
             status: PrewarmStatus.FAILED,
             error: 'All prewarm attempts failed',
           }));
-          logPrewarm('All prewarm attempts failed', 'error');
           return PrewarmStatus.FAILED;
         }
       } catch (error) {
@@ -218,7 +181,6 @@ export function usePrewarm(): UsePrewarmReturn {
           status: PrewarmStatus.FAILED,
           error: errorMessage,
         }));
-        logPrewarm(`Prewarm error: ${errorMessage}`, 'error');
         return PrewarmStatus.FAILED;
       } finally {
         setIsPrewarming(false);
@@ -232,15 +194,8 @@ export function usePrewarm(): UsePrewarmReturn {
   useEffect(() => {
     if (state.isInitialLoad) {
       const timeoutId = setTimeout(() => {
-        logPrewarm('Auto-prewarming API on initial page load');
-        prewarmApi().catch((err) => {
-          logPrewarm(
-            `Error during initial prewarm: ${err instanceof Error ? err.message : 'Unknown error'}`,
-            'error'
-          );
-        });
+        prewarmApi().catch(() => {});
       }, 1000);
-
       return () => clearTimeout(timeoutId);
     }
   }, [state.isInitialLoad, prewarmApi]);
@@ -251,17 +206,10 @@ export function usePrewarm(): UsePrewarmReturn {
       if (document.visibilityState === 'visible') {
         const now = Date.now();
         if (now - state.lastAttempt > 10 * 60 * 1000) {
-          logPrewarm('Prewarming API after tab became visible');
-          prewarmApi().catch((err) => {
-            logPrewarm(
-              `Error during visibility prewarm: ${err instanceof Error ? err.message : 'Unknown error'}`,
-              'error'
-            );
-          });
+          prewarmApi().catch(() => {});
         }
       }
     };
-
     document.addEventListener('visibilitychange', handleVisibilityChange);
     return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
   }, [state.lastAttempt, prewarmApi]);
