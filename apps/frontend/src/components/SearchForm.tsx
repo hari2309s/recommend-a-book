@@ -66,14 +66,11 @@ const SearchForm: React.FC<SearchFormProps> = ({
         setAllRecommendations(data.recommendations);
         setCurrentSemanticTags(data.semantic_tags || []);
       } else {
-        console.error('Invalid recommendations format received');
         toast.error('Invalid response format', {
           description: 'Please try again.',
         });
       }
     } catch (error) {
-      console.error('Error fetching recommendations:', error);
-
       // Dismiss toast on error
       coldStartToastManager.dismiss();
 
