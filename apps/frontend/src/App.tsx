@@ -5,13 +5,15 @@ import { Flex } from '@radix-ui/themes';
 import '@/App.css';
 import SearchForm from '@/components/SearchForm';
 import Header from '@/components/Header';
-import { useInfiniteScroll } from '@/hooks';
+import { useDynamicPadding, useInfiniteScroll } from '@/hooks';
 import { pageVariants } from '@/utils';
 import RecommendationContainer from '@/components/RecommendationContainer';
 
 const App: React.FC = () => {
   const [loading, setLoading] = useState<boolean>(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
+  const { paddingTop, formRef, updatePadding } = useDynamicPadding();
 
   const {
     visibleItems: recommendations,
@@ -39,12 +41,15 @@ const App: React.FC = () => {
           resetScroll={resetScroll}
           setAllRecommendations={setAllRecommendations}
           setErrorMessage={setErrorMessage}
+          formRef={formRef}
+          updatePadding={updatePadding}
         />
         <RecommendationContainer
           searchPerformed={searchPerformed}
           loading={loading}
           recommendations={recommendations}
           error={errorMessage}
+          paddingTop={paddingTop}
         />
       </motion.div>
     </Flex>

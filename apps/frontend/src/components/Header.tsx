@@ -14,7 +14,7 @@ const Header: React.FC = () => {
         borderRadius: '6px',
         boxShadow: '0 2px 4px rgba(0, 0, 0, 0.1)',
         backgroundColor: 'var(--accent-2)',
-        color: 'var(--accent-11)',
+        color: 'brown',
       }}
       direction="column"
       justify="center"

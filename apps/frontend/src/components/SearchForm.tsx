@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { motion, useScroll, useMotionValueEvent } from 'framer-motion';
 import { Button, Flex, TextField, Badge, Text } from '@radix-ui/themes';
 import { Search, Tag } from 'lucide-react';
@@ -14,6 +14,8 @@ type SearchFormProps = {
   resetScroll: () => void;
   setAllRecommendations: (books: Book[]) => void;
   setErrorMessage: (message: string | null) => void;
+  formRef: React.RefObject<HTMLDivElement | null>;
+  updatePadding: () => void;
 };
 
 const SearchForm: React.FC<SearchFormProps> = ({
@@ -22,11 +24,17 @@ const SearchForm: React.FC<SearchFormProps> = ({
   resetScroll,
   setAllRecommendations,
   setErrorMessage,
+  formRef,
+  updatePadding,
 }: SearchFormProps) => {
   const [isSticky, setIsSticky] = useState<boolean>(false);
   const { scrollY } = useScroll();
   const [input, setInput] = useState<string>('');
   const [currentSemanticTags, setCurrentSemanticTags] = useState<string[]>([]);
+
+  useEffect(() => {
+    updatePadding();
+  }, [currentSemanticTags, updatePadding]);
 
   useMotionValueEvent(scrollY, 'change', (latest: number) => {
     setIsSticky(latest > 140);
@@ -96,6 +104,7 @@ const SearchForm: React.FC<SearchFormProps> = ({
 
   return (
     <motion.div
+      ref={formRef}
       className="z-50 fixed left-1/2 -translate-x-1/2 w-[80%] sm:w-[80%] md:w-[70%] lg:w-[60%] xl:w-[50%]
       bg-secondary/40 backdrop-blur-lg border border-dashed border-primary/20 shadow-lg shadow-primary/10
       flex flex-col gap-[10px] justify-center items-center min-h-[75px] max-w-[1000px]"
@@ -188,7 +197,7 @@ const SearchForm: React.FC<SearchFormProps> = ({
               }}
             >
               <TextField.Slot>
-                <Search height="16" width="16" />
+                <Search height="16" width="16" color="brown" />
               </TextField.Slot>
             </TextField.Root>
           </motion.div>
@@ -210,7 +219,7 @@ const SearchForm: React.FC<SearchFormProps> = ({
               size="3"
               className="whitespace-nowrap bg-primary hover:bg-primary-dark text-white"
               style={{
-                backgroundColor: '#8B4513',
+                backgroundColor: 'brown',
                 color: 'white',
               }}
             >
@@ -229,7 +238,7 @@ const SearchForm: React.FC<SearchFormProps> = ({
         >
           <Flex gap="2" direction="column" align="center">
             <Flex gap="2" align="center">
-              <Tag size={16} className="text-primary" />
+              <Tag size={18} color="brown" fill="brown" />
               <Text size="2" className="text-primary-dark font-medium">
                 Detected themes:
               </Text>

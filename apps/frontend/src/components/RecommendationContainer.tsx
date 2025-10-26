@@ -10,6 +10,7 @@ type RecommendationContainerProps = {
   loading: boolean;
   recommendations: Book[];
   error: string | null;
+  paddingTop: string;
 };
 
 const RecommendationContainer: React.FC<RecommendationContainerProps> = ({
@@ -17,6 +18,7 @@ const RecommendationContainer: React.FC<RecommendationContainerProps> = ({
   loading,
   recommendations,
   error,
+  paddingTop,
 }) => {
   return (
     <motion.div
@@ -24,7 +26,8 @@ const RecommendationContainer: React.FC<RecommendationContainerProps> = ({
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, y: -20 }}
       transition={{ duration: 0.5 }}
-      className="w-full min-w-[400px] pt-[190px]"
+      className="w-full min-w-[400px]"
+      style={{ paddingTop }}
     >
       {recommendations.length > 0 && (
         <RecommendationList recommendations={recommendations} searchPerformed={searchPerformed} />
@@ -34,7 +37,6 @@ const RecommendationContainer: React.FC<RecommendationContainerProps> = ({
           asChild
           p="4"
           style={{
-            marginTop: '180px',
             borderRadius: '5px',
             height: '350px',
             textAlign: 'center',
