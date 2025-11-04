@@ -15,7 +15,7 @@
 [![Performance](https://img.shields.io/badge/Search%20Speed-1--2s-brightgreen)](#performance)
 [![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 
-**Recommend a Book** is a full-stack application that provides personalized book recommendations using advanced natural language processing and vector similarity search. Simply describe what you're looking for, and let AI find books that truly match your reading interests.
+**Recommend a Book** is a full-stack RAG (Retrieval-Augmented Generation) application that provides personalized book recommendations using advanced natural language processing and vector similarity search. Simply describe what you're looking for, and let AI find books that truly match your reading interests.
 
 ## Features
 
