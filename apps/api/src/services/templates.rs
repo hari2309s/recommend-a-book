@@ -208,7 +208,7 @@ lazy_static! {
         m.insert("dragon", vec!["dragon", "dragons", "drake", "wyvern"]);
         m.insert("space", vec!["space", "galaxy", "planet", "spaceship", "star", "cosmos", "interstellar"]);
         m.insert("time-travel", vec!["time travel", "time machine", "temporal", "time loop"]);
-        m.insert("artificial-intelligence", vec!["artificial intelligence", "ai", "robot", "android", "cyborg", "machine intelligence"]);
+        m.insert("artificial-intelligence", vec!["artificial intelligence", "a.i.", "robot", "android", "cyborg", "machine intelligence", "artificial-intelligence"]);
         m.insert("dystopia", vec!["dystopia", "dystopian", "apocalypse", "post-apocalyptic", "end of world"]);
         m.insert("utopia", vec!["utopia", "utopian", "perfect society", "ideal world"]);
         m.insert("parallel-worlds", vec!["parallel world", "alternate reality", "multiverse", "parallel universe"]);
@@ -484,9 +484,25 @@ impl EnhancedQuery {
             }
         }
 
-        // Extract theme keywords
+        // Extract theme keywords with word boundary matching
         for (theme, keywords) in THEME_KEYWORDS.iter() {
-            if keywords.iter().any(|&kw| query_lower.contains(kw)) {
+            let has_match = keywords.iter().any(|&kw| {
+                // Split multi-word keywords
+                if kw.contains(' ') {
+                    // For multi-word keywords, check if they appear as a phrase
+                    query_lower.contains(kw)
+                } else {
+                    // For single-word keywords, use word boundaries
+                    let words: Vec<&str> = query_lower.split_whitespace().collect();
+                    words.iter().any(|&word| {
+                        // Remove punctuation and check for exact match
+                        let clean_word = word.trim_matches(|c: char| !c.is_alphanumeric());
+                        clean_word == kw
+                    })
+                }
+            });
+
+            if has_match {
                 extracted_terms.push(theme.to_string());
                 expanded_terms.extend(keywords.iter().map(|&s| s.to_string()));
                 filters.themes.push(theme.to_string());
@@ -526,5 +542,3 @@ impl EnhancedQuery {
         }
     }
 }
-
-

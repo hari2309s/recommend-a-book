@@ -11,7 +11,7 @@ const TARGET_EMBEDDING_SIZE: usize = 512;
 
 /// Default model configuration
 const DEFAULT_MODEL_NAME: &str = "BAAI/bge-large-en-v1.5";
-const DEFAULT_BASE_URL: &str = "https://api-inference.huggingface.co";
+const DEFAULT_BASE_URL: &str = "https://router.huggingface.co/hf-inference";
 const DEFAULT_TIMEOUT_SECONDS: u64 = 120; // Increased timeout
 const DEFAULT_RETRY_ATTEMPTS: u32 = 3; // Number of retry attempts for API calls
 const DEFAULT_RETRY_DELAY_MS: u64 = 1000; // Delay between retries in milliseconds
