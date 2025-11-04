@@ -1,6 +1,6 @@
 # Recommend a Book 📚
 
-> **Discover your next great read with AI-powered semantic search and intelligent recommendations.**
+> **Discover your next great read with AI-powered RAG semantic search and intelligent recommendations.**
 
 [![Rust](https://img.shields.io/badge/Rust-1.70+-orange.svg)](https://www.rust-lang.org/)
 [![Actix Web](https://img.shields.io/badge/Actix%20Web-4.4-blue.svg)](https://actix.rs/)
@@ -128,4 +128,4 @@ pnpm dev
 
 ---
 
-**Built with ❤️ for book lovers who believe in the power of the perfect recommendation.**
+**Built with ❤️ from Berlin for book lovers who believe in the power of the perfect recommendation.**
