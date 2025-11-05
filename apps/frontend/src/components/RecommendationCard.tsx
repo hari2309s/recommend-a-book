@@ -50,18 +50,25 @@ const RecommendationCard: React.FC<RecommendationCardProps> = ({ book, resetAcco
         <Flex gap="2" direction="column" align="stretch">
           <Flex gap="2" direction="row" justify="between">
             <BookThumbnail src={book.thumbnail} alt={book.title || 'Book cover'} className="mr-4" />
-            <Flex
-              gap="2"
-              direction="column"
-              align="end"
-              className="max-h-48! text-ellipsis overflow-hidden"
-            >
+            <Flex gap="2" direction="column" align="end" className="flex-1 min-w-0">
               <motion.div
                 initial={{ opacity: 0, x: 20 }}
                 animate={{ opacity: 1, x: 0 }}
                 transition={{ duration: 0.4, delay: 0.2 }}
+                className="w-full"
               >
-                <Heading size={{ initial: '6' }} className="text-ellipsis overflow-hidden">
+                <Heading
+                  size={{ initial: '3', sm: '4', md: '5' }}
+                  className="break-words hyphens-auto line-clamp-3"
+                  style={{
+                    fontSize:
+                      book.title && book.title.length > 50
+                        ? 'clamp(0.875rem, 2vw, 1.25rem)'
+                        : undefined,
+                    lineHeight: '1.3',
+                    wordBreak: 'break-word',
+                  }}
+                >
                   {book.title}
                 </Heading>
               </motion.div>

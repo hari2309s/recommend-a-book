@@ -29,7 +29,7 @@ const BookThumbnail: React.FC<BookThumbnailProps> = ({
 
   return (
     <motion.div
-      className="w-36! h-48! relative overflow-hidden rounded-md"
+      className="w-[120px] h-[160px] relative overflow-hidden rounded-md flex-shrink-0"
       whileHover={{
         scale: 1.05,
         transition: { type: 'spring', stiffness: 300, damping: 20 },
@@ -52,10 +52,9 @@ const BookThumbnail: React.FC<BookThumbnailProps> = ({
           <motion.img
             src={src}
             alt={alt}
-            className={`${className} rounded-md transition-opacity duration-300 ${
+            className={`${className} w-full h-full object-cover rounded-md transition-opacity duration-300 ${
               imageLoaded ? 'opacity-100' : 'opacity-0'
             }`}
-            style={{ aspectRatio: '3/4' }}
             onLoad={handleImageLoad}
             onError={handleImageError}
             initial={{ opacity: 0, y: 10 }}
@@ -74,8 +73,7 @@ const BookThumbnail: React.FC<BookThumbnailProps> = ({
           <motion.img
             src={imageNotAvailable}
             alt="Image Not Available"
-            className={`${className} rounded-md`}
-            style={{ aspectRatio: '3/4' }}
+            className={`${className} w-full h-full object-cover rounded-md`}
             initial={{ opacity: 0, scale: 0.9 }}
             animate={{ opacity: 1, scale: 1 }}
             transition={{
