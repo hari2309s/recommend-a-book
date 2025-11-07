@@ -1,5 +1,5 @@
 use crate::error::Result;
-use crate::services::templates::EnhancedQuery;
+use crate::services::semantic_classifier::{SemanticClassifier, SemanticQueryInfo};
 use crate::services::QueryEnhancer;
 use crate::{
     error::ApiError, ml::huggingface_embedder::HuggingFaceEmbedder, models::Book,
@@ -62,16 +62,25 @@ pub struct RecommendationService {
     result_cache: std::sync::Arc<RwLock<HashMap<String, CacheEntry>>>,
     prewarmed: Arc<std::sync::atomic::AtomicBool>,
     query_enhancer: QueryEnhancer,
+    semantic_classifier: SemanticClassifier,
 }
 
 impl RecommendationService {
     pub fn new(sentence_encoder: HuggingFaceEmbedder, pinecone: Pinecone) -> Self {
+        let semantic_classifier = SemanticClassifier::new().unwrap_or_else(|e| {
+            warn!(
+                "Failed to initialize semantic classifier: {}. Using fallback.",
+                e
+            );
+            SemanticClassifier::new().unwrap()
+        });
         Self {
             sentence_encoder: Arc::new(sentence_encoder),
             pinecone,
             result_cache: std::sync::Arc::new(RwLock::new(HashMap::new())),
             prewarmed: Arc::new(std::sync::atomic::AtomicBool::new(false)),
             query_enhancer: QueryEnhancer::new(),
+            semantic_classifier,
         }
     }
 
@@ -156,46 +165,87 @@ impl RecommendationService {
             return Err(ApiError::InvalidInput("Query cannot be empty".into()));
         }
 
+        // Validate query
+        if trimmed_query.len() < 3 {
+            return Err(ApiError::InvalidInput(
+                "Query too short (minimum 3 characters)".into(),
+            ));
+        }
+
+        if trimmed_query.len() > 200 {
+            return Err(ApiError::InvalidInput(
+                "Query too long (maximum 200 characters)".into(),
+            ));
+        }
+
         // Check cache for existing results
         let cache_key = format!("{}:{}", trimmed_query, top_k);
         info!("Generated cache key: {}", cache_key);
 
         // Try to read from cache first
         if let Ok(cache) = self.result_cache.read() {
-            info!("Current cache keys: {:?}", cache.keys().collect::<Vec<_>>());
             if let Some(entry) = cache.get(&cache_key) {
                 if entry.timestamp.elapsed() < Duration::from_secs(CACHE_TTL_SECONDS) {
                     info!("CACHE HIT for query: {}", trimmed_query);
-                    // For cached results, we need to extract semantic tags from the query
-                    let enhanced_query = self.query_enhancer.enhance(trimmed_query);
-                    let semantic_tags = self.extract_semantic_tags(&enhanced_query);
-                    return Ok((entry.results.clone(), semantic_tags));
+                    // For cached results, extract keywords
+                    let query_info = self
+                        .semantic_classifier
+                        .analyze_query(trimmed_query)
+                        .await
+                        .unwrap_or_else(|e| {
+                            warn!("Failed to analyze query for cached result: {}", e);
+                            SemanticQueryInfo {
+                                original_query: trimmed_query.to_string(),
+                                themes: vec![],
+                                author: None,
+                                temporal_filter: None,
+                                is_similar_query: false,
+                                semantic_tags: vec![],
+                            }
+                        });
+                    return Ok((entry.results.clone(), query_info.semantic_tags));
                 }
             }
         }
 
         info!("CACHE MISS for query: {}", trimmed_query);
 
-        // *** NEW: Use template-based query enhancement ***
-        let enhanced_query = self.query_enhancer.enhance(trimmed_query);
-        info!("Enhanced query pattern: {:?}", enhanced_query.pattern);
-        info!("Extracted terms: {:?}", enhanced_query.extracted_terms);
+        // Extract keywords and metadata (no ML classification needed)
+        let query_info = self
+            .semantic_classifier
+            .analyze_query(trimmed_query)
+            .await
+            .unwrap_or_else(|e| {
+                warn!("Keyword extraction failed, using fallback: {}", e);
+                SemanticQueryInfo {
+                    original_query: trimmed_query.to_string(),
+                    themes: vec![],
+                    author: None,
+                    temporal_filter: None,
+                    is_similar_query: false,
+                    semantic_tags: vec![],
+                }
+            });
 
-        // Extract semantic tags from the enhanced query
-        let semantic_tags = self.extract_semantic_tags(&enhanced_query);
+        info!("Keyword extraction results:");
+        info!("  - Keywords: {:?}", query_info.themes);
+        info!("  - Author: {:?}", query_info.author);
+        info!("  - Temporal filter: {:?}", query_info.temporal_filter);
+        info!("  - Is similar query: {}", query_info.is_similar_query);
+        info!("  - Display tags: {:?}", query_info.semantic_tags);
 
-        // Convert EnhancedQuery to your existing QueryIntent for backward compatibility
-        let intent = self.convert_enhanced_to_intent(&enhanced_query);
-        info!(?intent, "Converted to legacy intent format");
+        // Convert to intent format
+        let intent = self.semantic_info_to_intent(&query_info);
+        info!(?intent, "Converted to intent format");
 
-        // Get search strategy (your existing code)
+        // Get search strategy
         let strategy = self.get_search_strategy(&intent);
         info!("Performing hybrid search with strategy: {:?}", strategy);
 
         // Increase search scope
         let expanded_k = top_k * 3;
 
-        // Perform hybrid search (your existing code)
+        // Perform hybrid search
         let raw_results = match self
             .perform_hybrid_search(&intent, &strategy, expanded_k)
             .await
@@ -215,16 +265,16 @@ impl RecommendationService {
             }
         };
 
-        // Rank and process results with confidence scores and relevance indicators
+        // Rank and process results with keywords
         let ranked_results =
-            self.rank_results_with_metadata(raw_results, &intent, &enhanced_query, top_k);
+            self.rank_results_with_semantic_info(raw_results, &intent, &query_info, top_k);
         info!(
             "Returning {} ranked results for query '{}'",
             ranked_results.len(),
             trimmed_query
         );
 
-        // Update cache with new results (your existing code)
+        // Update cache with new results
         if let Ok(mut cache) = self.result_cache.write() {
             info!(
                 "Updating cache for key '{}' with {} results",
@@ -247,61 +297,40 @@ impl RecommendationService {
             info!("Current cache size: {} entries", cache.len());
         }
 
-        Ok((ranked_results, semantic_tags))
+        Ok((ranked_results, query_info.semantic_tags))
     }
 
-    #[allow(dead_code)]
-    pub fn get_cache_stats(&self) -> Option<usize> {
-        self.query_enhancer.cache_stats().map(|s| s.valid_entries)
+    /// Convert semantic query info to legacy QueryIntent format
+    fn semantic_info_to_intent(&self, info: &SemanticQueryInfo) -> QueryIntent {
+        // If author is detected, prioritize that - metadata search is best for authors
+        if let Some(author) = &info.author {
+            return QueryIntent::Author {
+                name: author.clone(),
+                original_query: info.original_query.clone(),
+            };
+        }
+
+        // If similar query, use SimilarTo intent - semantic search is best
+        if info.is_similar_query {
+            return QueryIntent::SimilarTo {
+                original_query: info.original_query.clone(),
+            };
+        }
+
+        // For all other queries, use General intent
+        // The semantic themes will be used in ranking and relevance indicators
+        // This gives the best balance between semantic search and metadata filtering
+        QueryIntent::General {
+            query: info.original_query.clone(),
+        }
     }
 
-    /// Extract semantic tags from enhanced query
-    fn extract_semantic_tags(&self, enhanced_query: &EnhancedQuery) -> Vec<String> {
-        let mut tags = Vec::new();
-
-        // Add extracted terms
-        tags.extend(enhanced_query.extracted_terms.clone());
-
-        // Add expanded terms (but avoid duplicates)
-        for term in &enhanced_query.expanded_terms {
-            if !tags.contains(term) {
-                tags.push(term.clone());
-            }
-        }
-
-        // Add filter-based tags
-        if let Some(author) = &enhanced_query.filters.author {
-            tags.push(format!("Author: {}", author));
-        }
-
-        for genre in &enhanced_query.filters.genres {
-            if !tags.contains(genre) {
-                tags.push(genre.clone());
-            }
-        }
-
-        for theme in &enhanced_query.filters.themes {
-            if !tags.contains(theme) {
-                tags.push(theme.clone());
-            }
-        }
-
-        for setting in &enhanced_query.filters.settings {
-            if !tags.contains(setting) {
-                tags.push(format!("Setting: {}", setting));
-            }
-        }
-
-        // Limit to top 10 most relevant tags
-        tags.into_iter().take(10).collect()
-    }
-
-    /// Rank results with confidence scores and relevance indicators
-    fn rank_results_with_metadata(
+    /// Rank results with semantic information
+    fn rank_results_with_semantic_info(
         &self,
         mut results: Vec<Book>,
         intent: &QueryIntent,
-        enhanced_query: &EnhancedQuery,
+        query_info: &SemanticQueryInfo,
         top_k: usize,
     ) -> Vec<Book> {
         // Early return if no results or only one result
@@ -309,15 +338,12 @@ impl RecommendationService {
             return results;
         }
 
-        // Calculate the max result count to avoid unnecessary sorting
         let max_needed = (top_k * 3).min(results.len());
 
-        // Use specialized sorting based on intent for better performance
+        // Use existing ranking logic but with semantic information
         match intent {
             QueryIntent::Author { name, .. } => {
                 let name_lower = name.to_lowercase();
-
-                // Create a vector with (index, match score, rating) for each book
                 let mut indexed_books: Vec<(usize, i32, f32)> = results
                     .iter()
                     .enumerate()
@@ -328,11 +354,9 @@ impl RecommendationService {
                     })
                     .collect();
 
-                // Sort the indices
                 indexed_books.sort_by(|a, b| {
                     let (_, a_exact, a_rating) = *a;
                     let (_, b_exact, b_rating) = *b;
-
                     b_exact.cmp(&a_exact).then_with(|| {
                         b_rating
                             .partial_cmp(&a_rating)
@@ -340,19 +364,14 @@ impl RecommendationService {
                     })
                 });
 
-                // Create a new sorted result vector
                 let mut sorted_results = Vec::with_capacity(results.len());
                 for (idx, _, _) in indexed_books {
                     sorted_results.push(results[idx].clone());
                 }
-
-                // Replace the original results with the sorted ones
                 results = sorted_results;
             }
             QueryIntent::Genre { genre, .. } => {
                 let genre_lower = genre.to_lowercase();
-
-                // Create a vector with (index, match score, rating) for each book
                 let mut indexed_books: Vec<(usize, i32, f32)> = results
                     .iter()
                     .enumerate()
@@ -363,11 +382,9 @@ impl RecommendationService {
                     })
                     .collect();
 
-                // Sort the indices
                 indexed_books.sort_by(|a, b| {
                     let (_, a_match, a_rating) = *a;
                     let (_, b_match, b_rating) = *b;
-
                     b_match.cmp(&a_match).then_with(|| {
                         b_rating
                             .partial_cmp(&a_rating)
@@ -375,79 +392,89 @@ impl RecommendationService {
                     })
                 });
 
-                // Create a new sorted result vector
                 let mut sorted_results = Vec::with_capacity(results.len());
                 for (idx, _, _) in indexed_books {
                     sorted_results.push(results[idx].clone());
                 }
-
-                // Replace the original results with the sorted ones
                 results = sorted_results;
             }
             _ => {
-                info!("Using GENERAL search ranking logic");
+                info!("Using GENERAL search ranking logic with keyword boost");
 
-                // For general search, use more sophisticated ranking that balances
-                // semantic relevance with book quality
                 let total_results = results.len();
-                let mut scored_results = results.iter().enumerate()
+                let mut scored_results = results
+                    .iter()
+                    .enumerate()
                     .map(|(idx, book)| {
-                        // Position score: 3.0 (best) to 0.01 (worst)
                         let position_score = 3.0 * (1.0 - (idx as f32 / total_results as f32));
-
-                        // Rating score: Scale to 0-1 range and then to 0.85-0.95
-                        // This gives ratings influence but doesn't overpower position
                         let rating_score = 0.85 + (book.rating / 5.0) * 0.10;
 
-                        // Compute final score
+                        // Add keyword boost - check if query keywords appear in book metadata
+                        let mut keyword_boost: f32 = 0.0;
+                        for (keyword, _) in &query_info.themes {
+                            let keyword_lower = keyword.to_lowercase();
+
+                            // Check categories
+                            let category_match = book.categories.iter().any(|cat| {
+                                cat.to_lowercase().contains(&keyword_lower)
+                            });
+
+                            // Check title
+                            let title_match = book.title.as_ref().map_or(false, |title| {
+                                title.to_lowercase().contains(&keyword_lower)
+                            });
+
+                            // Check description
+                            let desc_match = book.description.as_ref().map_or(false, |desc| {
+                                desc.to_lowercase().contains(&keyword_lower)
+                            });
+
+                            if title_match {
+                                keyword_boost += 1.0; // Title match is strongest
+                            } else if category_match {
+                                keyword_boost += 0.8; // Category match is strong
+                            } else if desc_match {
+                                keyword_boost += 0.5; // Description match is moderate
+                            }
+                        }
+
+                        // Cap keyword boost at 2.0
+                        keyword_boost = keyword_boost.min(2.0);
+
                         let final_score = if idx < 50 {
-                            // For top results, position has more weight
-                            position_score + rating_score
+                            position_score + rating_score + keyword_boost
                         } else {
-                            // For later results, rating has more weight to help good books rise
-                            position_score * 0.7 + rating_score * 1.3
+                            position_score * 0.7 + rating_score * 1.3 + keyword_boost
                         };
 
                         if tracing::enabled!(tracing::Level::DEBUG) {
-                            debug!("Book scoring: {:?} - Position: {}/{} (score: {:.2}), Rating: {:.2} (scaled: {:.2}), Final score: {:.2}",
-                                 book.title, idx + 1, total_results, position_score, book.rating, rating_score, final_score);
+                            debug!(
+                                "Book scoring: {:?} - Position: {}/{} (score: {:.2}), Rating: {:.2}, Keyword boost: {:.2}, Final: {:.2}",
+                                book.title, idx + 1, total_results, position_score, book.rating, keyword_boost, final_score
+                            );
                         }
 
                         (book.clone(), final_score)
                     })
                     .collect::<Vec<_>>();
 
-                // Sort by final score
                 scored_results
                     .sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap_or(std::cmp::Ordering::Equal));
 
-                // Extract just the books in new order
                 results = scored_results.into_iter().map(|(book, _)| book).collect();
 
-                // Just log a summary at info level
-                info!("Completed scoring of {} books", results.len());
-
-                // Add detailed information only at debug level
-                if tracing::enabled!(tracing::Level::DEBUG) {
-                    debug!(
-                        "After custom scoring, top 5 results: {:?}",
-                        results
-                            .iter()
-                            .take(5)
-                            .map(|b| b.title.clone())
-                            .collect::<Vec<_>>()
-                    );
-                }
+                info!(
+                    "Completed scoring of {} books with keyword boosting",
+                    results.len()
+                );
             }
         }
 
-        // Remove duplicates but don't limit too early
+        // Remove duplicates
         let mut seen = HashSet::with_capacity(max_needed);
         let mut unique_results = Vec::with_capacity(max_needed);
 
         for book in results {
-            // Keep collecting until we have significantly more than requested
-            // This ensures we don't limit too early and end up with fewer than desired
             if unique_results.len() >= top_k * 3 {
                 break;
             }
@@ -463,65 +490,78 @@ impl RecommendationService {
             }
         }
 
-        // Final ranking list with metadata
+        // Final ranking with metadata
         let final_results = unique_results
             .iter()
             .enumerate()
             .take(top_k)
             .map(|(index, book)| {
                 let mut book_clone = book.clone();
-                // Calculate confidence score based on position and rating
                 let position_factor = 1.0 - (index as f32 / top_k as f32);
                 let rating_factor = book_clone.rating / 5.0;
                 book_clone.confidence_score =
                     (position_factor * 0.7 + rating_factor * 0.3).min(1.0);
 
-                // Generate relevance indicators
                 book_clone.relevance_indicators =
-                    self.generate_relevance_indicators(&book_clone, enhanced_query);
+                    self.generate_relevance_indicators_semantic(&book_clone, query_info);
 
                 book_clone
             })
             .collect::<Vec<Book>>();
 
         info!(
-            "FINAL RANKING: Top {} results ready for response. First book: {:?}",
+            "FINAL RANKING: Top {} results ready. First book: {:?}",
             final_results.len(),
             final_results.first().map(|b| b.title.clone())
         );
 
-        // Return limited results
         final_results
     }
 
-    /// Generate relevance indicators for a book based on the query
-    fn generate_relevance_indicators(
+    /// Generate relevance indicators using semantic information
+    fn generate_relevance_indicators_semantic(
         &self,
         book: &Book,
-        enhanced_query: &EnhancedQuery,
+        query_info: &SemanticQueryInfo,
     ) -> Vec<String> {
         let mut indicators = Vec::new();
 
-        // Check for theme matches in description
-        for theme in &enhanced_query.filters.themes {
-            if book.description.as_ref().map_or(false, |desc| {
-                desc.to_lowercase().contains(&theme.to_lowercase())
-            }) {
-                indicators.push(theme.clone());
-            }
-        }
+        // Check for keyword matches in description and title
+        for (keyword, _) in &query_info.themes {
+            let keyword_lower = keyword.to_lowercase();
 
-        // Check for specific query terms in description
-        for term in &enhanced_query.extracted_terms {
-            if book.description.as_ref().map_or(false, |desc| {
-                desc.to_lowercase().contains(&term.to_lowercase())
-            }) {
-                indicators.push(term.clone());
+            // Check if keyword appears in title
+            if book
+                .title
+                .as_ref()
+                .map_or(false, |title| title.to_lowercase().contains(&keyword_lower))
+            {
+                indicators.push(keyword.clone());
+                continue;
+            }
+
+            // Check if keyword appears in categories
+            if book
+                .categories
+                .iter()
+                .any(|cat| cat.to_lowercase().contains(&keyword_lower))
+            {
+                indicators.push(keyword.clone());
+                continue;
+            }
+
+            // Check if keyword appears in description
+            if book
+                .description
+                .as_ref()
+                .map_or(false, |desc| desc.to_lowercase().contains(&keyword_lower))
+            {
+                indicators.push(keyword.clone());
             }
         }
 
         // Add author match if applicable
-        if let Some(author) = &enhanced_query.filters.author {
+        if let Some(author) = &query_info.author {
             if book.author.as_ref().map_or(false, |book_author| {
                 book_author.to_lowercase().contains(&author.to_lowercase())
             }) {
@@ -529,34 +569,8 @@ impl RecommendationService {
             }
         }
 
-        // Add setting match if applicable
-        for setting in &enhanced_query.filters.settings {
-            if book.description.as_ref().map_or(false, |desc| {
-                desc.to_lowercase().contains(&setting.to_lowercase())
-            }) {
-                indicators.push(format!("Setting: {}", setting));
-            }
-        }
-
-        // Add genre matches that are contextually relevant
-        for category in &book.categories {
-            // Check if this category relates to the query themes
-            let category_lower = category.to_lowercase();
-            let is_relevant = enhanced_query.filters.themes.iter().any(|theme| {
-                category_lower.contains(&theme.to_lowercase())
-                    || theme.to_lowercase().contains(&category_lower)
-            }) || enhanced_query.extracted_terms.iter().any(|term| {
-                category_lower.contains(&term.to_lowercase())
-                    || term.to_lowercase().contains(&category_lower)
-            });
-
-            if is_relevant {
-                indicators.push(category.clone());
-            }
-        }
-
-        // If we still don't have enough indicators, add the most relevant categories
-        if indicators.len() < 3 {
+        // Add categories if not enough indicators
+        if indicators.len() < 2 {
             for category in &book.categories {
                 if !indicators.contains(category) {
                     indicators.push(category.clone());
@@ -567,45 +581,12 @@ impl RecommendationService {
             }
         }
 
-        // Limit to 3 most relevant indicators
         indicators.into_iter().take(3).collect()
     }
 
-    fn convert_enhanced_to_intent(&self, enhanced: &EnhancedQuery) -> QueryIntent {
-        use crate::services::templates::QueryPattern;
-
-        match enhanced.pattern {
-            QueryPattern::Author => {
-                if let Some(author) = &enhanced.filters.author {
-                    QueryIntent::Author {
-                        name: author.clone(),
-                        original_query: enhanced.original_query.clone(),
-                    }
-                } else {
-                    QueryIntent::General {
-                        query: enhanced.original_query.clone(),
-                    }
-                }
-            }
-            QueryPattern::Genre => {
-                if let Some(genre) = enhanced.filters.genres.first() {
-                    QueryIntent::Genre {
-                        genre: genre.clone(),
-                        original_query: enhanced.original_query.clone(),
-                    }
-                } else {
-                    QueryIntent::General {
-                        query: enhanced.original_query.clone(),
-                    }
-                }
-            }
-            QueryPattern::SimilarTo => QueryIntent::SimilarTo {
-                original_query: enhanced.original_query.clone(),
-            },
-            _ => QueryIntent::General {
-                query: enhanced.original_query.clone(),
-            },
-        }
+    #[allow(dead_code)]
+    pub fn get_cache_stats(&self) -> Option<usize> {
+        self.query_enhancer.cache_stats().map(|s| s.valid_entries)
     }
 
     // Helper method to clean up expired cache entries

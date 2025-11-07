@@ -1,6 +1,7 @@
 pub mod pinecone;
 pub mod query_enhancer;
 pub mod recommendation;
+pub mod semantic_classifier;
 pub mod templates;
 
 // Re-export public types
