@@ -14,6 +14,7 @@ use std::{
 use tracing::{debug, error, info, warn};
 
 #[derive(Debug, Clone)]
+#[allow(dead_code)]
 enum QueryIntent {
     Author {
         name: String,
