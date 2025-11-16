@@ -4,7 +4,8 @@ use utoipa_swagger_ui::{Config as SwaggerConfig, SwaggerUi};
 
 use crate::app::ApiDoc;
 use crate::handlers::{
-    health_check, health_options, prewarm_endpoint, prewarm_options, recommendations_config,
+    graph_config, health_check, health_options, prewarm_endpoint, prewarm_options,
+    recommendations_config,
 };
 
 /// Configure all routes for the API
@@ -15,6 +16,7 @@ pub fn api_routes() -> Scope {
         .service(prewarm_endpoint)
         .service(prewarm_options)
         .configure(recommendations_config)
+        .configure(graph_config)
 }
 
 /// Configure Swagger UI routes

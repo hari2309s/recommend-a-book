@@ -4,7 +4,10 @@ use crate::{
     ml::huggingface_embedder::HuggingFaceEmbedder,
     models::{Book, ErrorResponse, HealthResponse, RecommendationRequest, RecommendationResponse},
     routes::{api_routes, openapi_route, swagger_redirect_route, swagger_routes},
-    services::{Pinecone, RecommendationService},
+    services::{
+        neo4j::{BookNode, GraphRelationshipResponse, GraphResponse, GraphStats, Neo4jClient},
+        Pinecone, RecommendationService,
+    },
 };
 use actix_cors::Cors;
 use actix_web::{middleware::Logger, web, App, HttpResponse, HttpServer};
@@ -20,10 +23,18 @@ use utoipa::OpenApi;
         crate::handlers::health::health_check,
         crate::handlers::recommendations::get_recommendations,
         crate::handlers::prewarm::prewarm,
+        crate::handlers::graph::get_book_graph,
+        crate::handlers::graph::get_similar_books,
+        crate::handlers::graph::search_books,
+        crate::handlers::graph::get_graph_stats,
     ),
     components(
         schemas(
             Book,
+            BookNode,
+            GraphResponse,
+            GraphRelationshipResponse,
+            GraphStats,
             RecommendationRequest,
             RecommendationResponse,
             HealthResponse,
@@ -33,12 +44,13 @@ use utoipa::OpenApi;
     tags(
         (name = "Health", description = "Health check endpoints"),
         (name = "Recommendations", description = "Book recommendation endpoints"),
+        (name = "Graph", description = "Book relationship graph endpoints"),
         (name = "System", description = "System management endpoints for performance optimization")
     ),
     info(
-        title = "Book Recommendation API",
+        title = "Book Recommendation API with Graph Database",
         version = "1.0.0",
-        description = "A REST API for getting book recommendations using machine learning embeddings and vector similarity search.",
+        description = "A REST API for getting book recommendations using machine learning embeddings, vector similarity search, and graph database relationships.",
         contact(
             name = "API Support",
             email = "support@example.com"
@@ -81,17 +93,11 @@ impl Application {
         self.run_with_listener(listener).await
     }
 
-    /// Run the server with a specific TCP listener
-    /// This is useful for testing where we want to use a random port
-    /// Run the server with a specific TCP listener
-    /// This is useful for testing where we want to use a random port
-    ///
-    /// The server is configured with optimized settings for production use
     pub async fn run_with_listener(&self, listener: TcpListener) -> Result<()> {
         info!("Initializing services with optimized cold start configuration");
 
         // Initialize service dependencies concurrently to reduce startup time
-        let (pinecone_result, sentence_encoder_result) = tokio::join!(
+        let (pinecone_result, sentence_encoder_result, neo4j_result) = tokio::join!(
             // Initialize Pinecone client asynchronously with timeout protection
             async {
                 let pinecone_future = Pinecone::new(
@@ -106,7 +112,6 @@ impl Application {
                     Ok(result) => result,
                     Err(_) => {
                         warn!("Pinecone initialization timed out after 30s. Will retry on first request");
-                        // Return a fallback implementation that will try to initialize on first request
                         Pinecone::new_with_lazy_init(
                             &self.config.pinecone_api_key,
                             &self.config.pinecone_environment,
@@ -126,12 +131,43 @@ impl Application {
                         HuggingFaceEmbedder::new_with_deferred_init()
                     }
                 }
+            },
+            // Initialize Neo4j client
+            async {
+                if let (Some(uri), Some(user), Some(password)) = (
+                    &self.config.neo4j_uri,
+                    &self.config.neo4j_user,
+                    &self.config.neo4j_password,
+                ) {
+                    info!("Initializing Neo4j client...");
+                    Neo4jClient::new(uri, user, password).await
+                } else {
+                    warn!("Neo4j configuration not found, graph endpoints will be unavailable");
+                    Err(crate::error::ApiError::ExternalServiceError(
+                        "Neo4j not configured".to_string(),
+                    ))
+                }
             }
         );
 
         // Handle initialization results
         let pinecone = pinecone_result?;
         let sentence_encoder = sentence_encoder_result?;
+
+        // Neo4j is optional
+        let neo4j_data = match neo4j_result {
+            Ok(client) => {
+                info!("Neo4j client initialized successfully");
+                Some(web::Data::new(client))
+            }
+            Err(e) => {
+                warn!(
+                    "Neo4j not available: {}. Graph endpoints will return errors.",
+                    e
+                );
+                None
+            }
+        };
 
         // Create shareable recommendation service with optimized configuration
         let recommendation_service =
@@ -190,7 +226,7 @@ impl Application {
             let swagger_ui = swagger_routes();
 
             // Configure app with enhanced logging and performance settings
-            App::new()
+            let mut app = App::new()
                 .wrap(cors)
                 // Use a more informative logger format for better debugging
                 .wrap(Logger::new("%r %s %b %{User-Agent}i %D ms"))
@@ -231,7 +267,14 @@ impl Application {
                 .service(swagger_ui)
                 .service(openapi_route())
                 .service(swagger_redirect_route())
-                .service(api_routes())
+                .service(api_routes());
+
+            // Add Neo4j data if available
+            if let Some(neo4j) = &neo4j_data {
+                app = app.app_data(neo4j.clone());
+            }
+
+            app
         })
         .listen(listener)?
         // Configure server with worker settings for better performance

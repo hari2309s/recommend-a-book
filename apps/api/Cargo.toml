@@ -8,6 +8,10 @@ edition = "2021"
 name = "index_books"
 path = "src/scripts/index_books.rs"
 
+[[bin]]
+name = "build_graph"
+path = "src/scripts/build_graph.rs"
+
 [dependencies]
 # Web framework and related
 actix-web = "4.4"
@@ -62,6 +66,9 @@ log = "0.4"
 # System
 num_cpus = "1.17.0"
 
+# Neo4j graph database
+neo4rs = "0.8.0"
+
 [profile.release]
 opt-level = 3
 lto = true
@@ -76,3 +83,7 @@ opt-level = 2
 [profile.dev]
 debug = true
 split-debuginfo = "unpacked"
+
+[features]
+default = []
+graph = []

@@ -8,6 +8,11 @@
     "clean": "cargo clean",
     "lint": "cargo clippy",
     "check": "cargo check",
-    "test": "cargo test"
+    "test": "cargo test",
+    "index-books": "chmod +x src/scripts/index_books.sh && ./src/scripts/index_books.sh",
+    "build-graph": "chmod +x src/scripts/build_graph.sh && ./src/scripts/build_graph.sh",
+    "neo4j:start": "docker-compose up -d",
+    "neo4j:stop": "docker-compose down",
+    "neo4j:logs": "docker logs -f book-graph-neo4j"
   }
 }

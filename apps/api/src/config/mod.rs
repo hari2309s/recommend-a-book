@@ -11,6 +11,9 @@ pub struct Config {
     pub pinecone_api_key: String,
     pub pinecone_environment: String,
     pub pinecone_index: String,
+    pub neo4j_uri: Option<String>,
+    pub neo4j_user: Option<String>,
+    pub neo4j_password: Option<String>,
 }
 
 impl Config {
@@ -125,6 +128,22 @@ impl Config {
                 "APP_PINECONE_INDEX_NAME not found in environment, using value from config file: '{}'",
                 config.pinecone_index
             );
+        }
+
+        // Neo4j configuration
+        if let Ok(value) = env::var("APP_NEO4J_URI") {
+            info!("Using Neo4j URI from environment variable: '{}'", value);
+            config.neo4j_uri = Some(value);
+        }
+
+        if let Ok(value) = env::var("APP_NEO4J_USER") {
+            info!("Using Neo4j user from environment variable: '{}'", value);
+            config.neo4j_user = Some(value);
+        }
+
+        if let Ok(value) = env::var("APP_NEO4J_PASSWORD") {
+            info!("Using Neo4j password from environment variable (redacted)");
+            config.neo4j_password = Some(value);
         }
 
         // Validate configuration values

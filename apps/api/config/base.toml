@@ -18,5 +18,10 @@ pinecone_index = "${APP_PINECONE_INDEX_NAME}"
 # HuggingFace configuration
 huggingface_api_key = "${APP_HUGGINGFACE_API_KEY}"
 
+# Neo4j configuration
+neo4j_uri = "${APP_NEO4J_URI}"
+neo4j_user = "${APP_NEO4J_USER}"
+neo4j_password = "${APP_NEO4J_PASSWORD}"
+
 # Logging configuration
 log_level = "info"
